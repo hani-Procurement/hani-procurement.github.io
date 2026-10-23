@@ -319,6 +319,9 @@
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
       <span id="addMsg"></span>
+      <label style="font-size:12.5px;color:#555;margin:0 2px 0 0">Table:</label>
+      <select id="boqTableSelect" onchange="switchBoqTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
+      <button type="button" id="renameTableBtn" onclick="saveTableLabel(currentTableIndex)" style="width:auto">✎ Rename</button>
       <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
       <span id="clipboardStatus"></span>
@@ -578,10 +581,29 @@
   const CLIENT_ID = "543026821266-teh5rbarpabeeeropf3312vnqt3pm059.apps.googleusercontent.com";
   const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
   const SHEET_TITLE = "Procurement Progress Report";
-  const SHEET_NAME = "BOQ Database";
   const LISTS_SHEET_NAME = "Lists";
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
   const USERS_SHEET_NAME = "Users";
+
+  // The single "Full Table" tab now holds 3 independent item sets ("BOQ
+  // Database", "BOQ Database 2", "BOQ Database 3" — the real, fixed Sheets
+  // tab names, never shown to anyone). Only their on-screen labels are
+  // admin-editable (stored in Lists!G2:G4, see loadTableLabels()/
+  // saveTableLabel()) so the admin can call them whatever fits the project
+  // (e.g. "Mechanical" / "Electrical" / "Civil") without touching any code.
+  // SHEET_NAME / boqSheetId always point at whichever of the 3 is currently
+  // selected (see switchBoqTable()) — every existing function that reads
+  // from or writes to "the" BOQ Database tab keeps working unchanged.
+  const BOQ_TABLES = [
+    { sheetName: 'BOQ Database' },
+    { sheetName: 'BOQ Database 2' },
+    { sheetName: 'BOQ Database 3' }
+  ];
+  const DEFAULT_TABLE_LABELS = ['Table 1', 'Table 2', 'Table 3'];
+  var tableLabels = DEFAULT_TABLE_LABELS.slice();
+  var boqSheetIds = [null, null, null];
+  var currentTableIndex = 0;
+  let SHEET_NAME = BOQ_TABLES[0].sheetName;
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
   const LAST_DATA_COL = 28;
@@ -815,7 +837,9 @@
       body: JSON.stringify({
         properties: { title: SHEET_TITLE },
         sheets: [
-          { properties: { title: SHEET_NAME } },
+          { properties: { title: BOQ_TABLES[0].sheetName } },
+          { properties: { title: BOQ_TABLES[1].sheetName } },
+          { properties: { title: BOQ_TABLES[2].sheetName } },
           { properties: { title: SUBMITTAL_SHEET_NAME } },
           { properties: { title: LISTS_SHEET_NAME } },
           { properties: { title: USERS_SHEET_NAME } }
@@ -823,10 +847,21 @@
       })
     });
     const newId = createData.spreadsheetId;
-    boqSheetId = createData.sheets[0].properties.sheetId;
-    usersSheetId = createData.sheets[3].properties.sheetId;
+    boqSheetIds[0] = createData.sheets[0].properties.sheetId;
+    boqSheetIds[1] = createData.sheets[1].properties.sheetId;
+    boqSheetIds[2] = createData.sheets[2].properties.sheetId;
+    usersSheetId = createData.sheets[5].properties.sheetId;
 
-    await writeBoqHeader(newId);
+    // Write the identical 28-column header into all 3 tables.
+    for (var i = 0; i < BOQ_TABLES.length; i++) {
+      SHEET_NAME = BOQ_TABLES[i].sheetName;
+      boqSheetId = boqSheetIds[i];
+      await writeBoqHeader(newId);
+    }
+    currentTableIndex = 0;
+    SHEET_NAME = BOQ_TABLES[0].sheetName;
+    boqSheetId = boqSheetIds[0];
+
     await seedListsSheet(newId);
     await sheetsUpdateValues(newId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
 
@@ -840,22 +875,46 @@
     return newId;
   }
 
-  /* On an existing spreadsheet, find the BOQ Database tab's numeric sheetId
-     and, only if its header row looks unwritten, write the full 28-column
-     header (never overwrites a header that's already there). Also makes
-     sure the Users tab exists (older sheets created before this feature
-     shipped get it added here, lazily, the first time anyone opens them). */
+  /* For every one of the 3 BOQ tables: find its numeric sheetId (creating the
+     tab if an older spreadsheet — made before this feature shipped — doesn't
+     have it yet) and, only if its header row looks unwritten, write the full
+     28-column header (never overwrites a header that's already there). Ends
+     with SHEET_NAME/boqSheetId pointing at table 0, the view's starting tab. */
+  async function ensureAllBoqTablesReady(meta) {
+    for (var i = 0; i < BOQ_TABLES.length; i++) {
+      var tbl = BOQ_TABLES[i];
+      var sheetMeta = (meta.sheets || []).find(function(s) { return s.properties.title === tbl.sheetName; });
+      var sheetIdForTable;
+      if (!sheetMeta) {
+        const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: tbl.sheetName } } }]);
+        sheetIdForTable = res.replies[0].addSheet.properties.sheetId;
+      } else {
+        sheetIdForTable = sheetMeta.properties.sheetId;
+      }
+      boqSheetIds[i] = sheetIdForTable;
+
+      const savedSheetName = SHEET_NAME, savedSheetId = boqSheetId;
+      SHEET_NAME = tbl.sheetName; boqSheetId = sheetIdForTable;
+      try {
+        const row2 = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, 2, 2, 2));
+        const headerAlreadyThere = row2.length && row2[0][1] === 'Item description';
+        if (!headerAlreadyThere) await writeBoqHeader(spreadsheetId);
+      } finally {
+        SHEET_NAME = savedSheetName; boqSheetId = savedSheetId;
+      }
+    }
+    currentTableIndex = 0;
+    SHEET_NAME = BOQ_TABLES[0].sheetName;
+    boqSheetId = boqSheetIds[0];
+  }
+
+  /* On an existing spreadsheet: make sure all 3 BOQ tables, the Lists seed
+     data and the Users tab are all in place. Older sheets (made before
+     multi-table / multi-user support shipped) get upgraded lazily here, the
+     first time anyone opens them after the update. */
   async function ensureBoqSheetReady() {
     const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
-    const boqSheet = (meta.sheets || []).find(function(s) { return s.properties.title === SHEET_NAME; });
-    if (!boqSheet) throw new Error('Sheet "' + SHEET_NAME + '" not found in this spreadsheet.');
-    boqSheetId = boqSheet.properties.sheetId;
-
-    const row2 = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, 2, 2, 2));
-    const headerAlreadyThere = row2.length && row2[0][1] === 'Item description';
-    if (!headerAlreadyThere) {
-      await writeBoqHeader(spreadsheetId);
-    }
+    await ensureAllBoqTablesReady(meta);
     const listsSheet = (meta.sheets || []).find(function(s) { return s.properties.title === LISTS_SHEET_NAME; });
     if (listsSheet) {
       const fw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2));
@@ -988,12 +1047,68 @@
     } catch (e) { console.warn('Seeding Lists sheet failed (non-fatal): ', e); }
   }
 
+  /* ===================== BOQ table labels (Lists!G2:G4) =====================
+     The admin-editable display names shown in the Full Table "Table:" picker.
+     The real Sheets tab names (BOQ_TABLES[i].sheetName) never change — only
+     this label does, so renaming never risks breaking anything that reads
+     the underlying sheet by name. */
+  async function loadTableLabels() {
+    try {
+      const values = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 7, 2, 7, 2 + DEFAULT_TABLE_LABELS.length - 1));
+      tableLabels = DEFAULT_TABLE_LABELS.map(function(def, i) {
+        var v = values[i] && values[i][0];
+        return (v && String(v).trim()) ? String(v).trim() : def;
+      });
+    } catch (e) {
+      console.warn('Could not load table labels (using defaults): ', e);
+      tableLabels = DEFAULT_TABLE_LABELS.slice();
+    }
+    renderTableSelect();
+  }
+
+  async function saveTableLabel(idx) {
+    if (!currentUserPerms.isAdmin) return;
+    var next = prompt('اسم الجدول الجديد:', tableLabels[idx]);
+    if (next === null) return;
+    next = next.trim();
+    if (!next) return;
+    try {
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 7, 2 + idx, 7, 2 + idx), [[next]], 'RAW');
+      tableLabels[idx] = next;
+      renderTableSelect();
+    } catch (e) {
+      alert('تعذر حفظ الاسم: ' + (e.message || e));
+    }
+  }
+
+  function renderTableSelect() {
+    var sel = document.getElementById('boqTableSelect');
+    if (!sel) return;
+    sel.innerHTML = '';
+    tableLabels.forEach(function(label, i) {
+      var o = document.createElement('option');
+      o.value = i; o.textContent = label;
+      sel.appendChild(o);
+    });
+    sel.value = currentTableIndex;
+  }
+
+  function switchBoqTable(idxStr) {
+    var idx = parseInt(idxStr, 10);
+    if (isNaN(idx) || idx === currentTableIndex) return;
+    currentTableIndex = idx;
+    SHEET_NAME = BOQ_TABLES[idx].sheetName;
+    boqSheetId = boqSheetIds[idx];
+    loadFullTable();
+  }
+
   function enterApp() {
     document.getElementById('signinScreen').classList.add('hidden');
     document.getElementById('appScreen').classList.remove('hidden');
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
     applyPermissionsToUI();
     loadProjectBar();
+    loadTableLabels();
     loadFormOptions().then(function() { return loadFullTable(); }).then(function() {
       loadSubmittalStatus();
       loadSubmittalDashboard();
@@ -1010,6 +1125,9 @@
 
     var importBtn = document.getElementById('importXlsxBtn');
     if (importBtn) importBtn.style.display = perm('canAdd') ? '' : 'none';
+
+    var renameTableBtn = document.getElementById('renameTableBtn');
+    if (renameTableBtn) renameTableBtn.style.display = currentUserPerms.isAdmin ? '' : 'none';
 
     var usersCard = document.getElementById('cpUsersCard');
     var noAccessCard = document.getElementById('cpNoAccessCard');
@@ -2250,8 +2368,35 @@
   var MS_TRACK = { SUB: COL.MS_SUB, CODE: COL.MS_CODE, DATE: COL.MS_DATE, PLANNED_DATE: COL.MS_PLANNED_DATE };
   var PQD_TRACK = { SUB: COL.PQD_SUB, CODE: COL.PQD_CODE, DATE: COL.PQD_DATE, PLANNED_DATE: COL.PQD_PLANNED_DATE };
 
+  // Submittal Dashboard / Material Submittal Status are unified across all 3
+  // BOQ tables (per project decision), so they read from this combined pool
+  // rather than from lastLoadedRows (which only ever holds the ONE table
+  // currently selected in the Full Table view) — see fetchAllTablesRows().
+  var allTablesRows = [];
+
+  async function fetchRowsForSheet(sheetName) {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(sheetName, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
+    const rows = [];
+    raw.forEach(function(r) {
+      var values = r.slice();
+      while (values.length < LAST_DATA_COL) values.push('');
+      if (String(values[COL.DESC - 1] || '').trim() !== '') rows.push(values);
+    });
+    return rows;
+  }
+
+  async function fetchAllTablesRows() {
+    var all = [];
+    for (var i = 0; i < BOQ_TABLES.length; i++) {
+      try {
+        all = all.concat(await fetchRowsForSheet(BOQ_TABLES[i].sheetName));
+      } catch (e) { console.warn('Could not read "' + BOQ_TABLES[i].sheetName + '" for the dashboard (non-fatal): ', e); }
+    }
+    allTablesRows = all;
+  }
+
   function nonPackageItems() {
-    return lastLoadedRows.filter(function(r) { return r.values[COL.ROWTYPE - 1] !== 'Package'; }).map(function(r) { return r.values; });
+    return allTablesRows.filter(function(v) { return v[COL.ROWTYPE - 1] !== 'Package'; });
   }
 
   function getSubmittalStatusDataClient() {
@@ -2397,8 +2542,9 @@
     });
   }
 
-  function loadSubmittalStatus() {
-    if (!lastLoadedRows.length && !document.getElementById('msStatusHead')) return;
+  async function loadSubmittalStatus() {
+    if (!document.getElementById('msStatusHead')) return;
+    await fetchAllTablesRows();
     buildSubmittalHead(document.getElementById('msStatusHead'), MS_GROUPS);
     buildSubmittalHead(document.getElementById('pqdStatusHead'), PQD_GROUPS);
     var data = getSubmittalStatusDataClient();
@@ -2509,8 +2655,8 @@
   }
   var SD_PALETTE = ['#1a73e8', '#34a853', '#f4a300', '#e8453c', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
-  function loadSubmittalDashboard() {
-    if (!lastLoadedRows.length) return;
+  async function loadSubmittalDashboard() {
+    await fetchAllTablesRows();
     var data = getSubmittalStatusDataClient();
     renderSubmittalDashboard(data.ms, data.pqd);
     renderBuyerChart(getFilesByBuyerDataClient());
