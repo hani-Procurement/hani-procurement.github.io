@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Procurement Progress Report</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -12,6 +13,8 @@
     background: #f4f6f8;
     margin: 0;
     padding: 0;
+  }
+  #signinScreen {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -80,42 +83,423 @@
     border-radius: 8px;
     font-size: 14px;
   }
-  .hidden { display: none; }
+  .hidden { display: none !important; }
+
+  /* ===================== App shell (after sign-in) ===================== */
+  #appScreen { direction: ltr; font-family: Arial, sans-serif; color:#222; }
+  .app-header-sticky{position:sticky;top:0;z-index:40;box-shadow:0 2px 4px rgba(0,0,0,0.08);background:#fff}
+  header.app-title{background:#1a73e8;color:#fff;padding:12px 20px;font-size:17px;font-weight:bold;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  header.app-title a{color:#fff;font-size:12px;font-weight:normal;text-decoration:underline}
+  .subtoolbar{display:flex;align-items:center;gap:10px;background:white;padding:8px 16px;
+    border-bottom:1px solid #eee;flex-wrap:wrap}
+  #addMsg{font-size:12px;font-weight:bold;color:#1a73e8}
+  .subtoolbar button{cursor:pointer;border:1px solid #d7dce3;background:#f8f9fb;border-radius:6px;
+    padding:6px 10px;font-size:12px}
+  .subtoolbar button:hover{background:#eef3fc}
+  .subtoolbar button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
+  .subtoolbar button.primary:hover{background:#1558b0}
+  #clipboardStatus{font-size:12px;color:#8e44ec;font-weight:600}
+
+  /* ---- Project header bar ---- */
+  .project-bar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+    background:#eef3fc;border-bottom:1px solid #c9d7ef;padding:8px 16px;font-size:13px}
+  .project-bar .pb-field{display:flex;align-items:center;gap:6px}
+  .project-bar label{font-weight:600;color:#1a3d7c;white-space:nowrap}
+  .project-bar input{border:1px solid #c9d7ef;border-radius:4px;padding:4px 8px;
+    font-size:13px;background:#fff;min-width:140px}
+  .project-bar input:hover{border-color:#9fb3d6}
+  .project-bar input:focus{border-color:#1a73e8;outline:none}
+  .project-bar .pb-date{font-weight:700;color:#1a3d7c;margin-left:auto}
+  @media (max-width:700px){.project-bar{gap:10px}.project-bar .pb-date{margin-left:0}}
+
+  /* ---- Nav ---- */
+  nav.main-nav{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid #e4e8ef;flex-wrap:wrap}
+  nav.main-nav button{border:none;background:transparent;padding:10px 14px;font-size:13px;font-weight:600;
+    color:#555;cursor:pointer;border-bottom:3px solid transparent}
+  nav.main-nav button:hover{color:#1a73e8}
+  nav.main-nav button.active{color:#1a73e8;border-bottom-color:#1a73e8}
+
+  .view{display:none;padding:16px}
+  .view.active{display:block}
+  #view-fulltable{padding:0}
+
+  /* ---- Full Table (editable mirror of BOQ Database) ---- */
+  .table-outer{background:white;border-radius:0 0 8px 8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin:0 0 16px}
+  .table-header-wrap{overflow:hidden;border-bottom:2px solid #1a73e8;position:sticky;z-index:39;background:#fff}
+  .table-body-wrap{overflow-x:hidden;overflow-y:scroll;max-height:72vh;touch-action:pan-y}
+  .table-top-scroll-wrap{position:relative}
+  .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid #ddd}
+  .table-top-scroll div{height:1px}
+  .table-top-scroll-mask{position:absolute;top:0;left:0;width:440px;height:16px;background:#fff;border-bottom:1px solid #ddd;pointer-events:none;z-index:2}
+  #fullTableHeader, #fullTable{min-width:2150px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0}
+  #fullTableHeader th{font-size:11px;line-height:1.2;background:#1a73e8;color:white}
+  #fullTableHeader th,#fullTable td{border:1px solid #ddd;padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
+  #fullTable tbody tr:nth-child(even){background:#f9fafb}
+  #fullTable tbody tr.package-row{background:#fff3cd}
+  #fullTable tbody tr.package-row:nth-child(even){background:#ffeab3}
+  #fullTable tbody tr.package-row td.sn-cell{background:#fff3cd}
+  #fullTable tbody tr.package-row:nth-child(even) td.sn-cell{background:#ffeab3}
+  #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#4b4b4b;color:#f1f1f1}
+  #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#4b4b4b;color:#f1f1f1}
+  #fullTable tbody tr.closed-row td{color:#f1f1f1}
+  /* Frozen columns: Actions, S/N, Description, Unit, Qty */
+  #headerMainRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
+  #headerMainRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
+  #headerMainRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
+  #headerMainRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
+  #headerMainRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:440px;z-index:7}
+  #fullTable td:nth-child(-n+5){z-index:2;background:#fff}
+  #headerMainRow th:nth-child(-n+5){z-index:8}
+  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(0,0,0,0.3)}
+  #fullTable tbody tr td:nth-child(-n+5){background:#fff}
+  #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#f9fafb}
+  #fullTable tbody tr.package-row td:nth-child(-n+5){background:#fff3cd}
+  #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#ffeab3}
+  #fullTable tbody tr.closed-row td:nth-child(-n+5), #fullTable tbody tr.closed-row:nth-child(even) td:nth-child(-n+5){background:#4b4b4b}
+  .po-supplier-wrap{display:flex;flex-direction:column;gap:1px}
+  .po-supplier-wrap input{text-align:center}
+  .po-number-input{font-weight:600}
+  .po-supplier-input{font-size:10px;color:#555;border-top:1px solid #e3e3e3 !important;padding-top:3px}
+  #fullTable td.desc-cell{text-align:left;min-width:220px}
+  #fullTable input, #fullTable select, #fullTable textarea{
+    width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;
+    font-size:12px;padding:3px;border-radius:3px;font-family:inherit;text-align:center}
+  #fullTable td.desc-cell input, #fullTable td.remarks-cell textarea{text-align:left}
+  #fullTable td.desc-cell textarea.desc-textarea{
+    display:block;width:100%;box-sizing:border-box;resize:none;overflow:hidden;
+    white-space:pre-wrap;word-wrap:break-word;word-break:break-word;
+    line-height:1.35;min-height:22px;vertical-align:top;text-align:left}
+  #fullTable select, .modal-box select{text-align:left}
+  #fullTable input:hover, #fullTable select:hover, #fullTable textarea:hover{border-color:#bbb}
+  #fullTable input:focus, #fullTable select:focus, #fullTable textarea:focus{border-color:#1a73e8;background:#fff;outline:none}
+  #fullTable select.status-yes{background:#1e8e3e;color:#fff;font-weight:bold}
+  #fullTable select.status-no{background:#d93025;color:#fff;font-weight:bold}
+  #fullTable select.priority-h{background:#d93025;color:#fff;font-weight:bold}
+  #fullTable select.priority-m{background:#f29900;color:#fff;font-weight:bold}
+  #fullTable select.priority-l{background:#1e8e3e;color:#fff;font-weight:bold}
+  #fullTable textarea{resize:vertical;min-height:30px;min-width:160px}
+  #fullTable td.sn-cell{font-weight:bold;background:#eef3fc}
+  .saved-flash{background:#d8f5dc !important}
+  #fullTable td.remarks-cell{min-width:200px;text-align:left}
+  #loadingMsg{padding:30px;text-align:center;color:#666}
+
+  /* ---- Row actions column ---- */
+  #fullTable td.actions-cell, #headerMainRow th.actions-header{width:50px;min-width:50px;padding:2px}
+  .actions-wrap{display:flex;flex-wrap:wrap;gap:1px;justify-content:center}
+  .actions-wrap button{width:17px;height:17px;line-height:1;font-size:10px;padding:0;border:1px solid #d7dce3;
+    background:#fff;border-radius:3px;cursor:pointer}
+  .actions-wrap button:hover{background:#eef3fc}
+  .actions-wrap button:disabled{opacity:.3;cursor:default}
+
+  /* ---- Remarks append-only history ---- */
+  .remarks-add{display:flex;gap:4px;margin-bottom:3px}
+  .remarks-add input{flex:1;font-size:11px}
+  .remarks-add button{font-size:11px;padding:2px 6px;border:1px solid #1a73e8;background:#1a73e8;color:#fff;
+    border-radius:3px;cursor:pointer;width:auto}
+  .remarks-history{white-space:pre-wrap;font-size:10.5px;line-height:1.4;color:#333;text-align:left;
+    max-height:70px;overflow-y:auto;border-top:1px dashed #ddd;padding-top:2px}
+
+  /* ---- Modals ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;
+    justify-content:center;z-index:100}
+  .modal-box{background:#fff;border-radius:10px;padding:20px 22px;width:420px;max-width:92vw;
+    max-height:88vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.25)}
+  .modal-box h3{margin:0 0 14px;font-size:16px;color:#1a3d7c}
+  .modal-box label{display:block;font-size:12px;font-weight:600;color:#555;margin:10px 0 4px}
+  .modal-box input, .modal-box select{width:100%;padding:7px 8px;border:1px solid #d7dce3;border-radius:5px;font-size:13px}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  .modal-actions button{padding:8px 16px;border-radius:6px;font-size:13px;border:1px solid #d7dce3;cursor:pointer}
+  .modal-actions .primary{background:#1a73e8;border-color:#1a73e8;color:#fff}
+  .modal-actions .secondary{background:#fff;color:#444}
+  .radio-row{display:flex;gap:16px;font-size:13px;margin-top:4px}
+  .balance-clickable{cursor:pointer;text-decoration:underline;color:#1a73e8}
+  .balance-clickable:hover{background:#eef3fc}
+
+  /* ---- Material Submittal Status / PQD tables ---- */
+  .ms-card-grid{display:flex;flex-direction:column;gap:18px}
+  .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
+  .ms-table-wrap{overflow-x:auto}
+  table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px}
+  table.ms-table th, table.ms-table td{border:1px solid #d7dce3;padding:4px 6px;text-align:center}
+  table.ms-table thead th{background:#1a73e8;color:#fff;font-size:11px}
+  table.ms-table thead th.has-tip{text-decoration:underline dotted;cursor:help}
+  table.ms-table tbody tr:nth-child(even){background:#f7f9fc}
+  table.ms-table tr.grand-total{font-weight:700;background:#eef3fc !important}
+  table.ms-table td.ms-label-cell{text-align:left;font-weight:600;white-space:nowrap}
+  table.ms-table td.ms-computed-cell{background:#fcfdff}
+  table.ms-table td.tw-col, table.ms-table th.tw-col{background:#fff8e1}
+
+  /* ---- Submittal Dashboard ---- */
+  .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .sd-kpi{flex:1;min-width:130px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);
+    padding:14px;text-align:center;border-top:4px solid #1a73e8}
+  .sd-kpi .sd-num{font-size:26px;font-weight:700;color:#1a3d7c}
+  .sd-kpi .sd-label{font-size:11px;color:#777;margin-top:4px}
+  .sd-section-title{font-size:14px;font-weight:700;color:#1a3d7c;margin:20px 0 10px}
+  .chart-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px}
+  .chart-card{flex:1;min-width:260px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:12px}
+  .chart-card.wide{flex-basis:100%}
+  .chart-card.tall .chart-wrap{height:300px}
+  .chart-card h4{margin:0 0 8px;font-size:13px;color:#333}
+  .chart-wrap{position:relative;height:220px}
+  .gauge-grid{display:flex;flex-wrap:wrap;gap:14px}
+  .gauge-card{flex:1;min-width:150px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:10px;text-align:center}
+  .gauge-wrap{position:relative;height:100px}
+  .gauge-pct{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:19px;font-weight:bold;color:#222}
+  .gauge-label{font-size:11px;color:#777;margin-top:4px}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:4px}
+  .stepper .step{text-align:center}
+  .stepper .circle{width:46px;height:46px;border-radius:50%;color:#fff;display:flex;align-items:center;
+    justify-content:center;font-weight:700;font-size:15px}
+  .stepper .step-label{font-size:10px;color:#777;margin-top:4px}
+  .stepper .connector{width:26px;height:2px;background:#ccc}
 </style>
 </head>
 <body>
 
-<div class="card">
-  <h1>Procurement Progress Report</h1>
-  <p class="subtitle">نسخة تجريبية — تسجيل دخول Google وإنشاء الشيت تلقائياً</p>
+<div id="signinScreen">
+  <div class="card">
+    <h1>Procurement Progress Report</h1>
+    <p class="subtitle">نسخة تجريبية — تسجيل دخول Google وإنشاء الشيت تلقائياً</p>
 
-  <button id="signinBtn">
-    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 .1 8.3 3.1l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.1-2.7-.5-4z"/></svg>
-    تسجيل الدخول بحساب Google
-  </button>
+    <button id="signinBtn">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 .1 8.3 3.1l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.1-2.7-.5-4z"/></svg>
+      تسجيل الدخول بحساب Google
+    </button>
 
-  <div id="status"></div>
+    <div id="status"></div>
+  </div>
+</div>
+
+<div id="appScreen" class="hidden">
+  <div class="app-header-sticky">
+    <header class="app-title">
+      <span>Procurement Progress Report</span>
+      <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
+    </header>
+    <div class="project-bar" id="projectBar">
+      <div class="pb-field"><label>Project Name:</label>
+        <input type="text" id="pbProjectName" placeholder="Enter project name" onblur="saveProjectBar()"></div>
+      <div class="pb-field"><label>Project Number:</label>
+        <input type="text" id="pbProjectNumber" placeholder="Enter project number" onblur="saveProjectBar()"></div>
+      <div class="pb-field"><label>Discipline:</label>
+        <input type="text" id="pbDiscipline" placeholder="Enter discipline name" onblur="saveProjectBar()"></div>
+      <div class="pb-date" id="pbDate"></div>
+    </div>
+    <nav class="main-nav">
+      <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
+      <button onclick="showView('msstatus', this)">Material Submittal Status</button>
+      <button onclick="showView('fulltable', this)">Full Table</button>
+    </nav>
+    <div class="subtoolbar" id="fullTableToolbar" style="display:none">
+      <span id="addMsg"></span>
+      <button type="button" class="primary" onclick="openAddModal()">＋ Add Item</button>
+      <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
+      <button type="button" onclick="exportToXlsx()" id="exportXlsxBtn">⬇ Export BOQ &amp; M/S to Excel</button>
+      <span id="clipboardStatus"></span>
+    </div>
+  </div>
+
+  <!-- ===================== SUBMITTAL DASHBOARD ===================== -->
+  <div class="view active" id="view-subdash">
+    <div class="sd-section-title">📦 Material — Key Numbers</div>
+    <div class="sd-kpi-row">
+      <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Total Materials (Main)</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsRfq">-</div><div class="sd-label">RFQ</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsQuotes">-</div><div class="sd-label">Quotes</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsSubmitted">-</div><div class="sd-label">Material Submitted</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsBalance">-</div><div class="sd-label">Balance to be Prepared</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsPr">-</div><div class="sd-label">Total PR</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdMsPo">-</div><div class="sd-label">Total PO</div></div>
+    </div>
+
+    <div class="sd-section-title">📐 PQD — Key Numbers</div>
+    <div class="sd-kpi-row">
+      <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal">-</div><div class="sd-label">Estimated Total PQDs</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted">-</div><div class="sd-label">PQD Submitted</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance">-</div><div class="sd-label">PQD Balance to be Prepared</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdPqdPr">-</div><div class="sd-label">Total PR</div></div>
+      <div class="sd-kpi"><div class="sd-num" id="sdPqdPo">-</div><div class="sd-label">Total PO</div></div>
+    </div>
+
+    <div class="sd-section-title">📦 Material Submittal — Status &amp; Pipeline</div>
+    <div class="chart-grid">
+      <div class="chart-card tall wide"><h4>Material Procurement Pipeline (Main)</h4><div class="chart-wrap" style="height:300px"><canvas id="chartMsFunnel"></canvas></div></div>
+      <div class="chart-card"><h4>Material Status Breakdown (Grand Total)</h4><div class="chart-wrap"><canvas id="chartMsStatus"></canvas></div></div>
+      <div class="chart-card"><h4>Comparison Sheet Progress</h4><div class="stepper" id="msCompStepper"></div></div>
+    </div>
+
+    <div class="sd-section-title">📐 PQD — Status &amp; Pipeline</div>
+    <div class="chart-grid">
+      <div class="chart-card"><h4>PQD Procurement Pipeline</h4><div class="chart-wrap"><canvas id="chartPqdFunnel"></canvas></div></div>
+      <div class="chart-card"><h4>PQD Status Breakdown</h4><div class="chart-wrap"><canvas id="chartPqdStatus"></canvas></div></div>
+      <div class="chart-card"><h4>This Week Activity — Material vs PQD</h4><div class="chart-wrap"><canvas id="chartThisWeek"></canvas></div></div>
+    </div>
+
+    <div class="sd-section-title">📊 Progress Percentages</div>
+    <div class="gauge-grid">
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsPlanned"></canvas><div class="gauge-pct" id="gaugeMsPlannedTxt">-</div></div><div class="gauge-label">Material — Planned Submission %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsSubmitted"></canvas><div class="gauge-pct" id="gaugeMsSubmittedTxt">-</div></div><div class="gauge-label">Material — Submitted %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsApproved"></canvas><div class="gauge-pct" id="gaugeMsApprovedTxt">-</div></div><div class="gauge-label">Material — Approved %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsNotApproved"></canvas><div class="gauge-pct" id="gaugeMsNotApprovedTxt">-</div></div><div class="gauge-label">Material — Not Approved &amp; C/D %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdPlanned"></canvas><div class="gauge-pct" id="gaugePqdPlannedTxt">-</div></div><div class="gauge-label">PQD — Planned Submission %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdSubmitted"></canvas><div class="gauge-pct" id="gaugePqdSubmittedTxt">-</div></div><div class="gauge-label">PQD — Submitted %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdApproved"></canvas><div class="gauge-pct" id="gaugePqdApprovedTxt">-</div></div><div class="gauge-label">PQD — Approved %</div></div>
+      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdNotApproved"></canvas><div class="gauge-pct" id="gaugePqdNotApprovedTxt">-</div></div><div class="gauge-label">PQD — Not Approved &amp; C/D %</div></div>
+    </div>
+
+    <div class="sd-section-title">👤 Items by Buyer (File With)</div>
+    <div class="chart-grid">
+      <div class="chart-card wide"><h4>Items by Buyer — Totals</h4><div class="chart-wrap"><canvas id="chartBuyer"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ===================== MATERIAL SUBMITTAL STATUS / PQD STATUS ===================== -->
+  <div class="view" id="view-msstatus">
+    <div class="ms-card-grid">
+      <div class="card">
+        <h3>STATUS OF MATERIAL SUBMITTAL</h3>
+        <div class="ms-table-wrap">
+          <table class="ms-table" id="msStatusTable">
+            <thead id="msStatusHead"></thead>
+            <tbody id="msStatusBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3>STATUS OF PQD</h3>
+        <div class="ms-table-wrap">
+          <table class="ms-table" id="pqdStatusTable">
+            <thead id="pqdStatusHead"></thead>
+            <tbody id="pqdStatusBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Item / Buyer</h3>
+        <div class="ms-table-wrap">
+          <table class="ms-table" id="buyerStatusTable">
+            <thead id="buyerStatusHead"></thead>
+            <tbody id="buyerStatusBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <button type="button" onclick="exportSubmittalToXlsx()" id="exportSubmittalXlsxBtn">⬇ Export this tab to Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== FULL TABLE ===================== -->
+  <div class="view" id="view-fulltable">
+    <div id="loadingMsg">Loading BOQ Database…</div>
+
+    <div class="table-outer hidden" id="tableOuter">
+      <div class="table-header-wrap" id="tableHeaderWrap">
+        <table id="fullTableHeader">
+          <colgroup id="headerColgroup"></colgroup>
+          <thead>
+            <tr id="headerMainRow"></tr>
+          </thead>
+        </table>
+      </div>
+      <div class="table-top-scroll-wrap">
+        <div class="table-top-scroll" id="tableTopScroll"><div id="tableTopScrollInner"></div></div>
+        <div class="table-top-scroll-mask"></div>
+      </div>
+      <div class="table-body-wrap" id="tableBodyWrap">
+        <table id="fullTable">
+          <colgroup id="bodyColgroup"></colgroup>
+          <tbody id="fullTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Add Item modal ===================== -->
+<div class="modal-overlay" id="addModalOverlay" style="display:none;">
+  <div class="modal-box">
+    <h3 id="addModalTitle">Add New Item</h3>
+    <label>Type</label>
+    <div class="radio-row" id="typeChoiceRow">
+      <label><input type="radio" name="typeChoice" value="item" checked onchange="onTypeChoiceChange()"> Item</label>
+      <label><input type="radio" name="typeChoice" value="package" onchange="onTypeChoiceChange()"> Package</label>
+    </div>
+    <label>Position</label>
+    <select id="addRefItem" onchange="onRefItemChange()">
+      <option value="">— End of list —</option>
+    </select>
+    <div class="radio-row" id="beforeAfterRow" style="display:none;">
+      <label><input type="radio" name="baChoice" value="before"> Before this item</label>
+      <label><input type="radio" name="baChoice" value="after" checked> After this item</label>
+    </div>
+    <label id="addDescLabel">Item Description</label><input type="text" id="addDesc">
+    <div id="itemOnlyFields">
+      <label>Unit</label><select id="addUnit"></select>
+      <label>Estimated QTY</label><input type="number" id="addQty">
+      <label>File With</label><select id="addFileWith"></select>
+      <label>Main / Alt</label><select id="addMainAlt"></select>
+      <label>Priority</label><select id="addPriority"></select>
+    </div>
+    <div id="addMsgModal" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeAddModal()">Cancel</button>
+      <button class="primary" onclick="submitAddModal()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared "which items make up this number" popup — Balance Submittal to be
+     Prepared / Code C & D / Under Approval W/Client, both MS and PQD tables. -->
+<div class="modal-overlay" id="balanceModalOverlay" style="display:none;">
+  <div class="modal-box" style="width:460px">
+    <h3 id="balanceModalTitle">Items</h3>
+    <div id="balanceModalList" style="max-height:50vh;overflow-y:auto;margin-top:8px"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeBalanceModal()">Close</button>
+    </div>
+  </div>
 </div>
 
 <script>
-  // ===== ضع هنا الـ Client ID الذي حصلت عليه من Google Cloud Console =====
+  // ===== Google OAuth config — reused as-is from the working MVP =====
   const CLIENT_ID = "543026821266-teh5rbarpabeeeropf3312vnqt3pm059.apps.googleusercontent.com";
-
   const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
   const SHEET_TITLE = "Procurement Progress Report";
+  const SHEET_NAME = "BOQ Database";
+  const LISTS_SHEET_NAME = "Lists";
+  const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
+  const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
+  const LAST_DATA_ROW = 300;
+  const LAST_DATA_COL = 28;
+
+  // 28-column COL map — symbolic column references only, mirroring Code.gs's
+  // own COL object exactly (never a hardcoded magic number — this is the
+  // single place that would ever need to change if a column were inserted,
+  // same discipline Code.gs enforces to prevent the historical S/N-formula
+  // bug described there).
+  const COL = {
+    SN:1, DESC:2, UNIT:3, QTY:4, FILEWITH:5, MAINALT:6, PRIORITY:7, LLI:8,
+    RFQ:9, QUOT:10,
+    CS_STATUS:11,
+    PQD_SUB:12, PQD_PLANNED_DATE:13, PQD_NUM:14, PQD_CODE:15, PQD_DATE:16,
+    MS_SUB:17, MS_PLANNED_DATE:18, MS_NUM:19, MS_CODE:20, MS_DATE:21,
+    PR:22, PO1:23, PO2:24,
+    REMARKS:25, ROWTYPE:26, ACTIONBY:27, DATESTAMP:28
+  };
+  const NO_DEFAULT_COLS = [COL.LLI, COL.RFQ, COL.QUOT, COL.PQD_SUB, COL.MS_SUB, COL.PR, COL.PO1];
 
   const statusEl = document.getElementById('status');
   const signinBtn = document.getElementById('signinBtn');
   let tokenClient;
   let accessToken = null;
+  let spreadsheetId = null;
+  let boqSheetId = null; // numeric sheetId of the 'BOQ Database' tab, needed for batchUpdate
 
-  function log(html) {
-    statusEl.innerHTML = html;
-  }
-
-  function appendLog(html) {
-    statusEl.innerHTML += '<div>' + html + '</div>';
-  }
+  function log(html) { statusEl.innerHTML = html; }
+  function appendLog(html) { statusEl.innerHTML += '<div>' + html + '</div>'; }
 
   window.onload = function () {
     tokenClient = google.accounts.oauth2.initTokenClient({
@@ -137,19 +521,116 @@
     tokenClient.requestAccessToken();
   });
 
+  /* ===================== Thin fetch() wrapper over Sheets API v4 / Drive API v3 ===================== */
+  async function apiFetch(url, opts) {
+    opts = opts || {};
+    const headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, opts.headers || {});
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    const res = await fetch(url, Object.assign({}, opts, { headers }));
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* no body */ }
+    if (!res.ok || data.error) {
+      throw new Error((data.error && data.error.message) || (res.status + ' ' + res.statusText));
+    }
+    return data;
+  }
+
+  // 1-based column number -> spreadsheet letter (A, B, ..., Z, AA, ...) — same algorithm Code.gs uses.
+  function columnLetter(colNum) {
+    var letters = '';
+    while (colNum > 0) {
+      var rem = (colNum - 1) % 26;
+      letters = String.fromCharCode(65 + rem) + letters;
+      colNum = Math.floor((colNum - 1) / 26);
+    }
+    return letters;
+  }
+
+  function a1Range(sheetName, startCol, startRow, endCol, endRow) {
+    var r = "'" + sheetName.replace(/'/g, "''") + "'!" + columnLetter(startCol) + startRow;
+    if (endCol != null && endRow != null) r += ':' + columnLetter(endCol) + endRow;
+    return r;
+  }
+
+  async function sheetsGetValues(spreadsheetIdArg, range) {
+    const data = await apiFetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}/values/${encodeURIComponent(range)}`
+    );
+    return data.values || [];
+  }
+
+  async function sheetsUpdateValues(spreadsheetIdArg, range, values, valueInputOption) {
+    return apiFetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}/values/${encodeURIComponent(range)}?valueInputOption=${valueInputOption || 'RAW'}`,
+      { method: 'PUT', body: JSON.stringify({ values: values }) }
+    );
+  }
+
+  async function sheetsBatchUpdate(spreadsheetIdArg, requests) {
+    return apiFetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}:batchUpdate`,
+      { method: 'POST', body: JSON.stringify({ requests: requests }) }
+    );
+  }
+
+  async function sheetsGetSpreadsheet(spreadsheetIdArg, fields) {
+    const q = fields ? ('?fields=' + encodeURIComponent(fields)) : '';
+    return apiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}${q}`);
+  }
+
+  async function sheetsCreateSpreadsheet(title) {
+    return apiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
+      method: 'POST',
+      body: JSON.stringify({ properties: { title: title } })
+    });
+  }
+
+  // Row/column insert & delete — used by the row-management features
+  // (add/move/delete/copy/cut/paste) below.
+  async function sheetsInsertRow(ssId, sheetIdArg, beforeRow1Based) {
+    await sheetsBatchUpdate(ssId, [{ insertDimension: {
+      range: { sheetId: sheetIdArg, dimension: 'ROWS', startIndex: beforeRow1Based - 1, endIndex: beforeRow1Based },
+      inheritFromBefore: false
+    } }]);
+  }
+  async function sheetsDeleteRow(ssId, sheetIdArg, row1Based) {
+    await sheetsBatchUpdate(ssId, [{ deleteDimension: {
+      range: { sheetId: sheetIdArg, dimension: 'ROWS', startIndex: row1Based - 1, endIndex: row1Based }
+    } }]);
+  }
+  // Server-side sheet-to-sheet copy (Sheets API spreadsheets.sheets.copyTo),
+  // the exact REST equivalent of Code.gs's sheet.copyTo(destSpreadsheet) —
+  // used by the Excel export to carry the real BOQ Database tab's own
+  // formatting into the throwaway export spreadsheet.
+  async function sheetsCopySheetTo(ssId, sheetIdArg, destSpreadsheetId) {
+    return apiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${ssId}/sheets/${sheetIdArg}:copyTo`, {
+      method: 'POST', body: JSON.stringify({ destinationSpreadsheetId: destSpreadsheetId })
+    });
+  }
+  async function driveDeleteFile(fileId) {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'DELETE', headers: { Authorization: 'Bearer ' + accessToken }
+      });
+    } catch (e) { console.warn('Could not delete temp export file: ', e); }
+  }
+
+  /* ===================== Sign-in -> find/create spreadsheet (unchanged flow) ===================== */
   async function handleSignedIn() {
     log('<span class="spinner"></span> تم تسجيل الدخول، جاري البحث عن الشيت الخاص بك...');
     try {
       const existing = await findExistingSheet();
       if (existing) {
         appendLog('<span class="ok">✔ تم العثور على شيت موجود مسبقاً.</span>');
-        showLink(existing.id);
+        spreadsheetId = existing.id;
+        await ensureBoqSheetReady();
       } else {
         appendLog('<span class="ok">✔ لا يوجد شيت سابق — جاري إنشاء واحد جديد...</span>');
-        const newId = await createNewSheet();
+        spreadsheetId = await createNewSheet();
         appendLog('<span class="ok">✔ تم إنشاء الشيت بنجاح!</span>');
-        showLink(newId);
       }
+      appendLog('<a class="sheetLink" href="https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit" target="_blank">فتح الشيت الخاص بي ↗</a>');
+      enterApp();
     } catch (err) {
       console.error(err);
       appendLog('<span class="err">حدث خطأ: ' + (err.message || err) + '</span>');
@@ -165,59 +646,1626 @@
       { headers: { Authorization: 'Bearer ' + accessToken } }
     );
     const data = await res.json();
-    if (data.files && data.files.length > 0) {
-      return data.files[0];
-    }
+    if (data.files && data.files.length > 0) return data.files[0];
     return null;
   }
 
   async function createNewSheet() {
-    // 1) إنشاء الملف بالشيتات الأساسية
-    const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    const createData = await apiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + accessToken,
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({
         properties: { title: SHEET_TITLE },
         sheets: [
-          { properties: { title: 'BOQ Database' } },
-          { properties: { title: 'Material Submittal Status' } },
-          { properties: { title: 'Lists' } }
+          { properties: { title: SHEET_NAME } },
+          { properties: { title: SUBMITTAL_SHEET_NAME } },
+          { properties: { title: LISTS_SHEET_NAME } }
         ]
       })
     });
-    const createData = await createRes.json();
-    if (createData.error) throw new Error(createData.error.message);
-    const spreadsheetId = createData.spreadsheetId;
+    const newId = createData.spreadsheetId;
+    boqSheetId = createData.sheets[0].properties.sheetId;
 
-    // 2) كتابة صف عناوين أساسي بشيت BOQ Database (تجربة أولية فقط)
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'BOQ Database'!A1:H1?valueInputOption=RAW`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: 'Bearer ' + accessToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          values: [[
-            'S/N', 'Description', 'Unit', 'Qty', 'File With', 'Main/Alt', 'Priority', 'LLI'
-          ]]
-        })
-      }
-    );
-
-    return spreadsheetId;
+    await writeBoqHeader(newId);
+    await seedListsSheet(newId);
+    return newId;
   }
 
-  function showLink(id) {
-    const url = `https://docs.google.com/spreadsheets/d/${id}/edit`;
-    appendLog(`<a class="sheetLink" href="${url}" target="_blank">فتح الشيت الخاص بي ↗</a>`);
+  /* On an existing spreadsheet, find the BOQ Database tab's numeric sheetId
+     and, only if its header row looks unwritten, write the full 28-column
+     header (never overwrites a header that's already there). */
+  async function ensureBoqSheetReady() {
+    const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
+    const boqSheet = (meta.sheets || []).find(function(s) { return s.properties.title === SHEET_NAME; });
+    if (!boqSheet) throw new Error('Sheet "' + SHEET_NAME + '" not found in this spreadsheet.');
+    boqSheetId = boqSheet.properties.sheetId;
+
+    const row2 = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, 2, 2, 2));
+    const headerAlreadyThere = row2.length && row2[0][1] === 'Item description';
+    if (!headerAlreadyThere) {
+      await writeBoqHeader(spreadsheetId);
+    }
+    const listsSheet = (meta.sheets || []).find(function(s) { return s.properties.title === LISTS_SHEET_NAME; });
+    if (listsSheet) {
+      const fw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2));
+      if (!fw.length || !String(fw[0][0] || '').trim()) await seedListsSheet(spreadsheetId);
+    }
+  }
+
+  // Full 28-column BOQ Database header, exactly matching the original Code.gs COL map
+  // (SN..DATESTAMP). Row 1 only carries the two group banners (PQD Submittal /
+  // Material Submittal); every column's real label lives in row 2, directly
+  // above FIRST_DATA_ROW (3) — same two-header-row layout the original uses.
+  const BOQ_HEADER_ROW2 = [
+    'S/N', 'Item description', 'Unit', 'Estimated QTY', 'File With', 'Main OR Alt. File',
+    'Priority', 'LLI', 'RFQ (Send)', 'Quotations (Received)', 'Comp. Sheet Status',
+    'PQD Submitted', 'PQD Planned Submission Date', 'PQD Number', 'PQD Status', 'PQD Status Date',
+    'M/S Submitted', 'M/S Planned Submission Date', 'M/S Number', 'M/S Status', 'M/S Status Date',
+    'PR', 'PO (Issued)', 'PO Number / Supplier Name', 'REMARKS', 'Row Type', 'Action By', 'Date Stamp'
+  ];
+  const BOQ_COL_WIDTHS = [45,280,65,70,90,50,55,62,62,62,70,62,125,90,62,90,62,125,90,62,90,55,62,130,240,80,100,115];
+
+  async function writeBoqHeader(ssId) {
+    await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, 1, 2, LAST_DATA_COL, 2), [BOQ_HEADER_ROW2]);
+    await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, COL.PQD_SUB, 1, COL.PQD_SUB, 1), [['PQD Submittal']]);
+    await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, COL.MS_SUB, 1, COL.MS_SUB, 1), [['Material Submittal']]);
+
+    const sheetId = boqSheetId;
+    const requests = [
+      { repeatCell: {
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: LAST_DATA_COL },
+          cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', backgroundColor: { red: 0.102, green: 0.451, blue: 0.910 } } },
+          fields: 'userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.foregroundColor,userEnteredFormat.horizontalAlignment,userEnteredFormat.backgroundColor'
+        } },
+      { updateSheetProperties: {
+          properties: { sheetId: sheetId, gridProperties: { frozenRowCount: 2, frozenColumnCount: 4 } },
+          fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount'
+        } },
+      { mergeCells: {
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 11, endColumnIndex: 16 },
+          mergeType: 'MERGE_ALL'
+        } },
+      { mergeCells: {
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 16, endColumnIndex: 21 },
+          mergeType: 'MERGE_ALL'
+        } }
+    ];
+    BOQ_COL_WIDTHS.forEach(function(w, i) {
+      requests.push({ updateDimensionProperties: {
+        range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+        properties: { pixelSize: w }, fields: 'pixelSize'
+      } });
+    });
+    try { await sheetsBatchUpdate(ssId, requests); } catch (e) { console.warn('Header formatting batchUpdate failed (non-fatal): ', e); }
+  }
+
+  async function seedListsSheet(ssId) {
+    try {
+      await sheetsUpdateValues(ssId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2), [['-']]);
+      const actionByFallback = ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed'];
+      await sheetsUpdateValues(ssId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 2 + actionByFallback.length - 1),
+        actionByFallback.map(function(v) { return [v]; }), 'RAW');
+    } catch (e) { console.warn('Seeding Lists sheet failed (non-fatal): ', e); }
+  }
+
+  function enterApp() {
+    document.getElementById('signinScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
+    loadProjectBar();
+    loadFormOptions().then(function() { return loadFullTable(); }).then(function() {
+      loadSubmittalStatus();
+      loadSubmittalDashboard();
+    });
+  }
+
+  /* ===================== View switching (Submittal Dashboard / Material Submittal
+     Status / Full Table) ===================== */
+  function showView(name, btn) {
+    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('nav.main-nav button').forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    document.getElementById('fullTableToolbar').style.display = (name === 'fulltable') ? 'flex' : 'none';
+    if (name === 'msstatus') loadSubmittalStatus();
+    if (name === 'subdash') loadSubmittalDashboard();
+    if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
+  }
+
+  /* ===================== PROJECT HEADER BAR (Lists!E2:E4) =====================
+     Portal-only settings — stored on the Lists sheet (not browser storage) so
+     every viewer of the portal sees the same Project Name/Number/Discipline. */
+  const PROJECT_SETTINGS_RANGE_ROW_START = 2; // E2=Name, E3=Number, E4=Discipline
+
+  async function loadProjectBar() {
+    try {
+      const values = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 5, 2, 5, 4));
+      document.getElementById('pbProjectName').value = (values[0] && values[0][0]) || '';
+      document.getElementById('pbProjectNumber').value = (values[1] && values[1][0]) || '';
+      document.getElementById('pbDiscipline').value = (values[2] && values[2][0]) || '';
+    } catch (e) { console.warn('Failed to load project settings: ', e); }
+    const d = new Date();
+    document.getElementById('pbDate').textContent = '📅 ' + d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  async function saveProjectBar() {
+    try {
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 5, 2, 5, 4), [
+        [document.getElementById('pbProjectName').value.trim()],
+        [document.getElementById('pbProjectNumber').value.trim()],
+        [document.getElementById('pbDiscipline').value.trim()]
+      ], 'RAW');
+    } catch (e) { alert('Save failed: ' + (e.message || e)); }
+  }
+
+  /* ===================== Full Table: column layout (COL map ported from Code.gs) =====================
+     PQD_NUM/MS_NUM render as plain click-to-edit text fields (not the original's
+     icon+modal) — a deliberate simplification: a single short reference-number
+     string gains little from a separate modal over an inline input that already
+     saves on blur, and this keeps the row's markup simpler. */
+  const OPTION_LISTS = {
+    units: ['EA','NO','PCS','SET','PAIR','LOT','JOB','LS','M','LM','RM','CM','MM','KM',
+      'M2','M3','FT','FT2','FT3','IN','KG','TON','G','LB','L','ML','GAL','M3/H','BAR','PSI',
+      'ROLL','BOX','BAG','DRUM','PACK','SHEET','COIL','SPOOL','HR','DAY','%'],
+    mainAlt: ['M','A'],
+    priority: ['H','M','L'],
+    yesno: ['No','Yes'],
+    code: ['','A','B','C','D','W/Client'],
+    pqdCode: ['','A','B','C','D','W/Client'],
+    csStatus: ['-','Initial','Target Price','Final & Approved'],
+    names: [],      // populated from Lists!A2:A100 (File With)
+    actionBy: ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed']
+  };
+
+  const COLS = [
+    { col: COL.SN,  label: 'S/N',                        width: 45,  type: 'readonly' },
+    { col: COL.DESC,  label: 'Item description',            width: 280, type: 'textarea' },
+    { col: COL.UNIT,  label: 'Unit',                        width: 65,  type: 'select', opts: 'units' },
+    { col: COL.QTY,  label: 'Estimated QTY',               width: 70,  type: 'number' },
+    { col: COL.FILEWITH,  label: 'File With',                   width: 90,  type: 'select', opts: 'names' },
+    { col: COL.MAINALT,  label: 'Main OR Alt. File',            width: 50,  type: 'select', opts: 'mainAlt' },
+    { col: COL.PRIORITY,  label: 'Priority',                    width: 55,  type: 'select', opts: 'priority' },
+    { col: COL.LLI,  label: 'LLI',                         width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.RFQ,  label: 'RFQ (Send)',                  width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.QUOT, label: 'Quotations (Received)',       width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 70,  type: 'select', opts: 'csStatus' },
+    { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.PQD_PLANNED_DATE, label: 'PQD Planned Submission Date', width: 125, type: 'date' },
+    { col: COL.PQD_NUM, label: 'PQD Number',                  width: 90,  type: 'text' },
+    { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode' },
+    { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly' },
+    { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date' },
+    { col: COL.MS_NUM, label: 'M/S Number',                   width: 90,  type: 'text' },
+    { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code' },
+    { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly' },
+    { col: COL.PR, label: 'PR',                          width: 55,  type: 'select', opts: 'yesno' },
+    { col: COL.PO1, label: 'PO (Issued)',                 width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.PO2, label: 'PO Number / Supplier Name',   width: 130, type: 'posupplier' },
+    { col: COL.REMARKS, label: 'REMARKS',                     width: 240, type: 'remarks' },
+    { col: COL.ACTIONBY, label: 'Action By',                 width: 100, type: 'select', opts: 'actionBy' },
+    { col: COL.DATESTAMP, label: 'Date Stamp',                  width: 115, type: 'readonly' }
+  ];
+
+  var lastLoadedRows = [];
+
+  async function loadFormOptions() {
+    try {
+      const names = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      OPTION_LISTS.names = names.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
+    } catch (e) { console.warn('Could not load File With list: ', e); }
+    try {
+      const abRaw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
+      const ab = abRaw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
+      if (ab.length) {
+        if (ab.indexOf('Closed') === -1) ab.push('Closed');
+        OPTION_LISTS.actionBy = ab;
+      }
+    } catch (e) { console.warn('Could not load Action By list: ', e); }
+  }
+
+  function buildTableStructure() {
+    const headerColgroup = document.getElementById('headerColgroup');
+    const bodyColgroup = document.getElementById('bodyColgroup');
+    const headerMainRow = document.getElementById('headerMainRow');
+    headerColgroup.innerHTML = ''; bodyColgroup.innerHTML = ''; headerMainRow.innerHTML = '';
+
+    var actC1 = document.createElement('col'); actC1.style.width = '50px';
+    var actC2 = document.createElement('col'); actC2.style.width = '50px';
+    headerColgroup.appendChild(actC1); bodyColgroup.appendChild(actC2);
+    var actTh = document.createElement('th'); actTh.className = 'actions-header'; actTh.textContent = 'Actions';
+    headerMainRow.appendChild(actTh);
+
+    COLS.forEach(function(colDef) {
+      var c1 = document.createElement('col'); c1.style.width = colDef.width + 'px';
+      var c2 = document.createElement('col'); c2.style.width = colDef.width + 'px';
+      headerColgroup.appendChild(c1); bodyColgroup.appendChild(c2);
+      var th = document.createElement('th');
+      th.textContent = colDef.label;
+      headerMainRow.appendChild(th);
+    });
+  }
+
+  // Fetches every filled row (items AND packages, in sheet order) fresh from
+  // the live Sheet — the exact same ordinal-position universe Code.gs's
+  // countFilledItems()/getRowForPosition()/findRowAfterLastItem() count by.
+  // Used both to render the Full Table and, fresh, by every row-management
+  // action below, so add/move/paste positions are never computed from a
+  // possibly-stale in-memory cache.
+  async function fetchFilledRows() {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
+    const rows = [];
+    raw.forEach(function(r, i) {
+      var values = r.slice();
+      while (values.length < LAST_DATA_COL) values.push('');
+      if (String(values[COL.DESC - 1] || '').trim() !== '') {
+        rows.push({ row: FIRST_DATA_ROW + i, values: values });
+      }
+    });
+    return rows;
+  }
+
+  async function loadFullTable() {
+    document.getElementById('loadingMsg').classList.remove('hidden');
+    document.getElementById('tableOuter').classList.add('hidden');
+    try {
+      const rows = await fetchFilledRows();
+      lastLoadedRows = rows;
+      buildTableStructure();
+      renderFullTable(rows);
+      document.getElementById('loadingMsg').classList.add('hidden');
+      document.getElementById('tableOuter').classList.remove('hidden');
+    } catch (e) {
+      document.getElementById('loadingMsg').textContent = 'Failed to load: ' + (e.message || e);
+    }
+  }
+
+  // Re-pulls the Full Table AND recomputes the Material Submittal Status /
+  // PQD / dashboard views that derive from it — used by every row-management
+  // action (add/move/delete/paste) instead of loadFullTable() alone, so those
+  // other views never go stale after an edit that changes row order or count.
+  async function refreshEverything() {
+    await loadFullTable();
+    loadSubmittalStatus();
+    loadSubmittalDashboard();
+  }
+
+  function renderFullTable(rows) {
+    const body = document.getElementById('fullTableBody');
+    body.innerHTML = '';
+    rows.forEach(function(r, index) {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-row', r.row);
+      const isPackage = r.values[COL.ROWTYPE - 1] === 'Package';
+      if (isPackage) tr.classList.add('package-row');
+      const isClosed = r.values[COL.ACTIONBY - 1] === 'Closed';
+      if (isClosed) tr.classList.add('closed-row');
+
+      tr.appendChild(buildActionsCell(r.row, index, rows.length));
+      COLS.forEach(function(colDef) {
+        tr.appendChild(buildCell(r.row, colDef, r.values[colDef.col - 1], isPackage, isClosed));
+      });
+      body.appendChild(tr);
+    });
+    if (!rows.length) body.innerHTML = '<tr><td colspan="' + (COLS.length + 1) + '">No data</td></tr>';
+    if (window.syncTopScrollWidth) window.syncTopScrollWidth();
+  }
+
+  /* ===================== ROW MANAGEMENT (add / move / delete / copy / cut / paste) =====================
+     Ported from Code.gs's addNewItem/moveItem/deleteItem/pasteItemAt, translated
+     to Sheets API insertDimension/deleteDimension + plain value writes (there is
+     no server to call any more). S/N keeps being a live formula — written via
+     valueInputOption=USER_ENTERED — exactly like Code.gs's setSnFormula(), so it
+     re-numbers itself automatically the moment rows are inserted/deleted/moved,
+     the same self-healing property the original relies on. */
+
+  // Same formula text/logic as Code.gs's snFormulaFor() — counts filled,
+  // non-package rows from FIRST_DATA_ROW down to `row`.
+  function snFormulaFor(row) {
+    var pkgCol = columnLetter(COL.ROWTYPE);
+    return '=IF(OR(TRIM($B' + row + ')="",$' + pkgCol + row + '="Package"),"",SUMPRODUCT((TRIM($B$' +
+      FIRST_DATA_ROW + ':$B' + row + ')<>"")*($' + pkgCol + '$' + FIRST_DATA_ROW + ':$' + pkgCol + row + '<>"Package")))';
+  }
+  async function setSnFormula(row) {
+    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.SN, row, COL.SN, row), [[snFormulaFor(row)]], 'USER_ENTERED');
+  }
+
+  // Same capitalization rule as Code.gs's autoCapitalizeDescription(): only a
+  // fully-lowercase word gets its first letter capitalized — any word with an
+  // uppercase letter anywhere (HDPE, PQD, GRP...) is left untouched.
+  function autoCapitalizeDescription(text) {
+    if (!text) return text;
+    return String(text).replace(/\S+/g, function(word) {
+      if (/[A-Z]/.test(word)) return word;
+      return word.replace(/[a-z]/, function(ch) { return ch.toUpperCase(); });
+    });
+  }
+
+  // Builds the B..AB (27-value) row array for a brand-new item/package — same
+  // field set Code.gs's writeRowData()/setupRowFormulas()/setupPackageRow()
+  // write, minus the sheet-level data-validation rules (this client renders
+  // every dropdown itself from OPTION_LISTS, so no Sheets-side validation is
+  // needed for them to work).
+  function buildNewItemRowValues(data, isPackage) {
+    var arr = new Array(LAST_DATA_COL - 1).fill('');
+    function set(col, val) { arr[col - 2] = val; } // col 2 (DESC) -> arr[0]
+    set(COL.DESC, isPackage ? (data.desc || '') : autoCapitalizeDescription(data.desc || ''));
+    if (!isPackage) {
+      set(COL.UNIT, data.unit || '');
+      set(COL.QTY, data.qty || '');
+      set(COL.FILEWITH, data.fileWith || '');
+      set(COL.MAINALT, data.mainAlt || '');
+      set(COL.PRIORITY, data.priority || '');
+      NO_DEFAULT_COLS.forEach(function(c) { set(c, 'No'); });
+      set(COL.CS_STATUS, '-');
+    }
+    set(COL.ROWTYPE, isPackage ? 'Package' : '');
+    return arr;
+  }
+
+  // Inserts one row (new item/package OR a copy/cut's captured values) at the
+  // given 1-based ordinal position among currently-filled rows (items AND
+  // packages), or at the end of the list if position is blank/beyond the
+  // current count — exactly Code.gs's addNewItem()/pasteItemAt() logic.
+  // `rowValues` (27 B..AB values) is used for a paste; `newItemData` for a
+  // brand-new item/package. Always re-fetches the filled-row list fresh so a
+  // move (which first deletes the source row) never works off stale positions.
+  async function insertRowAtPosition(position, rowValues, newItemData) {
+    const filled = await fetchFilledRows();
+    position = position ? parseInt(position, 10) : null;
+    var targetRow;
+    if (!position || position > filled.length) {
+      targetRow = filled.length ? filled[filled.length - 1].row + 1 : FIRST_DATA_ROW;
+      if (targetRow > LAST_DATA_ROW) throw new Error('No available empty row left.');
+      const cur = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, COL.DESC, targetRow, COL.DESC, targetRow));
+      if (cur.length && String(cur[0][0] || '').trim() !== '') {
+        await sheetsInsertRow(spreadsheetId, boqSheetId, targetRow);
+      }
+    } else {
+      targetRow = filled[position - 1].row;
+      await sheetsInsertRow(spreadsheetId, boqSheetId, targetRow);
+    }
+    await setSnFormula(targetRow);
+    const values = rowValues || buildNewItemRowValues(newItemData, newItemData.type === 'package');
+    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, targetRow, LAST_DATA_COL, targetRow), [values], 'RAW');
+    return targetRow;
+  }
+
+  async function addNewItemClient(data) {
+    await insertRowAtPosition(data.position, null, data);
+    await refreshEverything();
+  }
+
+  async function deleteItem(row) {
+    if (!confirm('Delete this item? This cannot be undone.')) return;
+    try {
+      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+      await refreshEverything();
+    } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+  }
+
+  // Moves one row up/down by a single position, computed from its current
+  // ordinal position in the currently loaded table.
+  async function moveItemDir(row, direction) {
+    const idx = lastLoadedRows.findIndex(function(r) { return r.row === row; });
+    if (idx === -1) return;
+    const currentPos = idx + 1;
+    const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+    if (newPos < 1 || newPos > lastLoadedRows.length) return;
+    try {
+      const values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
+      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+      await insertRowAtPosition(newPos, values, null);
+      await refreshEverything();
+    } catch (e) { alert('Move failed: ' + (e.message || e)); }
+  }
+
+  // Clipboard lives only in this browser tab's memory (not on the server), so
+  // it does not persist across a reload and is not shared between viewers.
+  var rowClipboard = null; // { mode: 'copy'|'cut', values: [27 cols, B..AB] }
+
+  function updateClipboardStatus() {
+    var el = document.getElementById('clipboardStatus');
+    if (!rowClipboard) { el.textContent = ''; return; }
+    el.textContent = (rowClipboard.mode === 'cut' ? '✂ Cut' : '📋 Copied') + ' — click 📥 on any item to paste after it';
+  }
+
+  function copyRow(row) {
+    var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (!rowObj) return;
+    rowClipboard = { mode: 'copy', values: rowObj.values.slice(1) };
+    updateClipboardStatus();
+  }
+
+  async function cutRow(row) {
+    var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (!rowObj) return;
+    if (!confirm('Cut this item? It will be removed from the list until you paste it somewhere.')) return;
+    var values = rowObj.values.slice(1);
+    try {
+      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+      rowClipboard = { mode: 'cut', values: values };
+      updateClipboardStatus();
+      await refreshEverything();
+    } catch (e) { alert('Cut failed: ' + (e.message || e)); }
+  }
+
+  async function pasteRow(targetRow) {
+    if (!rowClipboard) { alert('Nothing copied or cut yet — use 📋 or ✂ on an item first.'); return; }
+    var idx = lastLoadedRows.findIndex(function(r) { return r.row === targetRow; });
+    if (idx === -1) return;
+    var newPosition = idx + 2; // right after the clicked item
+    try {
+      await insertRowAtPosition(newPosition, rowClipboard.values, null);
+      rowClipboard = null;
+      updateClipboardStatus();
+      await refreshEverything();
+    } catch (e) { alert('Paste failed: ' + (e.message || e)); }
+  }
+
+  function buildActionsCell(row, index, total) {
+    var td = document.createElement('td');
+    td.className = 'actions-cell';
+    var wrap = document.createElement('div');
+    wrap.className = 'actions-wrap';
+
+    var upBtn = document.createElement('button'); upBtn.title = 'Move up'; upBtn.textContent = '▲';
+    upBtn.disabled = (index === 0); upBtn.onclick = function() { moveItemDir(row, 'up'); };
+    var downBtn = document.createElement('button'); downBtn.title = 'Move down'; downBtn.textContent = '▼';
+    downBtn.disabled = (index === total - 1); downBtn.onclick = function() { moveItemDir(row, 'down'); };
+    var delBtn = document.createElement('button'); delBtn.title = 'Delete item'; delBtn.textContent = '🗑';
+    delBtn.onclick = function() { deleteItem(row); };
+    var copyBtn = document.createElement('button'); copyBtn.title = 'Copy item'; copyBtn.textContent = '📋';
+    copyBtn.onclick = function() { copyRow(row); };
+    var cutBtn = document.createElement('button'); cutBtn.title = 'Cut item'; cutBtn.textContent = '✂';
+    cutBtn.onclick = function() { cutRow(row); };
+    var pasteBtn = document.createElement('button'); pasteBtn.title = 'Paste after this item'; pasteBtn.textContent = '📥';
+    pasteBtn.onclick = function() { pasteRow(row); };
+
+    [upBtn, downBtn, delBtn, copyBtn, cutBtn, pasteBtn].forEach(function(b) { wrap.appendChild(b); });
+    td.appendChild(wrap);
+    return td;
+  }
+
+  /* ===================== Add Item modal ===================== */
+  function openAddModal() {
+    document.getElementById('addDesc').value = '';
+    document.getElementById('addQty').value = '';
+    document.getElementById('addMsgModal').textContent = '';
+    document.querySelector('input[name=typeChoice][value=item]').checked = true;
+    fillPlainSelect('addUnit', OPTION_LISTS.units);
+    fillPlainSelect('addFileWith', OPTION_LISTS.names);
+    fillPlainSelect('addMainAlt', OPTION_LISTS.mainAlt);
+    fillPlainSelect('addPriority', OPTION_LISTS.priority);
+    populateRefItemDropdown();
+    onTypeChoiceChange();
+    document.getElementById('addModalOverlay').style.display = 'flex';
+  }
+  function closeAddModal() { document.getElementById('addModalOverlay').style.display = 'none'; }
+  function onTypeChoiceChange() {
+    var type = document.querySelector('input[name=typeChoice]:checked').value;
+    var isPackage = (type === 'package');
+    document.getElementById('itemOnlyFields').style.display = isPackage ? 'none' : '';
+    document.getElementById('addDescLabel').textContent = isPackage ? 'Package Name' : 'Item Description';
+    document.getElementById('addModalTitle').textContent = isPackage ? 'Add New Package' : 'Add New Item';
+  }
+  function fillPlainSelect(id, list) {
+    var el = document.getElementById(id);
+    el.innerHTML = '';
+    (list || []).forEach(function(v) {
+      var o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o);
+    });
+  }
+  function populateRefItemDropdown() {
+    var sel = document.getElementById('addRefItem');
+    sel.innerHTML = '<option value="">— End of list —</option>';
+    lastLoadedRows.forEach(function(r, idx) {
+      var sn = r.values[COL.SN - 1];
+      var isPkg = r.values[COL.ROWTYPE - 1] === 'Package';
+      var desc = String(r.values[COL.DESC - 1] || '');
+      if (desc.length > 40) desc = desc.slice(0, 40) + '…';
+      var o = document.createElement('option');
+      o.value = idx + 1;
+      o.textContent = (isPkg ? '📦 Package — ' : ('S/N ' + sn + ' — ')) + desc;
+      sel.appendChild(o);
+    });
+    onRefItemChange();
+  }
+  function onRefItemChange() {
+    var ref = document.getElementById('addRefItem').value;
+    document.getElementById('beforeAfterRow').style.display = ref === '' ? 'none' : 'flex';
+  }
+  async function submitAddModal() {
+    var ref = document.getElementById('addRefItem').value;
+    var position = '';
+    if (ref !== '') {
+      var ba = document.querySelector('input[name=baChoice]:checked').value;
+      var refPos = parseInt(ref, 10);
+      position = (ba === 'before') ? refPos : refPos + 1;
+    }
+    var type = document.querySelector('input[name=typeChoice]:checked').value;
+    var data = {
+      type: type, position: position,
+      desc: document.getElementById('addDesc').value,
+      unit: document.getElementById('addUnit').value,
+      qty: document.getElementById('addQty').value,
+      fileWith: document.getElementById('addFileWith').value,
+      mainAlt: document.getElementById('addMainAlt').value,
+      priority: document.getElementById('addPriority').value
+    };
+    if (!String(data.desc || '').trim()) { document.getElementById('addMsgModal').textContent = 'Description is required.'; return; }
+    document.getElementById('addMsgModal').textContent = (type === 'package' ? 'Adding package...' : 'Adding...');
+    try {
+      await addNewItemClient(data);
+      document.getElementById('addMsg').textContent = (type === 'package' ? 'Package' : 'Item') + ' added.';
+      closeAddModal();
+    } catch (e) {
+      document.getElementById('addMsgModal').textContent = 'Error: ' + (e.message || e);
+    }
+  }
+
+  function colorizeSelectByOpts(sel, optsName) {
+    sel.classList.remove('status-yes', 'status-no', 'priority-h', 'priority-m', 'priority-l');
+    if (optsName === 'yesno') sel.classList.add(sel.value === 'Yes' ? 'status-yes' : 'status-no');
+    if (optsName === 'priority') {
+      if (sel.value === 'H') sel.classList.add('priority-h');
+      else if (sel.value === 'M') sel.classList.add('priority-m');
+      else if (sel.value === 'L') sel.classList.add('priority-l');
+    }
+  }
+
+  function todayStamp(withTime) {
+    const d = new Date();
+    const pad = function(n) { return String(n).padStart(2, '0'); };
+    const ymd = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    if (!withTime) return ymd;
+    return ymd + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function flash(td) {
+    td.classList.add('saved-flash');
+    setTimeout(function() { td.classList.remove('saved-flash'); }, 600);
+  }
+
+  function updateLocalValue(row, col, value) {
+    const rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (rowObj) rowObj.values[col - 1] = value;
+  }
+
+  /* Writes a single BOQ Database cell, replicating the handful of write-time
+     side effects the original updateCell() in Code.gs applies: Action By ->
+     also stamps Date Stamp and reloads the row set (its lock state changes);
+     PQD/M-S track fields -> also stamp that track's own Status Date. */
+  async function saveCell(row, col, value, td) {
+    try {
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row), [[value]]);
+      updateLocalValue(row, col, value);
+
+      if (col === COL.ACTIONBY) {
+        const stamp = todayStamp(true);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.DATESTAMP, row, COL.DATESTAMP, row), [[stamp]]);
+        updateLocalValue(row, COL.DATESTAMP, stamp);
+        await refreshEverything(); // row lock state changed -> re-render the whole row set
+        return;
+      }
+      if (col === COL.PQD_SUB || col === COL.PQD_CODE) {
+        const stamp = todayStamp(false);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_DATE, row, COL.PQD_DATE, row), [[stamp]]);
+        updateLocalValue(row, COL.PQD_DATE, stamp);
+        const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_DATE + '"]');
+        if (dateCell) dateCell.textContent = stamp;
+      }
+      if (col === COL.MS_SUB || col === COL.MS_CODE) {
+        const stamp = todayStamp(false);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_DATE, row, COL.MS_DATE, row), [[stamp]]);
+        updateLocalValue(row, COL.MS_DATE, stamp);
+        const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
+        if (dateCell) dateCell.textContent = stamp;
+      }
+      if (td) flash(td);
+      if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT) {
+        loadSubmittalStatus(); loadSubmittalDashboard();
+      }
+    } catch (e) {
+      alert('Save failed: ' + (e.message || e));
+    }
+  }
+
+  function buildCell(row, colDef, value, isPackage, isClosed) {
+    const td = document.createElement('td');
+    td.setAttribute('data-col', colDef.col);
+    if (colDef.col === COL.DESC) td.className = 'desc-cell';
+    if (colDef.col === COL.REMARKS) td.className = 'remarks-cell';
+    if (colDef.col === COL.SN) td.className = 'sn-cell';
+
+    if (colDef.type === 'readonly') {
+      const roVal = value == null ? '' : String(value);
+      if (colDef.col === COL.DATESTAMP && roVal.indexOf(' ') !== -1) {
+        const parts = roVal.split(' ');
+        const dateLine = document.createElement('div'); dateLine.textContent = parts[0];
+        const timeLine = document.createElement('div'); timeLine.textContent = parts.slice(1).join(' ');
+        td.appendChild(dateLine); td.appendChild(timeLine);
+      } else {
+        td.textContent = roVal;
+      }
+      return td;
+    }
+
+    // A package row only has its Description editable; everything else is blank.
+    if (isPackage && colDef.col !== COL.DESC) { td.textContent = ''; return td; }
+
+    // A closed row (Action By = "Closed") locks every other cell to plain read-only text.
+    if (isClosed && colDef.col !== COL.ACTIONBY) {
+      td.textContent = value == null ? '' : value;
+      return td;
+    }
+
+    if (colDef.type === 'select') {
+      const sel = document.createElement('select');
+      const optList = OPTION_LISTS[colDef.opts] || [];
+      optList.forEach(function(opt) {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '—';
+        if (String(value) === opt) o.selected = true;
+        sel.appendChild(o);
+      });
+      colorizeSelectByOpts(sel, colDef.opts);
+      if (colDef.col === COL.ACTIONBY) {
+        sel.onchange = function() { saveCell(row, colDef.col, sel.value, td); };
+      } else {
+        sel.onchange = function() { saveCell(row, colDef.col, sel.value, td); colorizeSelectByOpts(sel, colDef.opts); };
+      }
+      td.appendChild(sel);
+      return td;
+    }
+
+    if (colDef.type === 'posupplier') {
+      const poRaw = value == null ? '' : String(value);
+      const nlAt = poRaw.indexOf('\n');
+      const poNumVal = nlAt === -1 ? poRaw : poRaw.slice(0, nlAt);
+      const supplierVal = nlAt === -1 ? '' : poRaw.slice(nlAt + 1);
+
+      const wrap = document.createElement('div'); wrap.className = 'po-supplier-wrap';
+      const poNumInput = document.createElement('input');
+      poNumInput.type = 'text'; poNumInput.placeholder = 'PO #'; poNumInput.className = 'po-number-input';
+      poNumInput.value = poNumVal; poNumInput.defaultValue = poNumVal;
+      const supplierInput = document.createElement('input');
+      supplierInput.type = 'text'; supplierInput.placeholder = 'Supplier name'; supplierInput.className = 'po-supplier-input';
+      supplierInput.value = supplierVal; supplierInput.defaultValue = supplierVal;
+
+      function saveCombined() {
+        const combined = (poNumInput.value || supplierInput.value) ? (poNumInput.value + '\n' + supplierInput.value) : '';
+        saveCell(row, colDef.col, combined, td);
+        poNumInput.defaultValue = poNumInput.value;
+        supplierInput.defaultValue = supplierInput.value;
+      }
+      poNumInput.onblur = function() { if (poNumInput.value !== poNumInput.defaultValue) saveCombined(); };
+      supplierInput.onblur = function() { if (supplierInput.value !== supplierInput.defaultValue) saveCombined(); };
+
+      wrap.appendChild(poNumInput); wrap.appendChild(supplierInput);
+      td.appendChild(wrap);
+      return td;
+    }
+
+    if (colDef.type === 'remarks') {
+      // Append-only history log, ported from Code.gs's updateCell() REMARKS
+      // branch: the user only ever types a NEW note; the server (here: this
+      // client, since there's no backend any more) prepends
+      // "[yyyy-MM-dd] note" onto the untouched existing history, newest on
+      // top. The accumulated history itself is always plain read-only text —
+      // never directly editable — so it can never be garbled by an overwrite.
+      const fullHistory = value == null ? '' : String(value);
+      const history = document.createElement('div');
+      history.className = 'remarks-history';
+      history.textContent = fullHistory;
+
+      const addRow = document.createElement('div');
+      addRow.className = 'remarks-add';
+      const addInput = document.createElement('input');
+      addInput.type = 'text'; addInput.placeholder = 'Add a remark…';
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.textContent = 'Add';
+
+      async function submitNote() {
+        const note = addInput.value.trim();
+        if (!note) return;
+        addBtn.disabled = true;
+        try {
+          const rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+          const oldValue = rowObj ? String(rowObj.values[COL.REMARKS - 1] || '') : fullHistory;
+          const stamp = todayStamp(false);
+          const combined = '[' + stamp + '] ' + note + (oldValue ? '\n' + oldValue : '');
+          await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.REMARKS, row, COL.REMARKS, row), [[combined]]);
+          updateLocalValue(row, COL.REMARKS, combined);
+          history.textContent = combined;
+          addInput.value = '';
+          flash(td);
+        } catch (e) {
+          alert('Save failed: ' + (e.message || e));
+        } finally {
+          addBtn.disabled = false;
+        }
+      }
+      addInput.onkeydown = function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); submitNote(); } };
+      addBtn.onclick = submitNote;
+
+      addRow.appendChild(addInput); addRow.appendChild(addBtn);
+      td.appendChild(addRow);
+      td.appendChild(history);
+      return td;
+    }
+
+    if (colDef.type === 'textarea') {
+      const ta = document.createElement('textarea');
+      ta.value = value == null ? '' : value;
+      ta.defaultValue = ta.value;
+      ta.onblur = function() {
+        if (ta.value !== ta.defaultValue) {
+          var v = ta.value;
+          if (colDef.col === COL.DESC) v = autoCapitalizeDescription(v);
+          ta.value = v;
+          saveCell(row, colDef.col, v, td);
+          ta.defaultValue = ta.value;
+        }
+      };
+      if (colDef.col === COL.DESC) {
+        ta.className = 'desc-textarea'; ta.rows = 1;
+        const growDesc = function() { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+        ta.oninput = growDesc;
+        td.appendChild(ta);
+        setTimeout(growDesc, 0);
+        return td;
+      }
+      td.appendChild(ta);
+      return td;
+    }
+
+    const input = document.createElement('input');
+    if (colDef.type === 'number') input.type = 'number';
+    else if (colDef.type === 'date') input.type = 'date';
+    else input.type = 'text';
+    input.value = value == null ? '' : value;
+    input.defaultValue = input.value;
+    const saveIfChanged = function() { if (input.value !== input.defaultValue) { saveCell(row, colDef.col, input.value, td); input.defaultValue = input.value; } };
+    input.onblur = saveIfChanged;
+    if (colDef.type === 'date') input.onchange = saveIfChanged;
+    td.appendChild(input);
+    return td;
+  }
+
+  /* ===================== 3-way horizontal scroll sync (body / header / top strip) ===================== */
+  (function() {
+    const bodyWrap = document.getElementById('tableBodyWrap');
+    const headerWrap = document.getElementById('tableHeaderWrap');
+    const topScroll = document.getElementById('tableTopScroll');
+    const topScrollInner = document.getElementById('tableTopScrollInner');
+    if (!bodyWrap || !headerWrap || !topScroll || !topScrollInner) return;
+
+    let syncing = false;
+    function syncFrom(source, targets) {
+      if (syncing) return;
+      syncing = true;
+      targets.forEach(function(el) { el.scrollLeft = source.scrollLeft; });
+      syncing = false;
+    }
+    bodyWrap.addEventListener('scroll', function() { syncFrom(bodyWrap, [headerWrap, topScroll]); });
+    topScroll.addEventListener('scroll', function() { syncFrom(topScroll, [headerWrap, bodyWrap]); });
+
+    function measureScrollbarWidth() {
+      const outer = document.createElement('div');
+      outer.style.cssText = 'visibility:hidden;overflow:scroll;position:absolute;top:-9999px;width:100px;height:100px';
+      document.body.appendChild(outer);
+      const inner = document.createElement('div');
+      inner.style.width = '100%';
+      outer.appendChild(inner);
+      const width = outer.offsetWidth - inner.offsetWidth;
+      document.body.removeChild(outer);
+      return width;
+    }
+    headerWrap.style.paddingRight = measureScrollbarWidth() + 'px';
+
+    function syncTopScrollWidth() {
+      const fullTable = document.getElementById('fullTable');
+      if (fullTable) topScrollInner.style.width = fullTable.scrollWidth + 'px';
+    }
+    syncTopScrollWidth();
+    window.addEventListener('resize', syncTopScrollWidth);
+    window.syncTopScrollWidth = syncTopScrollWidth;
+  })();
+
+  /* touch-drag for the body wrapper (overflow-x:hidden blocks native touch-swipe) */
+  (function() {
+    const bodyWrap = document.getElementById('tableBodyWrap');
+    if (!bodyWrap) return;
+    let dragging = false, startX = 0, startScrollLeft = 0;
+    const SKIP_TAGS = { input: true, select: true, textarea: true, button: true };
+    bodyWrap.addEventListener('pointerdown', function(e) {
+      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+      if (SKIP_TAGS[(e.target.tagName || '').toLowerCase()]) return;
+      dragging = true; startX = e.clientX; startScrollLeft = bodyWrap.scrollLeft;
+    });
+    bodyWrap.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      bodyWrap.scrollLeft = startScrollLeft - (e.clientX - startX);
+    });
+    function endDrag() { dragging = false; }
+    bodyWrap.addEventListener('pointerup', endDrag);
+    bodyWrap.addEventListener('pointercancel', endDrag);
+  })();
+
+  // Keeps the Full Table's own column header pinned directly below the global
+  // sticky title/project-bar/nav/toolbar stack (app-header-sticky), which now
+  // stacks title + project bar + nav + toolbar — this still just measures its
+  // total height, so no further change was needed here for that stacking.
+  (function() {
+    const appHeader = document.querySelector('.app-header-sticky');
+    const headerWrap = document.getElementById('tableHeaderWrap');
+    if (!appHeader || !headerWrap) return;
+    function syncFullTableHeaderStickyTop() { headerWrap.style.top = appHeader.offsetHeight + 'px'; }
+    syncFullTableHeaderStickyTop();
+    window.addEventListener('resize', syncFullTableHeaderStickyTop);
+    window.syncFullTableHeaderStickyTop = syncFullTableHeaderStickyTop;
+  })();
+
+  /* ===================== MATERIAL SUBMITTAL STATUS / PQD STATUS =====================
+     Fully ported client-side from Code.gs's computeTrackStats/buildMSRow/
+     buildPQDRow/getSubmittalStatusData/getFilesByBuyerData/getBalanceSubmittalItems/
+     getStatusCategoryItems — all computed live from the already-fetched BOQ
+     Database rows (lastLoadedRows), no server round-trip needed, exactly as the
+     task calls for. MS_MANUAL_INDICES/PQD_MANUAL_INDICES are empty in the
+     original (every figure on both tables is computed, nothing is manual any
+     more) so there is nothing left to persist on a separate sheet — this is a
+     pure read-only computed view. */
+
+  function daysFromEpoch(dateStr) {
+    var p = dateStr.split('-').map(Number);
+    return Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
+  }
+  function isThisWeek(dateStr) {
+    if (!dateStr) return false;
+    var dStr = String(dateStr).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var now = new Date();
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    var dow = now.getDay(); // Sun=0..Sat=6
+    var daysSinceSat = (dow + 1) % 7; // Sat=0 ... Fri=6, per "Sat-Fri week"
+    var todayDays = daysFromEpoch(todayStr);
+    var weekStartDays = todayDays - daysSinceSat;
+    var weekEndDays = weekStartDays + 6;
+    var dDays = daysFromEpoch(dStr);
+    return dDays >= weekStartDays && dDays <= weekEndDays;
+  }
+  function isDueByToday(dateStr) {
+    if (!dateStr) return false;
+    var dStr = String(dateStr).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var now = new Date();
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    return daysFromEpoch(dStr) <= daysFromEpoch(todayStr);
+  }
+
+  var MS_FIELD_LABELS = [
+    'Total No. Of Materials as Pro. Sch.', 'RFQ', 'QUOTES',
+    'Comp. Sheet - Initial', 'Comp. Sheet - Target Price', 'Comp. Sheet - Final',
+    'Submitted to Client - Main', 'Submitted to Client - Alt', 'Submitted to Client - TOTAL',
+    'This Week Submittal - Main', 'This Week Submittal - Alt',
+    'Approved - Main', 'Approved - Alt',
+    'Approved This Week - Main', 'Approved This Week - Alt',
+    'Code C & D - Main', 'Code C & D - Alt',
+    'Code C & D This Week - Main', 'Code C & D This Week - Alt',
+    'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
+    'Under Approval This Week - Main', 'Under Approval This Week - Alt',
+    'Total PR', 'Total PO',
+    'Balance Submittal to be Prepared', 'Submittal Under Process By Proc.', 'No Design Action By Site',
+    'Planned Submission (%)', 'Submitted (%)', 'Approved (%)', 'Not Approved & C/D (%)',
+    'Received from Client - A', 'Received from Client - B', 'Received from Client - C', 'Received from Client - D'
+  ];
+  var PQD_FIELD_LABELS = [
+    'Estimated Total No. of PQDs',
+    'Submitted to Client - Main', 'Submitted to Client - Alt', 'Submitted to Client - TOTAL',
+    'This Week Submittal - Main', 'This Week Submittal - Alt',
+    'Approved - Main', 'Approved - Alt',
+    'Approved This Week - Main', 'Approved This Week - Alt',
+    'Code C & D - Main', 'Code C & D - Alt',
+    'Code C & D This Week - Main', 'Code C & D This Week - Alt',
+    'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
+    'Under Approval This Week - Main', 'Under Approval This Week - Alt',
+    'Balance PQD to be Prepared', 'PQD Under Process By Proc.', 'No Design Action By Site',
+    'Planned Submission (%)', 'Submitted (%)', 'Approved (%)', 'Not Approved & C/D (%)',
+    'Received from Client - A', 'Received from Client - B', 'Received from Client - C', 'Received from Client - D'
+  ];
+  var MS_GROUPS = [
+    { label: 'Total Materials\nas Per Sch.', subs: [''] },
+    { label: 'RFQ', subs: [''] },
+    { label: 'Quotes', subs: [''] },
+    { label: 'Comparison Sheet', subs: ['Initial', 'Target Price', 'Final'] },
+    { label: 'Submitted to Client', subs: ['Main', 'Alt', 'TOTAL'] },
+    { label: 'This Week Submittal', subs: ['Main', 'Alt'] },
+    { label: 'Approved', subs: ['Main', 'Alt'] },
+    { label: 'Approved This Week', subs: ['Main', 'Alt'] },
+    { label: 'Code C & D', subs: ['Main', 'Alt'] },
+    { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
+    { label: 'Total PR', subs: [''] },
+    { label: 'Total PO', subs: [''] },
+    { label: 'Balance Submittal\nto be Prepared', subs: [''] },
+    { label: 'Submittal Under\nProcess By Proc.', subs: [''] },
+    { label: 'No Design Action\nBy Site', subs: [''] },
+    { label: 'Planned Submission (%)', subs: [''] },
+    { label: 'Submitted (%)', subs: [''] },
+    { label: 'Approved (%)', subs: [''] },
+    { label: 'Not Approved & C/D (%)', subs: [''] },
+    { label: 'Received from Client', subs: ['A', 'B', 'C', 'D'] }
+  ];
+  var MS_ROW_LABELS = ['NON LLI', 'LLI', 'GRAND TOTAL'];
+  var MS_ROW_GROUP = { 'NON LLI': 'nonlli', 'LLI': 'lli', 'GRAND TOTAL': 'all' };
+  var CATEGORY_COLUMN_MAP = { 'Code C & D': 'cd', 'Under Approval W/Client': 'ua' };
+
+  var PQD_GROUPS = [
+    { label: 'Estimated Total\nNo. of PQDs', subs: [''] },
+    { label: 'Submitted to Client', subs: ['Main', 'Alt', 'TOTAL'] },
+    { label: 'This Week Submittal', subs: ['Main', 'Alt'] },
+    { label: 'Approved', subs: ['Main', 'Alt'] },
+    { label: 'Approved This Week', subs: ['Main', 'Alt'] },
+    { label: 'Code C & D', subs: ['Main', 'Alt'] },
+    { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
+    { label: 'Balance PQD\nto be Prepared', subs: [''] },
+    { label: 'PQD Under\nProcess By Proc.', subs: [''] },
+    { label: 'No Design Action\nBy Site', subs: [''] },
+    { label: 'Planned Submission (%)', subs: [''] },
+    { label: 'Submitted (%)', subs: [''] },
+    { label: 'Approved (%)', subs: [''] },
+    { label: 'Not Approved & C/D (%)', subs: [''] },
+    { label: 'Received from Client', subs: ['A', 'B', 'C', 'D'] }
+  ];
+  var PQD_ROW_LABELS = ['PQD'];
+
+  var SUBMITTAL_HEADER_TIPS = {
+    'Planned Submission (%)': 'Main items whose Planned Submission Date has arrived (today or earlier) ÷ Total Materials as Per Sch. × 100',
+    'Submitted (%)': 'Submitted to Client - Main ÷ Total Materials as Per Sch. × 100',
+    'Approved (%)': 'Approved - Main ÷ Submitted to Client - Main × 100 (only out of what was actually submitted, not the total)',
+    'Not Approved & C/D (%)': 'Code C & D - Main ÷ Submitted to Client - Main × 100 (only out of what was actually submitted, not the total)'
+  };
+
+  // Ported faithfully from Code.gs's computeTrackStats(). `items` is an array
+  // of 28-value row arrays (0-indexed, matching r[COL.x-1]); `track` is
+  // { SUB, CODE, DATE, PLANNED_DATE } (MS or PQD column numbers).
+  function computeTrackStats(items, track) {
+    var s = {
+      totalMaterials: 0, rfq: 0, quotes: 0, csInitial: 0, csTarget: 0, csFinal: 0,
+      subMain: 0, subAlt: 0, subMainWeek: 0, subAltWeek: 0,
+      apprMain: 0, apprAlt: 0, apprMainWeek: 0, apprAltWeek: 0,
+      cdMain: 0, cdAlt: 0, cdMainWeek: 0, cdAltWeek: 0,
+      uaMain: 0, uaAlt: 0, uaMainWeek: 0, uaAltWeek: 0,
+      pr: 0, po: 0, noDesignAction: 0, plannedDue: 0,
+      recvA: 0, recvB: 0, recvC: 0, recvD: 0
+    };
+    items.forEach(function(r) {
+      var mainAlt = r[COL.MAINALT - 1];
+      var isMain = mainAlt === 'M';
+      var isAlt = mainAlt === 'A';
+      if (isMain && isDueByToday(r[track.PLANNED_DATE - 1])) s.plannedDue++;
+      if (isMain) s.totalMaterials++;
+      if (isMain && r[COL.RFQ - 1] === 'Yes') s.rfq++;
+      if (isMain && r[COL.QUOT - 1] === 'Yes') s.quotes++;
+      var actionBy = r[COL.ACTIONBY - 1];
+      if (isMain && (actionBy === 'Site' || actionBy === 'Engineering')) s.noDesignAction++;
+      var csStatus = r[COL.CS_STATUS - 1];
+      if (isMain) {
+        if (csStatus === 'Initial') s.csInitial++;
+        else if (csStatus === 'Target Price') s.csTarget++;
+        else if (csStatus === 'Final & Approved') s.csFinal++;
+      }
+      if (isMain && r[COL.PR - 1] === 'Yes') s.pr++;
+      if (isMain && r[COL.PO1 - 1] === 'Yes') s.po++;
+
+      var submitted = r[track.SUB - 1] === 'Yes';
+      var code = String(r[track.CODE - 1] || '').trim();
+      var thisWeek = isThisWeek(r[track.DATE - 1]);
+      var underApproval = (code === 'W/Client');
+
+      if (submitted) {
+        if (isMain) { s.subMain++; if (thisWeek) s.subMainWeek++; }
+        if (isAlt) { s.subAlt++; if (thisWeek) s.subAltWeek++; }
+      }
+      if (code === 'A' || code === 'B') {
+        if (isMain) { s.apprMain++; if (thisWeek) s.apprMainWeek++; }
+        if (isAlt) { s.apprAlt++; if (thisWeek) s.apprAltWeek++; }
+        if (isMain && code === 'A') s.recvA++;
+        if (isMain && code === 'B') s.recvB++;
+      } else if (code === 'C' || code === 'D') {
+        if (isMain) { s.cdMain++; if (thisWeek) s.cdMainWeek++; }
+        if (isAlt) { s.cdAlt++; if (thisWeek) s.cdAltWeek++; }
+        if (isMain && code === 'C') s.recvC++;
+        if (isMain && code === 'D') s.recvD++;
+      }
+      if (underApproval) {
+        if (isMain) { s.uaMain++; if (thisWeek) s.uaMainWeek++; }
+        if (isAlt) { s.uaAlt++; if (thisWeek) s.uaAltWeek++; }
+      }
+    });
+    var subTotal = s.subMain, apprTotal = s.apprMain, cdTotal = s.cdMain;
+    return {
+      totalMaterials: s.totalMaterials, rfq: s.rfq, quotes: s.quotes,
+      csInitial: s.csInitial, csTarget: s.csTarget, csFinal: s.csFinal,
+      subMain: s.subMain, subAlt: s.subAlt, subTotal: subTotal,
+      subMainWeek: s.subMainWeek, subAltWeek: s.subAltWeek,
+      apprMain: s.apprMain, apprAlt: s.apprAlt, apprMainWeek: s.apprMainWeek, apprAltWeek: s.apprAltWeek,
+      cdMain: s.cdMain, cdAlt: s.cdAlt, cdMainWeek: s.cdMainWeek, cdAltWeek: s.cdAltWeek,
+      uaMain: s.uaMain, uaAlt: s.uaAlt, uaMainWeek: s.uaMainWeek, uaAltWeek: s.uaAltWeek,
+      pr: s.pr, po: s.po, noDesignAction: s.noDesignAction,
+      submittedPct: s.totalMaterials > 0 ? Math.round((subTotal / s.totalMaterials) * 100) : 0,
+      approvedPct: subTotal > 0 ? Math.round((apprTotal / subTotal) * 100) : 0,
+      notApprovedPct: subTotal > 0 ? Math.round((cdTotal / subTotal) * 100) : 0,
+      plannedSubmissionPct: s.totalMaterials > 0 ? Math.round((s.plannedDue / s.totalMaterials) * 100) : 0,
+      recvA: s.recvA, recvB: s.recvB, recvC: s.recvC, recvD: s.recvD
+    };
+  }
+
+  function buildMSRow(stats) {
+    var balance = stats.totalMaterials - stats.subTotal;
+    return [
+      stats.totalMaterials, stats.rfq, stats.quotes, stats.csInitial, stats.csTarget, stats.csFinal,
+      stats.subMain, stats.subAlt, stats.subTotal,
+      stats.subMainWeek, stats.subAltWeek,
+      stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
+      stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
+      stats.uaMain, stats.uaAlt, stats.uaMainWeek, stats.uaAltWeek,
+      stats.pr, stats.po,
+      balance, balance - stats.noDesignAction, stats.noDesignAction,
+      stats.plannedSubmissionPct, stats.submittedPct, stats.approvedPct, stats.notApprovedPct,
+      stats.recvA, stats.recvB, stats.recvC, stats.recvD
+    ];
+  }
+  function buildPQDRow(stats) {
+    var balance = stats.totalMaterials - stats.subTotal;
+    return [
+      stats.totalMaterials,
+      stats.subMain, stats.subAlt, stats.subTotal,
+      stats.subMainWeek, stats.subAltWeek,
+      stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
+      stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
+      stats.uaMain, stats.uaAlt, stats.uaMainWeek, stats.uaAltWeek,
+      balance, balance - stats.noDesignAction, stats.noDesignAction,
+      stats.plannedSubmissionPct, stats.submittedPct, stats.approvedPct, stats.notApprovedPct,
+      stats.recvA, stats.recvB, stats.recvC, stats.recvD
+    ];
+  }
+
+  var MS_TRACK = { SUB: COL.MS_SUB, CODE: COL.MS_CODE, DATE: COL.MS_DATE, PLANNED_DATE: COL.MS_PLANNED_DATE };
+  var PQD_TRACK = { SUB: COL.PQD_SUB, CODE: COL.PQD_CODE, DATE: COL.PQD_DATE, PLANNED_DATE: COL.PQD_PLANNED_DATE };
+
+  function nonPackageItems() {
+    return lastLoadedRows.filter(function(r) { return r.values[COL.ROWTYPE - 1] !== 'Package'; }).map(function(r) { return r.values; });
+  }
+
+  function getSubmittalStatusDataClient() {
+    var items = nonPackageItems();
+    var nonLLI = items.filter(function(r) { return r[COL.LLI - 1] === 'No'; });
+    var lli = items.filter(function(r) { return r[COL.LLI - 1] === 'Yes'; });
+    var ms = [
+      buildMSRow(computeTrackStats(nonLLI, MS_TRACK)),
+      buildMSRow(computeTrackStats(lli, MS_TRACK)),
+      buildMSRow(computeTrackStats(items, MS_TRACK))
+    ];
+    var pqd = [buildPQDRow(computeTrackStats(items, PQD_TRACK))];
+    return { ms: ms, pqd: pqd };
+  }
+
+  function getFilesByBuyerDataClient() {
+    var names = OPTION_LISTS.names.slice();
+    var items = nonPackageItems();
+    var lliCounts = {}, nonLliCounts = {};
+    names.forEach(function(n) { lliCounts[n] = 0; nonLliCounts[n] = 0; });
+    items.forEach(function(r) {
+      var fw = String(r[COL.FILEWITH - 1] || '').trim();
+      if (!fw) return;
+      if (!(fw in lliCounts)) { lliCounts[fw] = 0; nonLliCounts[fw] = 0; }
+      if (r[COL.LLI - 1] === 'Yes') lliCounts[fw]++; else nonLliCounts[fw]++;
+    });
+    var allNames = names.slice();
+    Object.keys(lliCounts).forEach(function(n) { if (allNames.indexOf(n) === -1) allNames.push(n); });
+    var lliArr = [], nonLliArr = [], totalArr = [];
+    var lliRowTotal = 0, nonLliRowTotal = 0, grandTotal = 0;
+    allNames.forEach(function(n) {
+      var l = lliCounts[n] || 0, nl = nonLliCounts[n] || 0;
+      lliArr.push(l); nonLliArr.push(nl); totalArr.push(l + nl);
+      lliRowTotal += l; nonLliRowTotal += nl; grandTotal += l + nl;
+    });
+    return {
+      names: allNames,
+      rows: [
+        { label: 'LLI', counts: lliArr, rowTotal: lliRowTotal },
+        { label: 'Non LLI', counts: nonLliArr, rowTotal: nonLliRowTotal },
+        { label: 'TOTAL', counts: totalArr, rowTotal: grandTotal }
+      ]
+    };
+  }
+
+  // "Balance Submittal to be Prepared" click-through — Main items in `group`
+  // (nonlli/lli/all) whose M/S Status isn't yet submitted to client.
+  function getBalanceSubmittalItemsClient(group) {
+    var items = nonPackageItems().filter(function(r) {
+      if (r[COL.MAINALT - 1] !== 'M') return false;
+      if (group === 'lli' && r[COL.LLI - 1] !== 'Yes') return false;
+      if (group === 'nonlli' && r[COL.LLI - 1] !== 'No') return false;
+      return r[COL.MS_SUB - 1] !== 'Yes';
+    });
+    return items.map(function(r) { return { desc: r[COL.DESC - 1], unit: r[COL.UNIT - 1], qty: r[COL.QTY - 1] }; });
+  }
+
+  // "Code C & D" / "Under Approval W/Client" click-through — both tables,
+  // Main or Alt.
+  function getStatusCategoryItemsClient(track, group, mainAlt, category) {
+    var codeCol = track === 'pqd' ? COL.PQD_CODE : COL.MS_CODE;
+    var items = nonPackageItems().filter(function(r) {
+      var mainAltVal = r[COL.MAINALT - 1];
+      if (mainAlt === 'main' && mainAltVal !== 'M') return false;
+      if (mainAlt === 'alt' && mainAltVal !== 'A') return false;
+      if (group === 'lli' && r[COL.LLI - 1] !== 'Yes') return false;
+      if (group === 'nonlli' && r[COL.LLI - 1] !== 'No') return false;
+      var code = String(r[codeCol - 1] || '').trim();
+      if (category === 'cd') return code === 'C' || code === 'D';
+      if (category === 'ua') return code === 'W/Client';
+      return false;
+    });
+    return items.map(function(r) { return { desc: r[COL.DESC - 1], unit: r[COL.UNIT - 1], qty: r[COL.QTY - 1], code: r[codeCol - 1] }; });
+  }
+
+  function buildSubmittalHead(theadEl, groups) {
+    theadEl.innerHTML = '';
+    var row1 = document.createElement('tr');
+    var row2 = document.createElement('tr');
+    var hasRow2 = false;
+
+    var srTh = document.createElement('th'); srTh.textContent = 'SR/NO.'; srTh.rowSpan = 2; row1.appendChild(srTh);
+    var discTh = document.createElement('th'); discTh.textContent = 'DISCIPLINE'; discTh.rowSpan = 2; row1.appendChild(discTh);
+
+    groups.forEach(function(g) {
+      var isThisWeekCol = g.label.indexOf('This Week') !== -1;
+      var th = document.createElement('th');
+      th.textContent = g.label;
+      if (isThisWeekCol) th.classList.add('tw-col');
+      if (SUBMITTAL_HEADER_TIPS[g.label]) { th.title = SUBMITTAL_HEADER_TIPS[g.label]; th.classList.add('has-tip'); }
+      if (g.subs.length === 1 && g.subs[0] === '') {
+        th.rowSpan = 2; row1.appendChild(th);
+      } else {
+        th.colSpan = g.subs.length; row1.appendChild(th); hasRow2 = true;
+        g.subs.forEach(function(s) {
+          var sub = document.createElement('th'); sub.textContent = s;
+          if (isThisWeekCol) sub.classList.add('tw-col');
+          row2.appendChild(sub);
+        });
+      }
+    });
+    theadEl.appendChild(row1);
+    if (hasRow2) theadEl.appendChild(row2);
+  }
+
+  function renderSubmittalBody(tbodyEl, groups, rowLabels, dataRows, section) {
+    tbodyEl.innerHTML = '';
+    rowLabels.forEach(function(label, rowIdx) {
+      var tr = document.createElement('tr');
+      if (label === 'GRAND TOTAL') tr.classList.add('grand-total');
+      var srTd = document.createElement('td'); srTd.textContent = label === 'GRAND TOTAL' ? '' : (rowIdx + 1); tr.appendChild(srTd);
+      var labelTd = document.createElement('td'); labelTd.className = 'ms-label-cell'; labelTd.textContent = label; tr.appendChild(labelTd);
+
+      var rowGroup = section === 'pqd' ? 'all' : MS_ROW_GROUP[label];
+      var colIdx = 0;
+      groups.forEach(function(g) {
+        var isThisWeekCol = g.label.indexOf('This Week') !== -1;
+        var isPctCol = g.label === 'Planned Submission (%)' || g.label === 'Submitted (%)' || g.label === 'Approved (%)' || g.label === 'Not Approved & C/D (%)';
+        var categoryKey = CATEGORY_COLUMN_MAP[g.label];
+        g.subs.forEach(function(subLabel) {
+          var ci = colIdx;
+          var td = document.createElement('td');
+          if (isThisWeekCol) td.classList.add('tw-col');
+          var v = (dataRows[rowIdx] && dataRows[rowIdx][ci] !== undefined && dataRows[rowIdx][ci] !== null) ? dataRows[rowIdx][ci] : '';
+          td.textContent = (isPctCol && v !== '') ? (v + '%') : v;
+          td.classList.add('ms-computed-cell');
+          if (section === 'ms' && g.label === 'Balance Submittal\nto be Prepared') {
+            td.classList.add('balance-clickable');
+            td.title = 'Click to see which items make up this balance';
+            td.onclick = function() { openBalanceModal(rowGroup, label); };
+          } else if (categoryKey && (subLabel === 'Main' || subLabel === 'Alt')) {
+            var categoryMainAlt = subLabel.toLowerCase();
+            var categoryTitle = g.label + ' - ' + subLabel + ' (' + label + ')';
+            td.classList.add('balance-clickable');
+            td.title = 'Click to see which items make up this number';
+            td.onclick = function() { openCategoryModal(section, rowGroup, categoryMainAlt, categoryKey, categoryTitle); };
+          }
+          tr.appendChild(td);
+          colIdx++;
+        });
+      });
+      tbodyEl.appendChild(tr);
+    });
+  }
+
+  function loadSubmittalStatus() {
+    if (!lastLoadedRows.length && !document.getElementById('msStatusHead')) return;
+    buildSubmittalHead(document.getElementById('msStatusHead'), MS_GROUPS);
+    buildSubmittalHead(document.getElementById('pqdStatusHead'), PQD_GROUPS);
+    var data = getSubmittalStatusDataClient();
+    renderSubmittalBody(document.getElementById('msStatusBody'), MS_GROUPS, MS_ROW_LABELS, data.ms, 'ms');
+    renderSubmittalBody(document.getElementById('pqdStatusBody'), PQD_GROUPS, PQD_ROW_LABELS, data.pqd, 'pqd');
+    renderBuyerTable(getFilesByBuyerDataClient());
+  }
+
+  function renderBuyerTable(data) {
+    var head = document.getElementById('buyerStatusHead');
+    var body = document.getElementById('buyerStatusBody');
+    head.innerHTML = '<tr><th>Type</th>' + data.names.map(function(n) { return '<th>' + n + '</th>'; }).join('') + '<th>TOTAL</th></tr>';
+    var bodyHtml = '';
+    data.rows.forEach(function(r) {
+      var isTotal = r.label === 'TOTAL';
+      bodyHtml += '<tr' + (isTotal ? ' class="grand-total"' : '') + '>' +
+        '<td class="ms-label-cell">' + r.label + '</td>' +
+        r.counts.map(function(c) { return '<td>' + c + '</td>'; }).join('') +
+        '<td><b>' + r.rowTotal + '</b></td></tr>';
+    });
+    body.innerHTML = bodyHtml || '<tr><td class="ms-label-cell">No data</td></tr>';
+  }
+
+  /* ===================== Click-through item popups ===================== */
+  var ITEM_LIST_COLUMNS = [{ header: 'Description', key: 'desc' }, { header: 'Unit', key: 'unit' }, { header: 'Qty', key: 'qty' }];
+  var ITEM_LIST_COLUMNS_WITH_STATUS = ITEM_LIST_COLUMNS.concat([{ header: 'Status', key: 'code' }]);
+
+  function renderItemsPopupTable(listEl, items, columns, emptyMessage) {
+    listEl.innerHTML = '';
+    if (!items.length) {
+      var none = document.createElement('p'); none.style.color = '#888'; none.textContent = emptyMessage;
+      listEl.appendChild(none); return;
+    }
+    var table = document.createElement('table');
+    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px';
+    var head = document.createElement('tr');
+    ['#'].concat(columns.map(function(c) { return c.header; })).forEach(function(h) {
+      var th = document.createElement('th'); th.textContent = h;
+      th.style.cssText = 'text-align:left;padding:4px 6px;color:#777;border-bottom:1px solid #ddd';
+      head.appendChild(th);
+    });
+    table.appendChild(head);
+    items.forEach(function(it, i) {
+      var tr = document.createElement('tr');
+      [i + 1].concat(columns.map(function(c) { return it[c.key]; })).forEach(function(val) {
+        var td = document.createElement('td');
+        td.textContent = (val === null || typeof val === 'undefined') ? '' : val;
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    listEl.appendChild(table);
+  }
+
+  function openItemsPopup(title, emptyMessage, columns, items) {
+    document.getElementById('balanceModalTitle').textContent = title;
+    renderItemsPopupTable(document.getElementById('balanceModalList'), items, columns, emptyMessage);
+    document.getElementById('balanceModalOverlay').style.display = 'flex';
+  }
+  function openBalanceModal(group, rowLabel) {
+    openItemsPopup('Balance Submittal to be Prepared — ' + rowLabel,
+      'No outstanding items — everything in this group has been submitted.',
+      ITEM_LIST_COLUMNS, getBalanceSubmittalItemsClient(group));
+  }
+  function openCategoryModal(track, group, mainAlt, category, title) {
+    openItemsPopup(title, 'No items in this category.', ITEM_LIST_COLUMNS_WITH_STATUS,
+      getStatusCategoryItemsClient(track, group, mainAlt, category));
+  }
+  function closeBalanceModal() { document.getElementById('balanceModalOverlay').style.display = 'none'; }
+
+  /* ===================== SUBMITTAL DASHBOARD (Chart.js) =====================
+     Simplified subset of the original's full chart set (which also had a
+     radar comparison, Main-vs-Alt breakdown bars and a buyer pie chart) — kept
+     here are the KPI cards, both procurement pipelines, both status-breakdown
+     doughnuts, the comparison-sheet stepper, the this-week activity bar, all
+     8 progress gauges and a buyer bar chart, covering every number the task
+     asked for while keeping the chart set manageable. */
+  function flattenGroupIndex(groups) {
+    var map = {}; var idx = 0;
+    groups.forEach(function(g) { g.subs.forEach(function(s) { map[g.label + '|' + s] = idx; idx++; }); });
+    return map;
+  }
+  function sdGet(dataRow, idxMap, label, sub) {
+    var i = idxMap[label + '|' + (sub || '')];
+    if (i === undefined || !dataRow || dataRow[i] === undefined || dataRow[i] === null || dataRow[i] === '') return 0;
+    var n = Number(dataRow[i]);
+    return isNaN(n) ? 0 : n;
+  }
+  var SD_CHARTS = {};
+  function sdMakeChart(canvasId, config) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (SD_CHARTS[canvasId]) SD_CHARTS[canvasId].destroy();
+    SD_CHARTS[canvasId] = new Chart(canvas.getContext('2d'), config);
+  }
+  function sdMakeGauge(canvasId, pct, color) {
+    pct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    sdMakeChart(canvasId, {
+      type: 'doughnut',
+      data: { datasets: [{ data: [pct, 100 - pct], backgroundColor: [color, '#e8eaf0'], borderWidth: 0 }] },
+      options: { rotation: -90, circumference: 180, cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        maintainAspectRatio: false, animation: { duration: 400 } }
+    });
+    var txt = document.getElementById(canvasId + 'Txt');
+    if (txt) txt.textContent = pct + '%';
+  }
+  var SD_PALETTE = ['#1a73e8', '#34a853', '#f4a300', '#e8453c', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
+
+  function loadSubmittalDashboard() {
+    if (!lastLoadedRows.length) return;
+    var data = getSubmittalStatusDataClient();
+    renderSubmittalDashboard(data.ms, data.pqd);
+    renderBuyerChart(getFilesByBuyerDataClient());
+  }
+
+  function renderSubmittalDashboard(msRows, pqdRows) {
+    var msIdx = flattenGroupIndex(MS_GROUPS);
+    var pqdIdx = flattenGroupIndex(PQD_GROUPS);
+    var msRow = msRows[msRows.length - 1] || [];
+    var pqdRow = pqdRows[0] || [];
+
+    var msTotal = sdGet(msRow, msIdx, 'Total Materials\nas Per Sch.', '');
+    var msRfq = sdGet(msRow, msIdx, 'RFQ', '');
+    var msQuotes = sdGet(msRow, msIdx, 'Quotes', '');
+    var msSubmitted = sdGet(msRow, msIdx, 'Submitted to Client', 'TOTAL');
+    var msBalance = sdGet(msRow, msIdx, 'Balance Submittal\nto be Prepared', '');
+    var msPr = sdGet(msRow, msIdx, 'Total PR', '');
+    var msPo = sdGet(msRow, msIdx, 'Total PO', '');
+    var pqdTotal = sdGet(pqdRow, pqdIdx, 'Estimated Total\nNo. of PQDs', '');
+    var pqdSubmitted = sdGet(pqdRow, pqdIdx, 'Submitted to Client', 'TOTAL');
+    var pqdBalance = sdGet(pqdRow, pqdIdx, 'Balance PQD\nto be Prepared', '');
+
+    document.getElementById('sdMsTotal').textContent = msTotal;
+    document.getElementById('sdMsRfq').textContent = msRfq;
+    document.getElementById('sdMsQuotes').textContent = msQuotes;
+    document.getElementById('sdMsSubmitted').textContent = msSubmitted;
+    document.getElementById('sdMsBalance').textContent = msBalance;
+    document.getElementById('sdMsPr').textContent = msPr;
+    document.getElementById('sdMsPo').textContent = msPo;
+    document.getElementById('sdPqdTotal').textContent = pqdTotal;
+    document.getElementById('sdPqdSubmitted').textContent = pqdSubmitted;
+    document.getElementById('sdPqdBalance').textContent = pqdBalance;
+    document.getElementById('sdPqdPr').textContent = sdGet(pqdRow, pqdIdx, 'Total PR', '') || 0;
+    document.getElementById('sdPqdPo').textContent = sdGet(pqdRow, pqdIdx, 'Total PO', '') || 0;
+
+    var msUnderProcess = sdGet(msRow, msIdx, 'Submittal Under\nProcess By Proc.', '');
+    var msNoDesign = sdGet(msRow, msIdx, 'No Design Action\nBy Site', '');
+    sdMakeChart('chartMsStatus', {
+      type: 'doughnut',
+      data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
+        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#34a853', '#f4a300', '#e8453c'] }] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+    });
+
+    var pqdUnderProcess = sdGet(pqdRow, pqdIdx, 'PQD Under\nProcess By Proc.', '');
+    var pqdNoDesign = sdGet(pqdRow, pqdIdx, 'No Design Action\nBy Site', '');
+    sdMakeChart('chartPqdStatus', {
+      type: 'doughnut',
+      data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
+        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1a73e8', '#8e44ec', '#e8453c'] }] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+    });
+
+    var csFinal = sdGet(msRow, msIdx, 'Comparison Sheet', 'Final');
+    sdMakeChart('chartMsFunnel', {
+      type: 'bar',
+      data: { labels: ['Total Materials', 'RFQ', 'Quotes', 'Comp. Sheet (Final)', 'Submitted', 'Total PR', 'Total PO'],
+        datasets: [{ data: [msTotal, msRfq, msQuotes, csFinal, msSubmitted, msPr, msPo],
+          backgroundColor: ['#1a73e8', '#00acc1', '#8e44ec', '#f4a300', '#34a853', '#d81b60', '#5d4037'] }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+
+    var pqdPr = sdGet(pqdRow, pqdIdx, 'Total PR', '') || 0;
+    var pqdPo = sdGet(pqdRow, pqdIdx, 'Total PO', '') || 0;
+    sdMakeChart('chartPqdFunnel', {
+      type: 'bar',
+      data: { labels: ['Estimated Total', 'Submitted'],
+        datasets: [{ data: [pqdTotal, pqdSubmitted], backgroundColor: ['#1a73e8', '#34a853'] }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+
+    var csInitial = sdGet(msRow, msIdx, 'Comparison Sheet', 'Initial');
+    var csTarget = sdGet(msRow, msIdx, 'Comparison Sheet', 'Target Price');
+    var stepperColors = ['#00acc1', '#f4a300', '#34a853'];
+    var stepperLabels = ['Initial', 'Target Price', 'Final'];
+    var stepperVals = [csInitial, csTarget, csFinal];
+    var stepperHtml = '';
+    stepperVals.forEach(function(v, i) {
+      stepperHtml += '<div class="step"><div class="circle" style="background:' + stepperColors[i] + '">' + v + '</div>' +
+        '<div class="step-label">' + stepperLabels[i] + '</div></div>';
+      if (i < stepperVals.length - 1) stepperHtml += '<div class="connector"></div>';
+    });
+    document.getElementById('msCompStepper').innerHTML = stepperHtml;
+
+    sdMakeChart('chartThisWeek', {
+      type: 'bar',
+      data: { labels: ['Submittal', 'Approved', 'Code C&D', 'Under Approval'],
+        datasets: [
+          { label: 'Material', backgroundColor: '#1a73e8', data: [
+              sdGet(msRow, msIdx, 'This Week Submittal', 'Main'),
+              sdGet(msRow, msIdx, 'Approved This Week', 'Main'),
+              sdGet(msRow, msIdx, 'Code C & D This Week', 'Main'),
+              sdGet(msRow, msIdx, 'Under Approval This Week', 'Main')
+            ] },
+          { label: 'PQD', backgroundColor: '#f4a300', data: [
+              sdGet(pqdRow, pqdIdx, 'This Week Submittal', 'Main'),
+              sdGet(pqdRow, pqdIdx, 'Approved This Week', 'Main'),
+              sdGet(pqdRow, pqdIdx, 'Code C & D This Week', 'Main'),
+              sdGet(pqdRow, pqdIdx, 'Under Approval This Week', 'Main')
+            ] }
+        ] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+
+    sdMakeGauge('gaugeMsPlanned', sdGet(msRow, msIdx, 'Planned Submission (%)', ''), '#1a73e8');
+    sdMakeGauge('gaugeMsSubmitted', sdGet(msRow, msIdx, 'Submitted (%)', ''), '#34a853');
+    sdMakeGauge('gaugeMsApproved', sdGet(msRow, msIdx, 'Approved (%)', ''), '#1e8e3e');
+    sdMakeGauge('gaugeMsNotApproved', sdGet(msRow, msIdx, 'Not Approved & C/D (%)', ''), '#e8453c');
+    sdMakeGauge('gaugePqdPlanned', sdGet(pqdRow, pqdIdx, 'Planned Submission (%)', ''), '#1a73e8');
+    sdMakeGauge('gaugePqdSubmitted', sdGet(pqdRow, pqdIdx, 'Submitted (%)', ''), '#34a853');
+    sdMakeGauge('gaugePqdApproved', sdGet(pqdRow, pqdIdx, 'Approved (%)', ''), '#1e8e3e');
+    sdMakeGauge('gaugePqdNotApproved', sdGet(pqdRow, pqdIdx, 'Not Approved & C/D (%)', ''), '#e8453c');
+  }
+
+  function renderBuyerChart(buyerData) {
+    var totals = buyerData.rows.find(function(r) { return r.label === 'TOTAL'; });
+    if (!totals) return;
+    sdMakeChart('chartBuyer', {
+      type: 'bar',
+      data: { labels: buyerData.names, datasets: [{ data: totals.counts, backgroundColor: SD_PALETTE }] },
+      options: { plugins: { legend: { display: false } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+  }
+
+  /* ===================== EXCEL EXPORT =====================
+     Client-side equivalent of Code.gs's exportBoqAndMsToXlsx()/
+     exportSubmittalStatusToXlsx(): build a throwaway spreadsheet with the Sheets
+     API, write the real BOQ Database tab into it via the server-side
+     spreadsheets.sheets.copyTo (so formatting matches exactly, same as
+     sheet.copyTo() did server-side) plus the live-computed Material Submittal
+     Status/PQD/Item-Buyer tables, fetch its .xlsx export with the OAuth bearer
+     token, trigger a browser download, then delete the temp file from Drive. */
+  function downloadXlsxResult(result) {
+    var byteChars = atob(result.base64);
+    var byteNumbers = new Array(byteChars.length);
+    for (var i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+    var byteArray = new Uint8Array(byteNumbers);
+    var blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = result.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+  async function convertTempSpreadsheetToXlsx(tempId, filenamePrefix) {
+    const res = await fetch('https://docs.google.com/spreadsheets/d/' + tempId + '/export?format=xlsx', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if (!res.ok) throw new Error('Export request failed (' + res.status + ')');
+    const blob = await res.blob();
+    const base64 = await new Promise(function(resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function() { resolve(String(reader.result).split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const stamp = todayStamp(false);
+    return { base64: base64, filename: filenamePrefix + '_' + stamp + '.xlsx' };
+  }
+
+  // Writes the fixed STATUS OF MATERIAL SUBMITTAL / STATUS OF PQD headers into
+  // `destId`'s sheet named SUBMITTAL_SHEET_NAME — matches Code.gs's
+  // writeSubmittalSheetHeaders().
+  var MS_HEADER_ROW = 3, PQD_HEADER_ROW = 10;
+  var MS_DATA_ROWS = [4, 5, 6], PQD_DATA_ROWS = [11];
+  var MS_DISCIPLINE_LABELS = ['NON LLI', 'LLI', 'GRAND TOTAL'], PQD_DISCIPLINE_LABELS = ['PQD'];
+
+  async function writeSubmittalSheetHeadersRemote(destId) {
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, 1, 1, 1), [['STATUS OF MATERIAL SUBMITTAL']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, MS_HEADER_ROW, 2, MS_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, MS_HEADER_ROW, 2 + MS_FIELD_LABELS.length, MS_HEADER_ROW), [MS_FIELD_LABELS], 'RAW');
+    var msDiscRows = MS_DISCIPLINE_LABELS.map(function(label, i) { return [i + 1 < MS_DISCIPLINE_LABELS.length ? i + 1 : '', label]; });
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, MS_DATA_ROWS[0], 2, MS_DATA_ROWS[MS_DATA_ROWS.length - 1]), msDiscRows, 'RAW');
+
+    var pqdTitleRow = PQD_HEADER_ROW - 2;
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, pqdTitleRow, 1, pqdTitleRow), [['STATUS OF PQD']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, PQD_HEADER_ROW, 2, PQD_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, PQD_HEADER_ROW, 2 + PQD_FIELD_LABELS.length, PQD_HEADER_ROW), [PQD_FIELD_LABELS], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, PQD_DATA_ROWS[0], 2, PQD_DATA_ROWS[0]), [[1, 'PQD']], 'RAW');
+  }
+
+  async function writeSubmittalStatusDataForExportRemote(destId, statusData, buyerData) {
+    for (var i = 0; i < statusData.ms.length; i++) {
+      await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, MS_DATA_ROWS[i], 2 + statusData.ms[i].length, MS_DATA_ROWS[i]), [statusData.ms[i]], 'RAW');
+    }
+    for (var j = 0; j < statusData.pqd.length; j++) {
+      await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, PQD_DATA_ROWS[j], 2 + statusData.pqd[j].length, PQD_DATA_ROWS[j]), [statusData.pqd[j]], 'RAW');
+    }
+    var startRow = PQD_DATA_ROWS[PQD_DATA_ROWS.length - 1] + 3;
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, startRow, 1, startRow), [['Item / Buyer']], 'RAW');
+    var buyerHeadRow = startRow + 1;
+    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, buyerHeadRow, 2 + buyerData.names.length, buyerHeadRow),
+      [['Type'].concat(buyerData.names).concat(['TOTAL'])], 'RAW');
+    buyerData.rows.forEach(function(r, i) {
+      sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, buyerHeadRow + 1 + i, 2 + r.counts.length, buyerHeadRow + 1 + i),
+        [[r.label].concat(r.counts).concat([r.rowTotal])], 'RAW');
+    });
+  }
+
+  async function exportBoqAndMsToXlsxClient() {
+    var statusData = getSubmittalStatusDataClient();
+    var buyerData = getFilesByBuyerDataClient();
+    var tempSS = await sheetsCreateSpreadsheet('BOQ Export (temp) ' + Date.now());
+    var tempId = tempSS.spreadsheetId;
+    var defaultSheetId = tempSS.sheets[0].properties.sheetId;
+    try {
+      var copyResult = await sheetsCopySheetTo(spreadsheetId, boqSheetId, tempId);
+      var copiedSheetId = copyResult.sheetId;
+      await sheetsBatchUpdate(tempId, [
+        { updateSheetProperties: { properties: { sheetId: copiedSheetId, title: SHEET_NAME }, fields: 'title' } },
+        { addSheet: { properties: { title: SUBMITTAL_SHEET_NAME } } }
+      ]);
+      await writeSubmittalSheetHeadersRemote(tempId);
+      await writeSubmittalStatusDataForExportRemote(tempId, statusData, buyerData);
+      await sheetsBatchUpdate(tempId, [{ deleteSheet: { sheetId: defaultSheetId } }]);
+      return await convertTempSpreadsheetToXlsx(tempId, 'Procurement_Progress_Report');
+    } finally {
+      await driveDeleteFile(tempId);
+    }
+  }
+
+  async function exportSubmittalStatusToXlsxClient() {
+    var statusData = getSubmittalStatusDataClient();
+    var buyerData = getFilesByBuyerDataClient();
+    var tempSS = await sheetsCreateSpreadsheet('Material Submittal Status Export (temp) ' + Date.now());
+    var tempId = tempSS.spreadsheetId;
+    var defaultSheetId = tempSS.sheets[0].properties.sheetId;
+    try {
+      await sheetsBatchUpdate(tempId, [{ updateSheetProperties: { properties: { sheetId: defaultSheetId, title: SUBMITTAL_SHEET_NAME }, fields: 'title' } }]);
+      await writeSubmittalSheetHeadersRemote(tempId);
+      await writeSubmittalStatusDataForExportRemote(tempId, statusData, buyerData);
+      return await convertTempSpreadsheetToXlsx(tempId, 'Material_Submittal_Status');
+    } finally {
+      await driveDeleteFile(tempId);
+    }
+  }
+
+  async function exportToXlsx() {
+    var btn = document.getElementById('exportXlsxBtn');
+    btn.disabled = true; btn.textContent = '⏳ Preparing export…';
+    try {
+      var result = await exportBoqAndMsToXlsxClient();
+      downloadXlsxResult(result);
+    } catch (e) {
+      alert('Export failed: ' + (e.message || e));
+    } finally {
+      btn.disabled = false; btn.textContent = '⬇ Export BOQ & M/S to Excel';
+    }
+  }
+
+  async function exportSubmittalToXlsx() {
+    var btn = document.getElementById('exportSubmittalXlsxBtn');
+    btn.disabled = true; btn.textContent = '⏳ Preparing export…';
+    try {
+      var result = await exportSubmittalStatusToXlsxClient();
+      downloadXlsxResult(result);
+    } catch (e) {
+      alert('Export failed: ' + (e.message || e));
+    } finally {
+      btn.disabled = false; btn.textContent = '⬇ Export this tab to Excel';
+    }
   }
 </script>
- 
 
 </body>
 </html>
