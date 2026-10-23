@@ -238,7 +238,7 @@
   .gear-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:12px;padding:0 0 0 4px;vertical-align:middle;opacity:.85}
   .gear-btn:hover{opacity:1}
 
-  /* ---- PQD Number dot (column unchanged — just hides the number itself) ---- */
+  /* ---- PQD / M-S Number dot (column unchanged — just hides the number itself) ---- */
   #fullTable td.indicator-cell{text-align:center;padding:4px 0}
   .indicator-dot{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;color:#333}
   .indicator-dot.filled{color:#1e8e3e}
@@ -2016,7 +2016,7 @@
     { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly' },
     { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno' },
     { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date' },
-    { col: COL.MS_NUM, label: 'M/S Number',                   width: 90,  type: 'text' },
+    { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot' },
     { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code' },
     { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly' },
     { col: COL.PR, label: 'PR',                          width: 55,  type: 'select', opts: 'yesno' },
@@ -2747,7 +2747,11 @@
     dot.type = 'button';
     dot.className = 'indicator-dot' + (filled ? ' filled' : '');
     dot.textContent = '●';
-    dot.title = filled ? (colDef.label + ' — click to edit') : ('Click to add ' + colDef.label);
+    // The table cells clip overflow (needed for the frozen layout), which
+    // would cut off a custom CSS popup — the browser's own native hover
+    // tooltip (title attribute) isn't affected by that and just works, so
+    // it carries the actual number when there is one.
+    dot.title = filled ? value : ('No ' + colDef.label + ' yet — click to add');
     if (isClosed) {
       dot.disabled = true;
     } else {
