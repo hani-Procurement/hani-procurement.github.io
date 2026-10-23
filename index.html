@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -306,7 +306,8 @@
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
   .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
 
-  /* ---- Control Panel: page header + grouped sections ---- */
+  /* ---- Control Panel: page header + grouped sections, single centered column ---- */
+  #view-controlpanel{max-width:720px;margin:0 auto}
   .cp-header{margin-bottom:22px}
   .cp-header h2{margin:0 0 4px;font-size:21px;color:#1a3d7c;display:flex;align-items:center;gap:8px}
   .cp-header p{margin:0;color:#666;font-size:13.5px}
@@ -314,10 +315,8 @@
   .cp-section:last-child{margin-bottom:0}
   .cp-section-title{margin:0 0 12px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;
     color:#1a73e8;font-weight:700;border-bottom:1px solid #e3e8f0;padding-bottom:7px}
-  /* Cards within one section (forms/lists, not wide tables) make better use
-     of the page as a responsive multi-column grid instead of one long
-     single-file column. */
-  .cp-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));align-items:start;gap:18px}
+  /* All cards, within every section, stacked in one single column. */
+  .cp-section-grid{display:flex;flex-direction:column;gap:18px}
   .ms-table-wrap{overflow-x:auto}
   table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px}
   table.ms-table th, table.ms-table td{border:1px solid #d7dce3;padding:4px 6px;text-align:center}
@@ -364,15 +363,15 @@
 <div id="signinScreen">
   <div class="card">
     <h1>Procurement Progress Report</h1>
-    <p class="subtitle">نسخة تجريبية — تسجيل دخول Google وإنشاء الشيت تلقائياً</p>
+    <p class="subtitle">Sign in with Google — your spreadsheet is found or created automatically</p>
 
     <button id="signinBtn">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 .1 8.3 3.1l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.1-2.7-.5-4z"/></svg>
-      تسجيل الدخول بحساب Google
+      Sign in with Google
     </button>
 
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-top:12px;justify-content:center;cursor:pointer">
-      <input type="checkbox" id="keepSignedInChk" style="width:auto;margin:0"> تذكرني على هذا المتصفح (Keep me signed in)
+      <input type="checkbox" id="keepSignedInChk" style="width:auto;margin:0"> Keep me signed in on this browser
     </label>
 
     <div id="status"></div>
@@ -381,12 +380,12 @@
 
 <div id="projectPickerScreen" class="hidden">
   <div class="card">
-    <h1>اختيار المشروع</h1>
-    <p class="subtitle">كل مشروع منفصل بالكامل: جداوله، مستخدموه، وصلاحياته خاصة فيه وحده</p>
+    <h1>Choose a Project</h1>
+    <p class="subtitle">Each project is fully separate — its own tables, users, and permissions</p>
     <div id="projectPickerList"></div>
     <div id="projectPickerNewRow" style="margin-top:14px;display:flex;gap:6px">
-      <input type="text" id="newProjectNameInput" placeholder="اسم المشروع الجديد" style="flex:1">
-      <button type="button" id="createProjectBtn" style="width:auto">+ إنشاء مشروع جديد</button>
+      <input type="text" id="newProjectNameInput" placeholder="New project name" style="flex:1">
+      <button type="button" id="createProjectBtn" style="width:auto">+ Create New Project</button>
     </div>
     <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:#333"></div>
   </div>
@@ -405,7 +404,7 @@
       <div class="pb-field"><label>Discipline:</label>
         <input type="text" id="pbDiscipline" placeholder="—" readonly title="Follows the table selected in Full Table — rename it from Control Panel"></div>
       <div class="pb-date" id="pbDate"></div>
-      <button type="button" onclick="switchProject()" id="navSwitchProject" title="فتح مشروع تاني (كل مشروع بياناته منفصلة بالكامل)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">🔁 Switch Project</button>
+      <button type="button" onclick="switchProject()" id="navSwitchProject" title="Open a different project (each project's data is fully separate)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">🔁 Switch Project</button>
       <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">⚙ Control Panel</button>
     </div>
     <nav class="main-nav">
@@ -898,7 +897,7 @@
             log('');
             return;
           }
-          log('<span class="err">حدث خطأ أثناء تسجيل الدخول: ' + resp.error + '</span>');
+          log('<span class="err">Sign-in error: ' + resp.error + '</span>');
           return;
         }
         accessToken = resp.access_token;
@@ -914,14 +913,14 @@
     if (localStorage.getItem('keepMeSignedIn') === '1') {
       document.getElementById('keepSignedInChk').checked = true;
       triedSilentSignin = true;
-      log('<span class="spinner"></span> جاري تسجيل الدخول تلقائياً...');
+      log('<span class="spinner"></span> Signing in automatically...');
       tokenClient.requestAccessToken({ prompt: '' });
     }
   };
 
   signinBtn.addEventListener('click', () => {
     triedSilentSignin = false;
-    log('<span class="spinner"></span> جاري تسجيل الدخول...');
+    log('<span class="spinner"></span> Signing in...');
     tokenClient.requestAccessToken();
   });
 
@@ -1036,7 +1035,7 @@
   }
 
   async function handleSignedIn() {
-    log('<span class="spinner"></span> تم تسجيل الدخول، جاري التحقق من حسابك...');
+    log('<span class="spinner"></span> Signed in — checking your account...');
     try {
       currentUserEmail = await fetchSignedInEmail();
 
@@ -1047,18 +1046,18 @@
       const urlSheetId = new URLSearchParams(window.location.search).get('sheet');
 
       if (urlSheetId) {
-        appendLog('<span class="ok">✔ جاري فتح شيت الفريق المشترك...</span>');
+        appendLog('<span class="ok">✔ Opening the shared team sheet...</span>');
         spreadsheetId = urlSheetId;
         await proceedAfterSpreadsheetChosen();
         return;
       }
 
-      appendLog('<span class="ok">✔ جاري البحث عن المشاريع المتاحة لحسابك...</span>');
+      appendLog('<span class="ok">✔ Looking for projects available to your account...</span>');
       const projects = await findAllProjectSheets();
       showProjectPicker(projects);
     } catch (err) {
       console.error(err);
-      appendLog('<span class="err">حدث خطأ: ' + (err.message || err) + '</span>');
+      appendLog('<span class="err">Error: ' + (err.message || err) + '</span>');
     }
   }
 
@@ -1098,15 +1097,15 @@
   function renderProjectPickerList(projects) {
     var list = document.getElementById('projectPickerList');
     if (!projects.length) {
-      list.innerHTML = '<p style="color:#888;font-size:13.5px;margin:0 0 4px">ما في أي مشروع متاح لحسابك حالياً. أنشئ أول مشروع من تحت.</p>';
+      list.innerHTML = '<p style="color:#888;font-size:13.5px;margin:0 0 4px">No projects available for your account yet. Create your first one below.</p>';
     } else {
       list.innerHTML = projects.map(function(p) {
         return '<div class="project-pick-row">' +
           '<button type="button" class="project-pick-btn" data-id="' + p.id + '">' +
             '<span class="project-pick-name">' + p.label + '</span>' +
             '<span class="project-pick-arrow">↗</span></button>' +
-          '<button type="button" class="project-pick-icon-btn" data-action="rename" data-id="' + p.id + '" title="إعادة تسمية">✎</button>' +
-          '<button type="button" class="project-pick-icon-btn" data-action="delete" data-id="' + p.id + '" title="نقل لسلة المهملات">🗑</button>' +
+          '<button type="button" class="project-pick-icon-btn" data-action="rename" data-id="' + p.id + '" title="Rename">✎</button>' +
+          '<button type="button" class="project-pick-icon-btn" data-action="delete" data-id="' + p.id + '" title="Move to Trash">🗑</button>' +
           '</div>';
       }).join('');
       Array.prototype.forEach.call(list.querySelectorAll('.project-pick-btn'), function(btn) {
@@ -1131,12 +1130,12 @@
   // actually gate who can rename/trash it — someone with only read/comment
   // access on this spreadsheet will simply get an error back from the API).
   async function renameProjectFile(id, currentLabel) {
-    var newName = prompt('اسم جديد للمشروع:', currentLabel || '');
+    var newName = prompt('New name for this project:', currentLabel || '');
     if (newName === null) return;
     newName = newName.trim();
     if (!newName) return;
     var statusEl2 = document.getElementById('projectPickerStatus');
-    statusEl2.innerHTML = '<span class="spinner"></span> جاري إعادة التسمية...';
+    statusEl2.innerHTML = '<span class="spinner"></span> Renaming...';
     try {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
         method: 'PATCH',
@@ -1148,14 +1147,14 @@
       renderProjectPickerList(projects);
     } catch (e) {
       console.error(e);
-      statusEl2.innerHTML = '<span class="err">تعذرت إعادة التسمية: ' + (e.message || e) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Could not rename: ' + (e.message || e) + '</span>';
     }
   }
 
   async function deleteProjectFile(id, label) {
-    if (!confirm('بدك تنقل مشروع "' + label + '" بالكامل لسلة المهملات (Trash) بقوقل درايف؟ رح يختفي من هاي القائمة فوراً لكل اللي معهم وصول إله. ممكن تسترجعه لاحقاً من داخل Google Drive > Trash خلال 30 يوم، وبعدها بينحذف نهائياً.')) return;
+    if (!confirm('Move project "' + label + '" entirely to Google Drive Trash? It will disappear from this list immediately for everyone with access. You can restore it later from Google Drive > Trash within 30 days, after which it is permanently deleted.')) return;
     var statusEl2 = document.getElementById('projectPickerStatus');
-    statusEl2.innerHTML = '<span class="spinner"></span> جاري النقل لسلة المهملات...';
+    statusEl2.innerHTML = '<span class="spinner"></span> Moving to Trash...';
     try {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
         method: 'PATCH',
@@ -1167,19 +1166,19 @@
       renderProjectPickerList(projects);
     } catch (e) {
       console.error(e);
-      statusEl2.innerHTML = '<span class="err">تعذر الحذف: ' + (e.message || e) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Could not delete: ' + (e.message || e) + '</span>';
     }
   }
 
   async function pickProject(id) {
     var statusEl2 = document.getElementById('projectPickerStatus');
-    statusEl2.innerHTML = '<span class="spinner"></span> جاري فتح المشروع...';
+    statusEl2.innerHTML = '<span class="spinner"></span> Opening project...';
     try {
       spreadsheetId = id;
       await proceedAfterSpreadsheetChosen();
     } catch (err) {
       console.error(err);
-      statusEl2.innerHTML = '<span class="err">حدث خطأ: ' + (err.message || err) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Error: ' + (err.message || err) + '</span>';
     }
   }
 
@@ -1187,10 +1186,10 @@
     var input = document.getElementById('newProjectNameInput');
     var statusEl2 = document.getElementById('projectPickerStatus');
     var name = (input.value || '').trim();
-    if (!name) { statusEl2.innerHTML = '<span class="err">اكتب اسم المشروع أولاً.</span>'; return; }
+    if (!name) { statusEl2.innerHTML = '<span class="err">Enter a project name first.</span>'; return; }
     var btn = document.getElementById('createProjectBtn');
     btn.disabled = true;
-    statusEl2.innerHTML = '<span class="spinner"></span> جاري إنشاء المشروع...';
+    statusEl2.innerHTML = '<span class="spinner"></span> Creating project...';
     try {
       // A brand-new project starts from a clean slate — never inherit
       // BOQ_TABLES/table state any previously-viewed project left behind.
@@ -1200,7 +1199,7 @@
       await proceedAfterSpreadsheetChosen();
     } catch (err) {
       console.error(err);
-      statusEl2.innerHTML = '<span class="err">حدث خطأ: ' + (err.message || err) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Error: ' + (err.message || err) + '</span>';
       btn.disabled = false;
     }
   }
@@ -1215,8 +1214,8 @@
     await loadCurrentUserPerms();
     if (!currentUserPerms.allowed) {
       var msg = currentUserPerms.onHold
-        ? ('حسابك (' + (currentUserEmail || '؟') + ') موقوف مؤقتاً (On Hold) من الأدمن. تواصل مع الأدمن لإعادة التفعيل.')
-        : ('حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا المشروع. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.');
+        ? ('Your account (' + (currentUserEmail || '?') + ') is currently On Hold by the Admin. Contact your Admin to be reactivated.')
+        : ('Your account (' + (currentUserEmail || '?') + ') has not been added to this project. Ask your Admin to add you from the Control Panel, then send you the invite link.');
       var statusEl2 = document.getElementById('projectPickerStatus');
       if (statusEl2 && !document.getElementById('projectPickerScreen').classList.contains('hidden')) {
         statusEl2.innerHTML = '<span class="err">' + msg + '</span>';
@@ -1236,7 +1235,7 @@
   // loaded rows, scheduled-backup state, etc.) rather than trying to tear
   // down and rebuild a live app in place.
   function switchProject() {
-    if (!confirm('بدك تفتح مشروع تاني؟ رح يتم إعادة تحميل الصفحة.')) return;
+    if (!confirm('Open a different project? The page will reload.')) return;
     var url = new URL(window.location.href);
     url.searchParams.delete('sheet');
     window.location.href = url.toString();
@@ -1842,9 +1841,9 @@
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
-      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم تعديل الاسم.'; }
+      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'Name updated.'; }
     } catch (e) {
-      if (msg) msg.textContent = 'فشل الحفظ: ' + (e.message || e);
+      if (msg) msg.textContent = 'Save failed: ' + (e.message || e);
     }
   }
 
@@ -1852,7 +1851,7 @@
     var input = document.getElementById('cpNewTableName');
     var msg = document.getElementById('cpTablesMsg');
     var label = input.value.trim();
-    if (!label) { msg.style.color = '#d93025'; msg.textContent = 'اكتب اسم الجدول.'; return; }
+    if (!label) { msg.style.color = '#d93025'; msg.textContent = 'Enter a table name.'; return; }
     msg.style.color = '#d93025'; msg.textContent = '';
     try {
       await addBoqTable(label);
@@ -1861,24 +1860,24 @@
       renderTableSelect();
       renderGlobalTableSelect();
       msg.style.color = '#1e8e3e';
-      msg.textContent = 'تمت إضافة الجدول.';
+      msg.textContent = 'Table added.';
     } catch (e) {
-      msg.textContent = 'فشلت الإضافة: ' + (e.message || e);
+      msg.textContent = 'Add failed: ' + (e.message || e);
     }
   }
 
   function confirmRemoveBoqTable(idx) {
     var t = BOQ_TABLES[idx];
-    if (!confirm('حذف جدول "' + t.label + '" نهائياً؟ هذا الإجراء سيحذف كل الأصناف الموجودة فيه ولا يمكن التراجع عنه.')) return;
+    if (!confirm('Delete table "' + t.label + '" permanently? This will delete every item in it and cannot be undone.')) return;
     var msg = document.getElementById('cpTablesMsg');
     removeBoqTable(idx).then(function() {
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
       if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
-      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم الحذف.'; }
+      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'Deleted.'; }
     }).catch(function(e) {
-      if (msg) msg.textContent = 'فشل الحذف: ' + (e.message || e);
+      if (msg) msg.textContent = 'Delete failed: ' + (e.message || e);
     });
   }
 
@@ -1947,7 +1946,7 @@
     try {
       navigator.clipboard.writeText(input.value);
       document.getElementById('cpUsersMsg').style.color = '#1e8e3e';
-      document.getElementById('cpUsersMsg').textContent = 'تم نسخ الرابط.';
+      document.getElementById('cpUsersMsg').textContent = 'Link copied.';
     } catch (e) {
       document.execCommand('copy');
     }
@@ -2869,7 +2868,7 @@
 
   /* ===================== Add Item modal ===================== */
   function openAddModal() {
-    if (!perm('canAdd')) { alert('ما عندك صلاحية إضافة بنود — اطلب من الأدمن يفعّلها لك من Control Panel.'); return; }
+    if (!perm('canAdd')) { alert('You don\'t have permission to add items — ask your Admin to enable it from the Control Panel.'); return; }
     document.getElementById('addDesc').value = '';
     document.getElementById('addQty').value = '';
     document.getElementById('addMsgModal').textContent = '';
@@ -3040,7 +3039,7 @@
         if (subDateCell) subDateCell.textContent = subStamp;
       }
       if (td) flash(td);
-      if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT) {
+      if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT || col === COL.FILEWITH) {
         loadSubmittalStatus(); loadSubmittalDashboard();
       }
     } catch (e) {
@@ -4677,7 +4676,7 @@
     input.addEventListener('change', async function (e) {
       var file = e.target.files && e.target.files[0];
       if (!file) return;
-      if (!perm('canAdd')) { alert('ما عندك صلاحية استيراد/إضافة بنود.'); e.target.value = ''; return; }
+      if (!perm('canAdd')) { alert('You don\'t have permission to import/add items.'); e.target.value = ''; return; }
       var btn = document.getElementById('importXlsxBtn');
       try {
         var buf = await file.arrayBuffer();
