@@ -155,14 +155,18 @@
   #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#4b4b4b;color:#f1f1f1}
   #fullTable tbody tr.closed-row td{color:#f1f1f1}
   /* Frozen columns: Actions, S/N, Description, Unit, Qty */
-  #headerMainRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
-  #headerMainRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
-  #headerMainRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
-  #headerMainRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
-  #headerMainRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:460px;z-index:7}
+  #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
+  #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
+  #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
+  #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
+  #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:460px;z-index:7}
   #fullTable td:nth-child(-n+5){z-index:2;background:#fff}
-  #headerMainRow th:nth-child(-n+5){z-index:8}
-  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(0,0,0,0.3)}
+  #headerMainRow th:nth-child(-n+5), #headerGroupRow th:nth-child(-n+5){z-index:8}
+  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(0,0,0,0.3)}
+  /* Common-header banner row (PQD / Material Submittal group) above the
+     per-column headers — purely a visual grouping. */
+  .group-header-cell{background:#1a73e8;border-bottom:1px solid rgba(255,255,255,0.25)}
+  .group-header-pqd, .group-header-ms{font-size:12px;font-weight:700;background:#0d47a1}
   #fullTable tbody tr td:nth-child(-n+5){background:#fff}
   #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#f9fafb}
   #fullTable tbody tr.package-row td:nth-child(-n+5){background:#fff3cd}
@@ -217,6 +221,7 @@
     border-radius:3px;cursor:pointer;width:auto}
   .remarks-history{white-space:pre-wrap;font-size:10.5px;line-height:1.4;color:#333;text-align:left;
     max-height:70px;overflow-y:auto;border-top:1px dashed #ddd;padding-top:2px}
+  .remarks-history .remarks-date{color:#d32f2f;font-weight:700}
 
   /* ---- Modals ---- */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;
@@ -275,6 +280,9 @@
   table.ms-table td.ms-computed-cell{background:#fcfdff}
   table.ms-table td.tw-col{background:#fff8e1}
   table.ms-table th.tw-col{background:#fff8e1;color:#333}
+  /* Item/Buyer table: banner row grouping buyer columns under the BOQ table
+     each buyer mostly works on (computed fresh from live data every render). */
+  table.ms-table th.buyer-group-header{background:#0d47a1}
 
   /* ---- Submittal Dashboard ---- */
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
@@ -679,21 +687,24 @@
   let SHEET_NAME = BOQ_TABLES[0].sheetName;
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
-  const LAST_DATA_COL = 28;
+  const LAST_DATA_COL = 30;
 
-  // 28-column COL map — symbolic column references only, mirroring Code.gs's
+  // 30-column COL map — symbolic column references only, mirroring Code.gs's
   // own COL object exactly (never a hardcoded magic number — this is the
   // single place that would ever need to change if a column were inserted,
   // same discipline Code.gs enforces to prevent the historical S/N-formula
-  // bug described there).
+  // bug described there). PQD_SUBDATE/MS_SUBDATE are two columns added later
+  // (auto-stamped read-only, the day Submitted was set to "Yes") — see
+  // ensureSubmittedDateColumnsExist() for the one-time migration that
+  // physically inserts them into any table created before this shipped.
   const COL = {
     SN:1, DESC:2, UNIT:3, QTY:4, FILEWITH:5, MAINALT:6, PRIORITY:7, LLI:8,
     RFQ:9, QUOT:10,
     CS_STATUS:11,
-    PQD_SUB:12, PQD_PLANNED_DATE:13, PQD_NUM:14, PQD_CODE:15, PQD_DATE:16,
-    MS_SUB:17, MS_PLANNED_DATE:18, MS_NUM:19, MS_CODE:20, MS_DATE:21,
-    PR:22, PO1:23, PO2:24,
-    REMARKS:25, ROWTYPE:26, ACTIONBY:27, DATESTAMP:28
+    PQD_SUB:12, PQD_SUBDATE:13, PQD_PLANNED_DATE:14, PQD_NUM:15, PQD_CODE:16, PQD_DATE:17,
+    MS_SUB:18, MS_SUBDATE:19, MS_PLANNED_DATE:20, MS_NUM:21, MS_CODE:22, MS_DATE:23,
+    PR:24, PO1:25, PO2:26,
+    REMARKS:27, ROWTYPE:28, ACTIONBY:29, DATESTAMP:30
   };
   const NO_DEFAULT_COLS = [COL.LLI, COL.RFQ, COL.QUOT, COL.PQD_SUB, COL.MS_SUB, COL.PR, COL.PO1];
 
@@ -1020,7 +1031,11 @@
       try {
         const row2 = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, 2, 2, 2));
         const headerAlreadyThere = row2.length && row2[0][1] === 'Item description';
-        if (!headerAlreadyThere) await writeBoqHeader(spreadsheetId);
+        if (!headerAlreadyThere) {
+          await writeBoqHeader(spreadsheetId);
+        } else {
+          await ensureSubmittedDateColumnsExist(sheetIdForTable);
+        }
       } finally {
         SHEET_NAME = savedSheetName; boqSheetId = savedSheetId;
       }
@@ -1314,11 +1329,11 @@
   const BOQ_HEADER_ROW2 = [
     'S/N', 'Item description', 'Unit', 'Estimated QTY', 'File With', 'Main OR Alt. File',
     'Priority', 'LLI', 'RFQ (Send)', 'Quotations (Received)', 'Comp. Sheet Status',
-    'PQD Submitted', 'PQD Planned Submission Date', 'PQD Number', 'PQD Status', 'PQD Status Date',
-    'M/S Submitted', 'M/S Planned Submission Date', 'M/S Number', 'M/S Status', 'M/S Status Date',
+    'PQD Submitted', 'PQD Submitted Date', 'PQD Planned Submission Date', 'PQD Number', 'PQD Status', 'PQD Status Date',
+    'M/S Submitted', 'M/S Submitted Date', 'M/S Planned Submission Date', 'M/S Number', 'M/S Status', 'M/S Status Date',
     'PR', 'PO (Issued)', 'PO Number / Supplier Name', 'REMARKS', 'Row Type', 'Action By', 'Date Stamp'
   ];
-  const BOQ_COL_WIDTHS = [45,280,85,90,110,50,55,62,62,62,70,62,125,90,62,90,62,125,90,62,90,55,62,130,240,80,100,115];
+  const BOQ_COL_WIDTHS = [45,280,85,90,110,50,55,62,62,62,70,62,90,125,90,62,90,62,90,125,90,62,90,55,62,130,240,80,100,115];
 
   async function writeBoqHeader(ssId) {
     await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, 1, 2, LAST_DATA_COL, 2), [BOQ_HEADER_ROW2]);
@@ -1337,11 +1352,11 @@
           fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount'
         } },
       { mergeCells: {
-          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 11, endColumnIndex: 16 },
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.PQD_SUB - 1, endColumnIndex: COL.PQD_DATE },
           mergeType: 'MERGE_ALL'
         } },
       { mergeCells: {
-          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 16, endColumnIndex: 21 },
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.MS_SUB - 1, endColumnIndex: COL.MS_DATE },
           mergeType: 'MERGE_ALL'
         } }
     ];
@@ -1352,6 +1367,45 @@
       } });
     });
     try { await sheetsBatchUpdate(ssId, requests); } catch (e) { console.warn('Header formatting batchUpdate failed (non-fatal): ', e); }
+  }
+
+  // One-time, per-table upgrade for any table created before "Submitted
+  // Date" shipped: physically inserts the 2 new blank columns at their
+  // correct final positions (COL.PQD_SUBDATE / COL.MS_SUBDATE), which makes
+  // Sheets shift every column after each insert point — and every formula
+  // reference into them, including the S/N formulas — automatically. No
+  // existing data in any other column moves or changes; the 2 new columns
+  // simply start out empty (there is no historical date to backfill), and
+  // from this point on saveCell() stamps them whenever Submitted is set to
+  // "Yes" (see saveCell's COL.PQD_SUB/COL.MS_SUB branches).
+  async function ensureSubmittedDateColumnsExist(sheetId) {
+    const check = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_SUBDATE, 2, COL.PQD_SUBDATE, 2));
+    if (check.length && String(check[0][0] || '').trim() === 'PQD Submitted Date') return; // already migrated
+
+    await sheetsBatchUpdate(spreadsheetId, [
+      { insertDimension: { range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: COL.PQD_SUBDATE - 1, endIndex: COL.PQD_SUBDATE }, inheritFromBefore: false } },
+      { insertDimension: { range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: COL.MS_SUBDATE - 1, endIndex: COL.MS_SUBDATE }, inheritFromBefore: false } }
+    ]);
+
+    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_SUBDATE, 2, COL.PQD_SUBDATE, 2), [['PQD Submitted Date']], 'RAW');
+    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_SUBDATE, 2, COL.MS_SUBDATE, 2), [['M/S Submitted Date']], 'RAW');
+
+    // Re-apply the header styling (blue/bold/white) to the 2 new columns,
+    // and re-merge the PQD/M-S group banners so they now span the newly
+    // inserted columns too (Sheets usually extends a merge automatically
+    // when a column is inserted inside it, but this makes sure either way).
+    const styleFields = 'userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.foregroundColor,userEnteredFormat.horizontalAlignment,userEnteredFormat.backgroundColor';
+    const styleCell = { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', backgroundColor: { red: 0.102, green: 0.451, blue: 0.910 } } };
+    try {
+      await sheetsBatchUpdate(spreadsheetId, [
+        { repeatCell: { range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: COL.PQD_SUBDATE - 1, endColumnIndex: COL.PQD_SUBDATE }, cell: styleCell, fields: styleFields } },
+        { repeatCell: { range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: COL.MS_SUBDATE - 1, endColumnIndex: COL.MS_SUBDATE }, cell: styleCell, fields: styleFields } },
+        { mergeCells: { range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.PQD_SUB - 1, endColumnIndex: COL.PQD_DATE }, mergeType: 'MERGE_ALL' } },
+        { mergeCells: { range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.MS_SUB - 1, endColumnIndex: COL.MS_DATE }, mergeType: 'MERGE_ALL' } },
+        { updateDimensionProperties: { range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: COL.PQD_SUBDATE - 1, endIndex: COL.PQD_SUBDATE }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: COL.MS_SUBDATE - 1, endIndex: COL.MS_SUBDATE }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }
+      ]);
+    } catch (e) { console.warn('Header re-styling after Submitted Date migration failed (non-fatal): ', e); }
   }
 
   async function seedListsSheet(ssId) {
@@ -2005,20 +2059,25 @@
     { col: COL.RFQ,  label: 'RFQ (Send)',                  width: 62,  type: 'select', opts: 'yesno' },
     { col: COL.QUOT, label: 'Quotations (Received)',       width: 62,  type: 'select', opts: 'yesno' },
     { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 70,  type: 'select', opts: 'csStatus' },
-    { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 62,  type: 'select', opts: 'yesno' },
-    { col: COL.PQD_PLANNED_DATE, label: 'PQD Planned Submission Date', width: 125, type: 'date' },
+    // group: 'pqd'/'ms' ties these columns together under one common header
+    // banner (see buildTableStructure's group row) — purely a display label,
+    // doesn't change how any of them are read, written or filtered.
+    { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 62,  type: 'select', opts: 'yesno', group: 'pqd' },
+    { col: COL.PQD_SUBDATE, label: 'PQD Submitted Date',        width: 90,  type: 'readonly', group: 'pqd' },
+    { col: COL.PQD_PLANNED_DATE, label: 'PQD Planned Submission Date', width: 125, type: 'date', group: 'pqd' },
     // The number itself is never shown directly in the table — only a dot
     // that turns green once a number is on file (black/grey while empty).
     // Click the dot to type/edit the number inline; nothing else about this
     // column (or the M/S one) changed from before.
-    { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot' },
-    { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode' },
-    { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly' },
-    { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno' },
-    { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date' },
-    { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot' },
-    { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code' },
-    { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly' },
+    { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot', group: 'pqd' },
+    { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode', group: 'pqd' },
+    { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly', group: 'pqd' },
+    { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno', group: 'ms' },
+    { col: COL.MS_SUBDATE, label: 'M/S Submitted Date',         width: 90,  type: 'readonly', group: 'ms' },
+    { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date', group: 'ms' },
+    { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot', group: 'ms' },
+    { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code', group: 'ms' },
+    { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly', group: 'ms' },
     { col: COL.PR, label: 'PR',                          width: 55,  type: 'select', opts: 'yesno' },
     { col: COL.PO1, label: 'PO (Issued)',                 width: 62,  type: 'select', opts: 'yesno' },
     { col: COL.PO2, label: 'PO Number / Supplier Name',   width: 130, type: 'posupplier' },
@@ -2046,6 +2105,38 @@
 
   var filterValues = {};
 
+  // Builds the common-header banner row ("PQD" / "Material Submittal")
+  // spanning every column tagged with that colDef.group — a pure display
+  // grouping on top of the existing per-column headers below it; doesn't
+  // touch how any column is read, written, or filtered.
+  function buildGroupHeaderRow() {
+    var row = document.createElement('tr');
+    row.id = 'headerGroupRow';
+    var actTh = document.createElement('th');
+    actTh.className = 'actions-header group-header-cell';
+    row.appendChild(actTh);
+
+    var i = 0;
+    while (i < COLS.length) {
+      var g = COLS[i].group;
+      var th = document.createElement('th');
+      th.className = 'group-header-cell';
+      if (!g) {
+        row.appendChild(th);
+        i++;
+        continue;
+      }
+      var span = 0, j = i;
+      while (j < COLS.length && COLS[j].group === g) { span++; j++; }
+      th.colSpan = span;
+      th.classList.add('group-header-' + g);
+      th.textContent = g === 'pqd' ? 'PQD' : 'Material Submittal (M/S)';
+      row.appendChild(th);
+      i = j;
+    }
+    return row;
+  }
+
   function buildTableStructure() {
     const headerColgroup = document.getElementById('headerColgroup');
     const bodyColgroup = document.getElementById('bodyColgroup');
@@ -2058,9 +2149,15 @@
     var actTh = document.createElement('th'); actTh.className = 'actions-header'; actTh.textContent = 'Actions';
     headerMainRow.appendChild(actTh);
 
-    // Filter row: a second <tr> in the same <thead>, one text input per column,
-    // so the person can type a substring and narrow the visible rows live.
     var thead = headerMainRow.parentNode;
+
+    var groupRow = document.getElementById('headerGroupRow');
+    if (groupRow) groupRow.remove();
+    groupRow = buildGroupHeaderRow();
+    thead.insertBefore(groupRow, headerMainRow);
+
+    // Filter row: a third <tr> in the same <thead>, one text input per column,
+    // so the person can type a substring and narrow the visible rows live.
     var filterRow = document.getElementById('headerFilterRow');
     if (filterRow) { filterRow.remove(); }
     filterRow = document.createElement('tr');
@@ -2505,6 +2602,24 @@
     }
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Renders the append-only remarks history as HTML: each entry's leading
+  // "[yyyy-MM-dd]" date stamp (todayStamp(false)'s format) gets wrapped in
+  // .remarks-date (red, bold); the rest of the line is left exactly as
+  // before. Purely a display change — the stored REMARKS text itself,
+  // written via submitNote() below, is untouched.
+  function buildRemarksHistoryHtml(text) {
+    if (!text) return '';
+    return String(text).split('\n').map(function(line) {
+      var m = line.match(/^(\[\d{4}-\d{2}-\d{2}\])(.*)$/);
+      if (!m) return escapeHtml(line);
+      return '<span class="remarks-date">' + escapeHtml(m[1]) + '</span>' + escapeHtml(m[2]);
+    }).join('\n');
+  }
+
   function todayStamp(withTime) {
     const d = new Date();
     const pad = function(n) { return String(n).padStart(2, '0'); };
@@ -2546,12 +2661,30 @@
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_DATE + '"]');
         if (dateCell) dateCell.textContent = stamp;
       }
+      // PQD Submitted Date: stamped with today's date the moment Submitted
+      // is set to "Yes" — not touched on any other change (including being
+      // set back to "No"), so it stays a record of when it first went out.
+      if (col === COL.PQD_SUB && value === 'Yes') {
+        const subStamp = todayStamp(false);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_SUBDATE, row, COL.PQD_SUBDATE, row), [[subStamp]]);
+        updateLocalValue(row, COL.PQD_SUBDATE, subStamp);
+        const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_SUBDATE + '"]');
+        if (subDateCell) subDateCell.textContent = subStamp;
+      }
       if (col === COL.MS_SUB || col === COL.MS_CODE) {
         const stamp = todayStamp(false);
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_DATE, row, COL.MS_DATE, row), [[stamp]]);
         updateLocalValue(row, COL.MS_DATE, stamp);
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
         if (dateCell) dateCell.textContent = stamp;
+      }
+      // Same idea for Material Submittal.
+      if (col === COL.MS_SUB && value === 'Yes') {
+        const subStamp = todayStamp(false);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_SUBDATE, row, COL.MS_SUBDATE, row), [[subStamp]]);
+        updateLocalValue(row, COL.MS_SUBDATE, subStamp);
+        const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_SUBDATE + '"]');
+        if (subDateCell) subDateCell.textContent = subStamp;
       }
       if (td) flash(td);
       if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT) {
@@ -2660,7 +2793,7 @@
       const fullHistory = value == null ? '' : String(value);
       const history = document.createElement('div');
       history.className = 'remarks-history';
-      history.textContent = fullHistory;
+      history.innerHTML = buildRemarksHistoryHtml(fullHistory);
 
       const addRow = document.createElement('div');
       addRow.className = 'remarks-add';
@@ -2680,7 +2813,7 @@
           const combined = '[' + stamp + '] ' + note + (oldValue ? '\n' + oldValue : '');
           await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.REMARKS, row, COL.REMARKS, row), [[combined]]);
           updateLocalValue(row, COL.REMARKS, combined);
-          history.textContent = combined;
+          history.innerHTML = buildRemarksHistoryHtml(combined);
           addInput.value = '';
           flash(td);
         } catch (e) {
@@ -3130,7 +3263,13 @@
     var all = [];
     for (var i = 0; i < BOQ_TABLES.length; i++) {
       try {
-        all = all.concat(await fetchRowsForSheet(BOQ_TABLES[i].sheetName));
+        // Tag each row with the BOQ_TABLES index it came from (an expando
+        // property on the row array — harmless for every existing COL[...]
+        // index access) so the Item/Buyer table can later work out which
+        // table each buyer mostly works on, purely from live data.
+        var tblRows = await fetchRowsForSheet(BOQ_TABLES[i].sheetName);
+        tblRows.forEach(function(r) { r.__tbl = i; });
+        all = all.concat(tblRows);
       } catch (e) { console.warn('Could not read "' + BOQ_TABLES[i].sheetName + '" for the dashboard (non-fatal): ', e); }
     }
     allTablesRows = all;
@@ -3173,7 +3312,9 @@
     var idx = parseInt(selection, 10);
     var t = BOQ_TABLES[idx];
     if (!t) { await fetchAllTablesRows(); return allTablesRows; }
-    return await fetchRowsForSheet(t.sheetName);
+    var rows = await fetchRowsForSheet(t.sheetName);
+    rows.forEach(function(r) { r.__tbl = idx; });
+    return rows;
   }
 
   // ONE shared discipline/table selector, in the fixed header next to the
@@ -3222,15 +3363,58 @@
     var names = restrictToUsed ? [] : OPTION_LISTS.names.slice();
     var items = nonPackageItems(rows);
     var lliCounts = {}, nonLliCounts = {};
+    // buyer name -> { tableIdx: itemCount } — used only to work out which
+    // BOQ table each buyer mostly works on, so their column groups under
+    // that table's header below. Computed fresh from live data every call,
+    // so a buyer being added, removed, or moved to another table is picked
+    // up automatically on the next render.
+    var tableCounts = {};
     names.forEach(function(n) { lliCounts[n] = 0; nonLliCounts[n] = 0; });
     items.forEach(function(r) {
       var fw = String(r[COL.FILEWITH - 1] || '').trim();
       if (!fw) return;
       if (!(fw in lliCounts)) { lliCounts[fw] = 0; nonLliCounts[fw] = 0; }
       if (r[COL.LLI - 1] === 'Yes') lliCounts[fw]++; else nonLliCounts[fw]++;
+      if (fw !== FILEWITH_UNASSIGNED_VALUE && r.__tbl !== undefined) {
+        if (!tableCounts[fw]) tableCounts[fw] = {};
+        tableCounts[fw][r.__tbl] = (tableCounts[fw][r.__tbl] || 0) + 1;
+      }
     });
     var allNames = names.slice();
     Object.keys(lliCounts).forEach(function(n) { if (allNames.indexOf(n) === -1) allNames.push(n); });
+
+    // Each buyer's "home" table = whichever BOQ table holds the most of
+    // their items (ties go to the earliest table in BOQ_TABLES order). "-"
+    // (unassigned items) and a buyer with no items anywhere have no table.
+    var nameTableIdx = {};
+    allNames.forEach(function(n) {
+      var counts = tableCounts[n];
+      if (n === FILEWITH_UNASSIGNED_VALUE || !counts) { nameTableIdx[n] = -1; return; }
+      var bestIdx = -1, bestCount = -1;
+      Object.keys(counts).forEach(function(k) {
+        var idx = parseInt(k, 10);
+        if (counts[k] > bestCount) { bestCount = counts[k]; bestIdx = idx; }
+      });
+      nameTableIdx[n] = bestIdx;
+    });
+
+    // Order columns: "-" first, then grouped by table (BOQ_TABLES order),
+    // buyers with no known table last. Array#sort is stable in all current
+    // browsers, so buyers within the same group keep their relative order.
+    allNames.sort(function(a, b) {
+      if (a === FILEWITH_UNASSIGNED_VALUE) return -1;
+      if (b === FILEWITH_UNASSIGNED_VALUE) return 1;
+      var ia = nameTableIdx[a]; if (ia === -1) ia = 999999;
+      var ib = nameTableIdx[b]; if (ib === -1) ib = 999999;
+      return ia - ib;
+    });
+
+    var nameGroups = allNames.map(function(n) {
+      if (n === FILEWITH_UNASSIGNED_VALUE) return '';
+      var idx = nameTableIdx[n];
+      return (idx >= 0 && BOQ_TABLES[idx]) ? BOQ_TABLES[idx].label : '';
+    });
+
     var lliArr = [], nonLliArr = [], totalArr = [];
     var lliRowTotal = 0, nonLliRowTotal = 0, grandTotal = 0;
     allNames.forEach(function(n) {
@@ -3240,6 +3424,7 @@
     });
     return {
       names: allNames,
+      nameGroups: nameGroups,
       rows: [
         { label: 'LLI', counts: lliArr, rowTotal: lliRowTotal },
         { label: 'Non LLI', counts: nonLliArr, rowTotal: nonLliRowTotal },
@@ -3370,7 +3555,26 @@
   function renderBuyerTable(data) {
     var head = document.getElementById('buyerStatusHead');
     var body = document.getElementById('buyerStatusBody');
-    head.innerHTML = '<tr><th>Type</th>' + data.names.map(function(n) { return '<th>' + n + '</th>'; }).join('') + '<th>TOTAL</th></tr>';
+
+    // Row 1: "Type" and "TOTAL" span both header rows; buyer columns are
+    // collapsed into one spanning <th> per consecutive run of the same
+    // table group (data.nameGroups), labeled with that table's name. A
+    // buyer with no known table (nameGroups[i] === '') gets a blank cell
+    // instead of a span, so it doesn't merge with its neighbors.
+    var groupsHtml = '';
+    var i = 0;
+    while (i < data.names.length) {
+      var g = data.nameGroups[i];
+      if (!g) { groupsHtml += '<th class="buyer-group-header"></th>'; i++; continue; }
+      var span = 0, j = i;
+      while (j < data.names.length && data.nameGroups[j] === g) { span++; j++; }
+      groupsHtml += '<th class="buyer-group-header" colspan="' + span + '">' + g + '</th>';
+      i = j;
+    }
+    var namesHtml = data.names.map(function(n) { return '<th>' + n + '</th>'; }).join('');
+    head.innerHTML =
+      '<tr><th rowspan="2">Type</th>' + groupsHtml + '<th rowspan="2">TOTAL</th></tr>' +
+      '<tr>' + namesHtml + '</tr>';
     var bodyHtml = '';
     data.rows.forEach(function(r) {
       var isTotal = r.label === 'TOTAL';
