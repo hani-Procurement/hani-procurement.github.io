@@ -297,11 +297,20 @@
 
   /* ---- Material Submittal Status / PQD tables ---- */
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
-  /* Control Panel's own cards (forms/lists, not wide tables) make better use
+  .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
+
+  /* ---- Control Panel: page header + grouped sections ---- */
+  .cp-header{margin-bottom:22px}
+  .cp-header h2{margin:0 0 4px;font-size:21px;color:#1a3d7c;display:flex;align-items:center;gap:8px}
+  .cp-header p{margin:0;color:#666;font-size:13.5px}
+  .cp-section{margin-bottom:28px}
+  .cp-section:last-child{margin-bottom:0}
+  .cp-section-title{margin:0 0 12px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;
+    color:#1a73e8;font-weight:700;border-bottom:1px solid #e3e8f0;padding-bottom:7px}
+  /* Cards within one section (forms/lists, not wide tables) make better use
      of the page as a responsive multi-column grid instead of one long
      single-file column. */
-  #view-controlpanel .ms-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));align-items:start}
-  .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
+  .cp-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));align-items:start;gap:18px}
   .ms-table-wrap{overflow-x:auto}
   table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px}
   table.ms-table th, table.ms-table td{border:1px solid #d7dce3;padding:4px 6px;text-align:center}
@@ -525,105 +534,136 @@
 
   <!-- ===================== CONTROL PANEL ===================== -->
   <div class="view" id="view-controlpanel" style="padding:16px">
-    <div class="ms-card-grid">
 
-      <div class="card">
-        <h3>Import / Export</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-          <button type="button" onclick="exportToXlsx()" id="exportXlsxBtn">⬇ Export BOQ &amp; M/S to Excel</button>
-          <button type="button" onclick="document.getElementById('importFileInput').click()" id="importXlsxBtn">⬆ Import from Excel</button>
-          <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
-        </div>
-        <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
-          <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
-        </div>
-      </div>
-
-      <div class="card" id="cpTablesCard">
-        <h3>Tables</h3>
-        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
-          Add, rename, or remove the BOQ tables shown in Full Table. Each table is fully
-          independent (its own items), and its name also appears as the Discipline when that
-          table is selected.
-        </p>
-        <div class="fw-list" id="cpTablesList" style="max-height:none"></div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
-          <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
-        </div>
-        <div id="cpTablesMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
-      </div>
-
-      <div class="card" id="cpBackupCard">
-        <h3>Auto Backup</h3>
-        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
-          Mails a full backup of the entire spreadsheet (every table, Material Submittal Status,
-          and team settings) as an Excel file to the address below, sent through your own Google
-          account. "Send Backup Now" sends one immediately. The periodic schedule is checked each
-          time an Admin opens this app — it fires on the next time someone with Admin access opens
-          it at or after the interval, not at an exact clock time, since there is no server running
-          in the background here.
-        </p>
-        <label>Backup email</label><input type="text" id="cpBackupEmail" placeholder="name@example.com">
-        <div style="margin-top:10px">
-          <label>Frequency</label>
-          <select id="cpBackupFrequency" style="width:auto;padding:6px 8px">
-            <option value="off">Off (manual only)</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </div>
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" class="primary" onclick="saveBackupSettings()" style="width:auto;padding:8px 14px">💾 Save</button>
-          <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
-        </div>
-        <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
-        <div id="cpBackupMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
-      </div>
-
-      <div class="card" id="cpInviteCard">
-        <h3>Invite link</h3>
-        <p style="font-size:12.5px;color:#555;margin:0 0 8px">
-          Send this link to a teammate <b>after</b> adding them below. It opens this same team sheet
-          directly — without it, their sign-in would try to create a separate sheet of their own.
-        </p>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" id="cpInviteLink" readonly style="flex:1;font-size:12px">
-          <button type="button" onclick="copyInviteLink()" style="width:auto">Copy</button>
-        </div>
-      </div>
-
-      <div class="card" id="cpUsersCard">
-        <h3>Team members &amp; permissions</h3>
-        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
-          Control exactly who can add items, delete items, reorder/move items, or change status
-          fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
-          view everything and edit the regular fields.
-        </p>
-        <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
-          <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
-          <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
-            <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
-            <label><input type="checkbox" id="cpNewCanDelete"> Delete items</label>
-            <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
-            <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
-            <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
-            <label><input type="checkbox" id="cpNewCanAccessCP"> Can access Control Panel</label>
-          </div>
-          <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
-        </div>
-        <div id="cpUsersMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
-      </div>
-
-      <div class="card" id="cpNoAccessCard" style="display:none">
-        <h3>Team members &amp; permissions</h3>
-        <p style="font-size:13px;color:#666">Only an Admin can manage team members. Ask your admin to make changes here.</p>
-      </div>
-
+    <div class="cp-header">
+      <h2>⚙ Control Panel</h2>
+      <p>Manage this project's team access, tables, data, and backups.</p>
     </div>
+
+    <div class="cp-section">
+      <h4 class="cp-section-title">Team &amp; Access</h4>
+      <div class="cp-section-grid">
+
+        <div class="card" id="cpUsersCard">
+          <h3>Team members &amp; permissions</h3>
+          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+            Control exactly who can add items, delete items, reorder/move items, or change status
+            fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
+            view everything and edit the regular fields.
+          </p>
+          <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
+            <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
+            <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
+              <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
+              <label><input type="checkbox" id="cpNewCanDelete"> Delete items</label>
+              <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
+              <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
+              <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
+              <label><input type="checkbox" id="cpNewCanAccessCP"> Can access Control Panel</label>
+            </div>
+            <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
+          </div>
+          <div id="cpUsersMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+        </div>
+
+        <div class="card" id="cpNoAccessCard" style="display:none">
+          <h3>Team members &amp; permissions</h3>
+          <p style="font-size:13px;color:#666">Only an Admin can manage team members. Ask your admin to make changes here.</p>
+        </div>
+
+        <div class="card" id="cpInviteCard">
+          <h3>Invite link</h3>
+          <p style="font-size:12.5px;color:#555;margin:0 0 8px">
+            Send this link to a teammate <b>after</b> adding them above. It opens this same team sheet
+            directly — without it, their sign-in would try to create a separate sheet of their own.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="cpInviteLink" readonly style="flex:1;font-size:12px">
+            <button type="button" onclick="copyInviteLink()" style="width:auto">Copy</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="cp-section">
+      <h4 class="cp-section-title">Tables</h4>
+      <div class="cp-section-grid">
+
+        <div class="card" id="cpTablesCard">
+          <h3>Tables</h3>
+          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+            Add, rename, or remove the BOQ tables shown in Full Table. Each table is fully
+            independent (its own items, and its own "File With" buyer list), and its name also
+            appears as the Discipline when that table is selected.
+          </p>
+          <div class="fw-list" id="cpTablesList" style="max-height:none"></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
+            <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
+          </div>
+          <div id="cpTablesMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="cp-section">
+      <h4 class="cp-section-title">Data</h4>
+      <div class="cp-section-grid">
+
+        <div class="card">
+          <h3>Import / Export</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <button type="button" onclick="exportToXlsx()" id="exportXlsxBtn">⬇ Export BOQ &amp; M/S to Excel</button>
+            <button type="button" onclick="document.getElementById('importFileInput').click()" id="importXlsxBtn">⬆ Import from Excel</button>
+            <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
+          </div>
+          <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+            <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="cp-section">
+      <h4 class="cp-section-title">Maintenance</h4>
+      <div class="cp-section-grid">
+
+        <div class="card" id="cpBackupCard">
+          <h3>Auto Backup</h3>
+          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+            Mails a full backup of the entire spreadsheet (every table, Material Submittal Status,
+            and team settings) as an Excel file to the address below, sent through your own Google
+            account. "Send Backup Now" sends one immediately. The periodic schedule is checked each
+            time an Admin opens this app — it fires on the next time someone with Admin access opens
+            it at or after the interval, not at an exact clock time, since there is no server running
+            in the background here.
+          </p>
+          <label>Backup email</label><input type="text" id="cpBackupEmail" placeholder="name@example.com">
+          <div style="margin-top:10px">
+            <label>Frequency</label>
+            <select id="cpBackupFrequency" style="width:auto;padding:6px 8px">
+              <option value="off">Off (manual only)</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="primary" onclick="saveBackupSettings()" style="width:auto;padding:8px 14px">💾 Save</button>
+            <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
+          </div>
+          <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
+          <div id="cpBackupMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -663,6 +703,7 @@
 <div class="modal-overlay" id="fileWithModalOverlay" style="display:none;">
   <div class="modal-box">
     <h3>Manage "File With" List</h3>
+    <div id="fwTableLabel" style="font-size:12px;color:#888;margin:-8px 0 10px"></div>
     <div class="fw-list" id="fwList"></div>
     <div class="fw-add-row">
       <input type="text" id="fwNewName" placeholder="New name...">
@@ -714,6 +755,7 @@
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
   const USERS_SHEET_NAME = "Users";
   const BACKUP_CONFIG_SHEET_NAME = "BackupConfig";
+  const FILEWITH_LISTS_SHEET_NAME = "FileWithLists";
 
   // The single "Full Table" tab can hold any number of independent item
   // sets — each one a real Sheets tab (internal name "BOQ Database",
@@ -731,6 +773,7 @@
   var boqSheetIds = [null];
   var currentTableIndex = 0;
   var tablesConfigSheetId = null;
+  var fileWithListsSheetId = null; // numeric sheetId of the hidden 'FileWithLists' tab
   let SHEET_NAME = BOQ_TABLES[0].sheetName;
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
@@ -1203,8 +1246,46 @@
       const fw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2));
       if (!fw.length || !String(fw[0][0] || '').trim()) await seedListsSheet(spreadsheetId);
     }
+    await ensureFileWithListsSheet(meta);
     await ensureUsersSheet(meta);
     await ensureBackupConfigSheet(meta);
+  }
+
+  // Each BOQ table used to share ONE "File With" (buyer) list, stored in the
+  // single Lists!A2:A100 column — adding/renaming/removing a buyer on one
+  // table's gear-icon modal silently affected every other table too. This
+  // sheet instead holds one row per (table, buyer name) pair, so every
+  // table's list is fully independent. Idempotent + self-healing like every
+  // other ensure*() here: on the very first run after this shipped, it
+  // creates the sheet and seeds every table already in BOQ_TABLES with a
+  // COPY of whatever names the old shared list had, so nothing already
+  // assigned to an item disappears from any dropdown; every run after that
+  // just finds the sheet already there and does nothing.
+  async function ensureFileWithListsSheet(meta) {
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === FILEWITH_LISTS_SHEET_NAME; });
+    if (sheet) { fileWithListsSheetId = sheet.properties.sheetId; return; }
+
+    const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: FILEWITH_LISTS_SHEET_NAME, hidden: true } } }]);
+    fileWithListsSheetId = res.replies[0].addSheet.properties.sheetId;
+    await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 1, 2, 1), [['Table', 'Name']], 'RAW');
+
+    var legacyNames = [];
+    try {
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      // Exclude '-' (FILEWITH_UNASSIGNED_VALUE) — seedListsSheet() writes it
+      // as the lone starter value for a brand-new spreadsheet's legacy
+      // column, and it's the reserved unassigned marker, not a real buyer.
+      legacyNames = raw.map(function(r) { return r[0]; })
+        .filter(function(v) { return v && String(v).trim() !== '' && String(v).trim() !== '-'; });
+    } catch (e) { /* Lists sheet not reachable yet (non-fatal) — nothing to migrate */ }
+
+    if (legacyNames.length && BOQ_TABLES.length) {
+      var seedRows = [];
+      BOQ_TABLES.forEach(function(t) {
+        legacyNames.forEach(function(n) { seedRows.push([t.sheetName, n]); });
+      });
+      await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, 1 + seedRows.length), seedRows, 'RAW');
+    }
   }
 
   /* ===================== TABLES CONFIG (admin-managed, dynamic table list) =====================
@@ -1307,6 +1388,23 @@
     if (currentTableIndex >= BOQ_TABLES.length) currentTableIndex = 0;
     SHEET_NAME = BOQ_TABLES[currentTableIndex].sheetName;
     boqSheetId = boqSheetIds[currentTableIndex];
+
+    // Tidy up: clear this table's now-orphaned rows from the (table, name)
+    // File With list sheet — not required for correctness (an orphan row is
+    // simply never matched by any table again), but keeps that sheet clean.
+    try { await removeFileWithRowsForTable(tbl.sheetName); } catch (e) { console.warn('Could not clean up File With rows for deleted table (non-fatal): ', e); }
+  }
+
+  async function removeFileWithRowsForTable(tableSheetName) {
+    var raw = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, FILEWITH_LISTS_MAX_ROWS));
+    var clearRows = [];
+    for (var i = 0; i < raw.length; i++) {
+      var t = String((raw[i] && raw[i][0]) || '').trim();
+      if (t === tableSheetName) clearRows.push(2 + i);
+    }
+    for (var j = 0; j < clearRows.length; j++) {
+      await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, clearRows[j], 2, clearRows[j]), [['', '']], 'RAW');
+    }
   }
 
   async function sheetsBatchClearRange(sheetName, startRow, endRow, lastCol) {
@@ -1575,13 +1673,18 @@
     if (el && BOQ_TABLES[currentTableIndex]) el.value = BOQ_TABLES[currentTableIndex].label;
   }
 
-  function switchBoqTable(idxStr) {
+  async function switchBoqTable(idxStr) {
     var idx = parseInt(idxStr, 10);
     if (isNaN(idx) || idx === currentTableIndex) return;
     currentTableIndex = idx;
     SHEET_NAME = BOQ_TABLES[idx].sheetName;
     boqSheetId = boqSheetIds[idx];
     updateDisciplineBoxFromCurrentTable();
+    // Each table has its own independent "File With" roster now, so it must
+    // be reloaded for the table we just switched into before the Full
+    // Table/Add Item dropdowns are (re)built — otherwise they'd briefly
+    // keep showing the previous table's buyers.
+    await loadFormOptions();
     loadFullTable();
   }
 
@@ -2234,8 +2337,10 @@
 
   async function loadFormOptions() {
     try {
-      const names = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
-      OPTION_LISTS.names = names.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
+      // Each table's own "File With" roster — see ensureFileWithListsSheet().
+      // Re-run on every table switch (switchBoqTable()) so this always
+      // reflects whichever table is currently active, not a stale one.
+      OPTION_LISTS.names = await fetchFileWithNamesForTable(SHEET_NAME);
     } catch (e) { console.warn('Could not load File With list: ', e); }
     try {
       const abRaw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
@@ -3503,8 +3608,8 @@
     return { ms: ms, pqd: pqd };
   }
 
-  function getFilesByBuyerDataClient(rows, restrictToUsed) {
-    var names = restrictToUsed ? [] : OPTION_LISTS.names.slice();
+  function getFilesByBuyerDataClient(rows, restrictToUsed, rosterNames) {
+    var names = restrictToUsed ? [] : (rosterNames || []).slice();
     var items = nonPackageItems(rows);
     var lliCounts = {}, nonLliCounts = {};
     // buyer name -> { tableIdx: itemCount } — used only to work out which
@@ -3693,7 +3798,15 @@
     var data = getSubmittalStatusDataClient(rows);
     renderSubmittalBody(document.getElementById('msStatusBody'), MS_GROUPS, MS_ROW_LABELS, data.ms, 'ms');
     renderSubmittalBody(document.getElementById('pqdStatusBody'), PQD_GROUPS, PQD_ROW_LABELS, data.pqd, 'pqd');
-    renderBuyerTable(getFilesByBuyerDataClient(rows, !isOverall));
+    // "Overall" shows the union of every table's own roster (so a buyer with
+    // zero items right now still gets a column); a single table shows only
+    // buyers actually used there — each table's own roster, never another
+    // table's, matching the File With list it now owns independently.
+    var roster = [];
+    if (isOverall) {
+      try { roster = await fetchAllFileWithNamesAcrossTables(); } catch (e) { console.warn('Could not load buyer roster: ', e); }
+    }
+    renderBuyerTable(getFilesByBuyerDataClient(rows, !isOverall, roster));
   }
 
   function renderBuyerTable(data) {
@@ -4089,29 +4202,63 @@
     }
   }
 
-  /* ===================== FILE WITH LIST MANAGEMENT (Lists!A2:A100) =====================
+  /* ===================== FILE WITH LIST MANAGEMENT (FileWithLists sheet) =====================
      Ported from the original Apps Script app's gear-button modal next to the
      "File With" column header (addFileWithName/renameFileWithName/removeFileWithName
      in Code.gs) — ran against the Sheets API directly instead of google.script.run,
      but same rules: "-" is reserved/unassigned, rename updates every BOQ item
-     already on the old name in one pass, remove resets affected items to "-". */
+     already on the old name in one pass, remove resets affected items to "-".
+     Every operation here is scoped to SHEET_NAME (the table currently open
+     in Full Table — the gear button sits next to that table's own column),
+     reading/writing only the (SHEET_NAME, name) rows of FileWithLists, so a
+     table's buyer list is completely independent of every other table's —
+     see ensureFileWithListsSheet() for the one-time migration off the old
+     single shared Lists!A2:A100 column. */
   const FILEWITH_UNASSIGNED_VALUE = '-';
+  const FILEWITH_LISTS_MAX_ROWS = 3000;
   var fwRenameTarget = null;
+
+  // Every (table, name) row currently in FileWithLists, as plain objects —
+  // the shared read every other function here filters down from.
+  async function fetchFileWithRows() {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, FILEWITH_LISTS_MAX_ROWS));
+    return raw.map(function(r) {
+      return { table: String((r && r[0]) || '').trim(), name: String((r && r[1]) || '').trim() };
+    }).filter(function(r) { return r.table && r.name; });
+  }
+
+  async function fetchFileWithNamesForTable(tableSheetName) {
+    const rows = await fetchFileWithRows();
+    return rows.filter(function(r) { return r.table === tableSheetName; }).map(function(r) { return r.name; });
+  }
+
+  // Union of every table's roster (deduped), for contexts that aren't
+  // scoped to one table — e.g. the Item/Buyer dashboard's "Overall (All
+  // Disciplines)" view, which should still show a buyer column even for
+  // someone with zero items in whichever table is currently selected.
+  async function fetchAllFileWithNamesAcrossTables() {
+    const rows = await fetchFileWithRows();
+    var seen = {}, out = [];
+    rows.forEach(function(r) { if (!seen[r.name]) { seen[r.name] = true; out.push(r.name); } });
+    return out;
+  }
+
+  // The gear-icon modal always manages whichever table is currently active.
+  async function fetchFileWithNames() {
+    return fetchFileWithNamesForTable(SHEET_NAME);
+  }
 
   function openFileWithModal() {
     document.getElementById('fwMsg').textContent = '';
     document.getElementById('fwNewName').value = '';
+    var tbl = BOQ_TABLES[currentTableIndex];
+    document.getElementById('fwTableLabel').textContent = tbl ? ('List for: ' + tbl.label) : '';
     fwRenameTarget = null;
     renderFileWithList();
     document.getElementById('fileWithModalOverlay').style.display = 'flex';
   }
   function closeFileWithModal() {
     document.getElementById('fileWithModalOverlay').style.display = 'none';
-  }
-
-  async function fetchFileWithNames() {
-    const raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
-    return raw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
   }
 
   async function renderFileWithList() {
@@ -4163,12 +4310,12 @@
     try {
       if (name === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" is reserved.');
       var names = await fetchFileWithNames();
-      if (names.some(function(n) { return n.toLowerCase() === name.toLowerCase(); })) throw new Error('This name already exists.');
-      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      if (names.some(function(n) { return n.toLowerCase() === name.toLowerCase(); })) throw new Error('This name already exists on this table\'s list.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 1, FILEWITH_LISTS_MAX_ROWS));
       var slot = -1;
-      for (var i = 0; i < 99; i++) { if (!raw[i] || String(raw[i][0] || '').trim() === '') { slot = i; break; } }
+      for (var i = 0; i < FILEWITH_LISTS_MAX_ROWS - 1; i++) { if (!raw[i] || String(raw[i][0] || '').trim() === '') { slot = i; break; } }
       if (slot === -1) throw new Error('No space left in the list.');
-      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + slot, 1, 2 + slot), [[name]], 'RAW');
+      await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2 + slot, 2, 2 + slot), [[SHEET_NAME, name]], 'RAW');
       document.getElementById('fwNewName').value = '';
       await renderFileWithList();
       await refreshFileWithOptionsEverywhere();
@@ -4196,15 +4343,22 @@
     try {
       if (oldName === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" cannot be renamed — it is reserved for items that need a new File With.');
       if (newName === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" is reserved.');
-      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, FILEWITH_LISTS_MAX_ROWS));
       var oldRow = -1, newExists = false;
-      for (var i = 0; i < 99; i++) {
-        var v = String((raw[i] && raw[i][0]) || '').trim();
+      for (var i = 0; i < FILEWITH_LISTS_MAX_ROWS - 1; i++) {
+        var t = String((raw[i] && raw[i][0]) || '').trim();
+        if (t !== SHEET_NAME) continue;
+        var v = String((raw[i] && raw[i][1]) || '').trim();
         if (v === oldName) oldRow = i;
         if (v.toLowerCase() === newName.toLowerCase() && v !== oldName) newExists = true;
       }
       if (oldRow === -1) throw new Error('Name not found.');
-      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + oldRow, 1, 2 + oldRow), [[newExists ? '' : newName]], 'RAW');
+      var row = 2 + oldRow;
+      if (newExists) {
+        await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, row, 2, row), [['', '']], 'RAW');
+      } else {
+        await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, row, 2, row), [[SHEET_NAME, newName]], 'RAW');
+      }
       var updated = await bulkUpdateFileWithClient(oldName, newName);
       fwRenameTarget = null;
       document.getElementById('fwMsg').textContent = 'Renamed. ' + updated + ' item(s) updated.';
@@ -4216,16 +4370,21 @@
   }
 
   async function removeFileWithEntry(name) {
-    if (!confirm('Remove "' + name + '" from the list? Any item still set to this name will be reset to "-" so it can be reassigned later.')) return;
+    if (!confirm('Remove "' + name + '" from this table\'s list? Any item in this table still set to this name will be reset to "-" so it can be reassigned later.')) return;
     document.getElementById('fwMsg').textContent = '';
     try {
       if (name === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" cannot be removed — it is reserved for items that need a new File With.');
-      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, FILEWITH_LISTS_MAX_ROWS));
       var rowIdx = -1;
-      for (var i = 0; i < 99; i++) { if (String((raw[i] && raw[i][0]) || '').trim() === name) { rowIdx = i; break; } }
+      for (var i = 0; i < FILEWITH_LISTS_MAX_ROWS - 1; i++) {
+        var t = String((raw[i] && raw[i][0]) || '').trim();
+        var v = String((raw[i] && raw[i][1]) || '').trim();
+        if (t === SHEET_NAME && v === name) { rowIdx = i; break; }
+      }
       if (rowIdx === -1) throw new Error('Name not found.');
       var resetCount = await bulkUpdateFileWithClient(name, FILEWITH_UNASSIGNED_VALUE);
-      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + rowIdx, 1, 2 + rowIdx), [['']], 'RAW');
+      var row = 2 + rowIdx;
+      await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, row, 2, row), [['', '']], 'RAW');
       document.getElementById('fwMsg').textContent = 'Removed. ' + resetCount + ' item(s) reset to "-".';
       await renderFileWithList();
       await refreshFileWithOptionsEverywhere();
