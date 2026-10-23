@@ -308,20 +308,19 @@
       <div class="pb-field"><label>Project Number:</label>
         <input type="text" id="pbProjectNumber" placeholder="Enter project number" onblur="saveProjectBar()"></div>
       <div class="pb-field"><label>Discipline:</label>
-        <input type="text" id="pbDiscipline" placeholder="Enter discipline name" onblur="saveProjectBar()"></div>
+        <input type="text" id="pbDiscipline" placeholder="—" readonly title="Follows the table selected in Full Table — rename it from Control Panel"></div>
       <div class="pb-date" id="pbDate"></div>
+      <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">⚙ Control Panel</button>
     </div>
     <nav class="main-nav">
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
-      <button onclick="showView('controlpanel', this)" id="navControlPanel">⚙ Control Panel</button>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
       <span id="addMsg"></span>
       <label style="font-size:12.5px;color:#555;margin:0 2px 0 0">Table:</label>
       <select id="boqTableSelect" onchange="switchBoqTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
-      <button type="button" id="renameTableBtn" onclick="saveTableLabel(currentTableIndex)" style="width:auto">✎ Rename</button>
       <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
       <span id="clipboardStatus"></span>
@@ -330,6 +329,10 @@
 
   <!-- ===================== SUBMITTAL DASHBOARD ===================== -->
   <div class="view active" id="view-subdash">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 16px 10px">
+      <label style="font-size:12.5px;color:#555;font-weight:600">Discipline:</label>
+      <select id="sdTableSelect" onchange="switchSdTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
+    </div>
     <div class="sd-section-title">📦 Material — Key Numbers</div>
     <div class="sd-kpi-row">
       <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Total Materials (Main)</div></div>
@@ -384,6 +387,10 @@
 
   <!-- ===================== MATERIAL SUBMITTAL STATUS / PQD STATUS ===================== -->
   <div class="view" id="view-msstatus">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0">
+      <label style="font-size:12.5px;color:#555;font-weight:600">Discipline:</label>
+      <select id="msStatusTableSelect" onchange="switchMsStatusTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
+    </div>
     <div class="ms-card-grid">
       <div class="card">
         <h3>STATUS OF MATERIAL SUBMITTAL</h3>
@@ -456,6 +463,21 @@
           <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
         </div>
         <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
+      </div>
+
+      <div class="card" id="cpTablesCard">
+        <h3>Tables</h3>
+        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          Add, rename, or remove the BOQ tables shown in Full Table. Each table is fully
+          independent (its own items), and its name also appears as the Discipline when that
+          table is selected.
+        </p>
+        <div class="fw-list" id="cpTablesList" style="max-height:none"></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
+          <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
+        </div>
+        <div id="cpTablesMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
       </div>
 
       <div class="card" id="cpInviteCard">
@@ -585,24 +607,22 @@
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
   const USERS_SHEET_NAME = "Users";
 
-  // The single "Full Table" tab now holds 3 independent item sets ("BOQ
-  // Database", "BOQ Database 2", "BOQ Database 3" — the real, fixed Sheets
-  // tab names, never shown to anyone). Only their on-screen labels are
-  // admin-editable (stored in Lists!G2:G4, see loadTableLabels()/
-  // saveTableLabel()) so the admin can call them whatever fits the project
-  // (e.g. "Mechanical" / "Electrical" / "Civil") without touching any code.
-  // SHEET_NAME / boqSheetId always point at whichever of the 3 is currently
-  // selected (see switchBoqTable()) — every existing function that reads
-  // from or writes to "the" BOQ Database tab keeps working unchanged.
-  const BOQ_TABLES = [
-    { sheetName: 'BOQ Database' },
-    { sheetName: 'BOQ Database 2' },
-    { sheetName: 'BOQ Database 3' }
-  ];
-  const DEFAULT_TABLE_LABELS = ['Table 1', 'Table 2', 'Table 3'];
-  var tableLabels = DEFAULT_TABLE_LABELS.slice();
-  var boqSheetIds = [null, null, null];
+  // The single "Full Table" tab can hold any number of independent item
+  // sets — each one a real Sheets tab (internal name "BOQ Database",
+  // "BOQ Database 2", "BOQ Database 3", ... never shown to anyone) plus an
+  // admin-editable on-screen label. The list itself — which tabs exist, in
+  // what order, under what label — is persisted in the hidden "TablesConfig"
+  // tab (see loadBoqTablesFromConfig()/ensureTablesConfigSheet()) and is
+  // entirely admin-managed from Control Panel: add, rename, remove. Nothing
+  // here is a fixed count any more. SHEET_NAME / boqSheetId always point at
+  // whichever table is currently selected (see switchBoqTable()) — every
+  // existing function that reads from or writes to "the" BOQ Database tab
+  // keeps working unchanged.
+  const TABLES_CONFIG_SHEET_NAME = "TablesConfig";
+  var BOQ_TABLES = [{ sheetName: 'BOQ Database', label: 'Table 1' }]; // replaced by loadBoqTablesFromConfig()
+  var boqSheetIds = [null];
   var currentTableIndex = 0;
+  var tablesConfigSheetId = null;
   let SHEET_NAME = BOQ_TABLES[0].sheetName;
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
@@ -838,29 +858,25 @@
         properties: { title: SHEET_TITLE },
         sheets: [
           { properties: { title: BOQ_TABLES[0].sheetName } },
-          { properties: { title: BOQ_TABLES[1].sheetName } },
-          { properties: { title: BOQ_TABLES[2].sheetName } },
           { properties: { title: SUBMITTAL_SHEET_NAME } },
           { properties: { title: LISTS_SHEET_NAME } },
-          { properties: { title: USERS_SHEET_NAME } }
+          { properties: { title: USERS_SHEET_NAME } },
+          { properties: { title: TABLES_CONFIG_SHEET_NAME, hidden: true } }
         ]
       })
     });
     const newId = createData.spreadsheetId;
     boqSheetIds[0] = createData.sheets[0].properties.sheetId;
-    boqSheetIds[1] = createData.sheets[1].properties.sheetId;
-    boqSheetIds[2] = createData.sheets[2].properties.sheetId;
-    usersSheetId = createData.sheets[5].properties.sheetId;
+    usersSheetId = createData.sheets[3].properties.sheetId;
+    tablesConfigSheetId = createData.sheets[4].properties.sheetId;
 
-    // Write the identical 28-column header into all 3 tables.
-    for (var i = 0; i < BOQ_TABLES.length; i++) {
-      SHEET_NAME = BOQ_TABLES[i].sheetName;
-      boqSheetId = boqSheetIds[i];
-      await writeBoqHeader(newId);
-    }
     currentTableIndex = 0;
     SHEET_NAME = BOQ_TABLES[0].sheetName;
     boqSheetId = boqSheetIds[0];
+    await writeBoqHeader(newId);
+
+    await sheetsUpdateValues(newId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 1, 3, 1), [TABLES_CONFIG_HEADER_ROW], 'RAW');
+    await sheetsUpdateValues(newId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 2), [[BOQ_TABLES[0].sheetName, BOQ_TABLES[0].label, todayStamp(false)]], 'RAW');
 
     await seedListsSheet(newId);
     await sheetsUpdateValues(newId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
@@ -875,12 +891,13 @@
     return newId;
   }
 
-  /* For every one of the 3 BOQ tables: find its numeric sheetId (creating the
-     tab if an older spreadsheet — made before this feature shipped — doesn't
-     have it yet) and, only if its header row looks unwritten, write the full
-     28-column header (never overwrites a header that's already there). Ends
-     with SHEET_NAME/boqSheetId pointing at table 0, the view's starting tab. */
+  /* For every table in BOQ_TABLES (loaded from TablesConfig just before this
+     runs): find its numeric sheetId (creating the tab if it's listed in the
+     config but somehow missing) and, only if its header row looks unwritten,
+     write the full 28-column header (never overwrites one that's already
+     there). Ends with SHEET_NAME/boqSheetId pointing at table 0. */
   async function ensureAllBoqTablesReady(meta) {
+    boqSheetIds = new Array(BOQ_TABLES.length);
     for (var i = 0; i < BOQ_TABLES.length; i++) {
       var tbl = BOQ_TABLES[i];
       var sheetMeta = (meta.sheets || []).find(function(s) { return s.properties.title === tbl.sheetName; });
@@ -908,12 +925,15 @@
     boqSheetId = boqSheetIds[0];
   }
 
-  /* On an existing spreadsheet: make sure all 3 BOQ tables, the Lists seed
-     data and the Users tab are all in place. Older sheets (made before
-     multi-table / multi-user support shipped) get upgraded lazily here, the
-     first time anyone opens them after the update. */
+  /* On an existing spreadsheet: load the (dynamic, admin-managed) table list
+     from TablesConfig, make sure every table it names actually exists and
+     has a header, and make sure the Lists seed data and the Users tab are
+     all in place too. Older sheets (made before multi-table / multi-user
+     support shipped) get upgraded lazily here, the first time anyone opens
+     them after the update. */
   async function ensureBoqSheetReady() {
     const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
+    await ensureTablesConfigSheet(meta);
     await ensureAllBoqTablesReady(meta);
     const listsSheet = (meta.sheets || []).find(function(s) { return s.properties.title === LISTS_SHEET_NAME; });
     if (listsSheet) {
@@ -921,6 +941,114 @@
       if (!fw.length || !String(fw[0][0] || '').trim()) await seedListsSheet(spreadsheetId);
     }
     await ensureUsersSheet(meta);
+  }
+
+  /* ===================== TABLES CONFIG (admin-managed, dynamic table list) =====================
+     TablesConfig!A2:C — one row per BOQ table: [real Sheets tab name, label
+     shown in the Full Table "Table:" picker, created date]. The real tab
+     name is assigned once (at creation) and never changes; only the label
+     is editable. Hidden from the nav — only Control Panel manages this. */
+  const TABLES_CONFIG_HEADER_ROW = ['Sheet Name', 'Label', 'Created'];
+
+  async function ensureTablesConfigSheet(meta) {
+    var cfgSheet = (meta.sheets || []).find(function(s) { return s.properties.title === TABLES_CONFIG_SHEET_NAME; });
+    if (cfgSheet) {
+      tablesConfigSheetId = cfgSheet.properties.sheetId;
+      await loadBoqTablesFromConfig();
+      return;
+    }
+    // Upgrading a spreadsheet made before this feature shipped: create the
+    // config tab now and register whichever BOQ tables already exist on it
+    // (the previous fixed-3-table version, or just the original single
+    // "BOQ Database" tab) so nothing already entered is ever orphaned.
+    const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: TABLES_CONFIG_SHEET_NAME, hidden: true } } }]);
+    tablesConfigSheetId = res.replies[0].addSheet.properties.sheetId;
+    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 1, 3, 1), [TABLES_CONFIG_HEADER_ROW], 'RAW');
+
+    var legacyNames = ['BOQ Database', 'BOQ Database 2', 'BOQ Database 3'];
+    var legacyLabels = ['Table 1', 'Table 2', 'Table 3'];
+    try {
+      const lv = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 7, 2, 7, 4));
+      legacyLabels = legacyLabels.map(function(def, i) { var v = lv[i] && lv[i][0]; return (v && String(v).trim()) ? String(v).trim() : def; });
+    } catch (e) { /* Lists sheet not reachable yet (non-fatal) — defaults are fine */ }
+
+    var rows = [];
+    for (var i = 0; i < legacyNames.length; i++) {
+      var exists = (meta.sheets || []).some(function(s) { return s.properties.title === legacyNames[i]; });
+      if (exists) rows.push([legacyNames[i], legacyLabels[i], '']);
+    }
+    if (!rows.length) rows.push(['BOQ Database', 'Table 1', '']);
+    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 1 + rows.length), rows, 'RAW');
+    await loadBoqTablesFromConfig();
+  }
+
+  async function loadBoqTablesFromConfig() {
+    const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
+    BOQ_TABLES = rows.filter(function(r) { return r && String(r[0] || '').trim(); }).map(function(r) {
+      return { sheetName: String(r[0]).trim(), label: String(r[1] || r[0]).trim() };
+    });
+    if (!BOQ_TABLES.length) BOQ_TABLES = [{ sheetName: 'BOQ Database', label: 'Table 1' }];
+  }
+
+  function nextBoqSheetName() {
+    var maxN = 1;
+    BOQ_TABLES.forEach(function(t) {
+      var m = /^BOQ Database(?: (\d+))?$/.exec(t.sheetName);
+      if (m) maxN = Math.max(maxN, m[1] ? parseInt(m[1], 10) : 1);
+    });
+    return 'BOQ Database ' + (maxN + 1);
+  }
+
+  async function addBoqTable(label) {
+    const sheetName = nextBoqSheetName();
+    const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: sheetName } } }]);
+    const newSheetId = res.replies[0].addSheet.properties.sheetId;
+
+    const savedSheetName = SHEET_NAME, savedSheetId = boqSheetId;
+    SHEET_NAME = sheetName; boqSheetId = newSheetId;
+    try { await writeBoqHeader(spreadsheetId); }
+    finally { SHEET_NAME = savedSheetName; boqSheetId = savedSheetId; }
+
+    const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
+    const nextRow = 2 + rows.length;
+    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, nextRow, 3, nextRow), [[sheetName, label, todayStamp(false)]], 'RAW');
+
+    BOQ_TABLES.push({ sheetName: sheetName, label: label });
+    boqSheetIds.push(newSheetId);
+  }
+
+  async function renameBoqTable(idx, newLabel) {
+    const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
+    const row = 2 + idx;
+    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 2, row, 2, row), [[newLabel]], 'RAW');
+    BOQ_TABLES[idx].label = newLabel;
+  }
+
+  // Deletes the underlying Sheets tab (and therefore every item in it) —
+  // irreversible, which is why addTeamMember()'s caller confirms first.
+  async function removeBoqTable(idx) {
+    const tbl = BOQ_TABLES[idx];
+    await sheetsBatchUpdate(spreadsheetId, [{ deleteSheet: { sheetId: boqSheetIds[idx] } }]);
+
+    // Rewrite TablesConfig without this row (simplest correct way to keep
+    // row numbers contiguous — there are only ever a handful of tables).
+    BOQ_TABLES.splice(idx, 1);
+    boqSheetIds.splice(idx, 1);
+    const cfgRows = BOQ_TABLES.map(function(t) { return [t.sheetName, t.label, '']; });
+    await sheetsBatchClearRange(TABLES_CONFIG_SHEET_NAME, 2, 500, 3);
+    if (cfgRows.length) {
+      await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 1 + cfgRows.length), cfgRows, 'RAW');
+    }
+
+    if (currentTableIndex >= BOQ_TABLES.length) currentTableIndex = 0;
+    SHEET_NAME = BOQ_TABLES[currentTableIndex].sheetName;
+    boqSheetId = boqSheetIds[currentTableIndex];
+  }
+
+  async function sheetsBatchClearRange(sheetName, startRow, endRow, lastCol) {
+    const blank = [];
+    for (var i = startRow; i <= endRow; i++) blank.push(new Array(lastCol).fill(''));
+    await sheetsUpdateValues(spreadsheetId, a1Range(sheetName, 1, startRow, lastCol, endRow), blank, 'RAW');
   }
 
   /* ===================== TEAM / USERS SHEET (Users!A2:G200) =====================
@@ -1047,50 +1175,28 @@
     } catch (e) { console.warn('Seeding Lists sheet failed (non-fatal): ', e); }
   }
 
-  /* ===================== BOQ table labels (Lists!G2:G4) =====================
-     The admin-editable display names shown in the Full Table "Table:" picker.
-     The real Sheets tab names (BOQ_TABLES[i].sheetName) never change — only
-     this label does, so renaming never risks breaking anything that reads
-     the underlying sheet by name. */
-  async function loadTableLabels() {
-    try {
-      const values = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 7, 2, 7, 2 + DEFAULT_TABLE_LABELS.length - 1));
-      tableLabels = DEFAULT_TABLE_LABELS.map(function(def, i) {
-        var v = values[i] && values[i][0];
-        return (v && String(v).trim()) ? String(v).trim() : def;
-      });
-    } catch (e) {
-      console.warn('Could not load table labels (using defaults): ', e);
-      tableLabels = DEFAULT_TABLE_LABELS.slice();
-    }
-    renderTableSelect();
-  }
-
-  async function saveTableLabel(idx) {
-    if (!currentUserPerms.isAdmin) return;
-    var next = prompt('اسم الجدول الجديد:', tableLabels[idx]);
-    if (next === null) return;
-    next = next.trim();
-    if (!next) return;
-    try {
-      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 7, 2 + idx, 7, 2 + idx), [[next]], 'RAW');
-      tableLabels[idx] = next;
-      renderTableSelect();
-    } catch (e) {
-      alert('تعذر حفظ الاسم: ' + (e.message || e));
-    }
-  }
-
+  /* ===================== Full Table picker (selection only — add/rename/
+     remove tables all live in Control Panel, admin-only) ===================== */
   function renderTableSelect() {
     var sel = document.getElementById('boqTableSelect');
     if (!sel) return;
     sel.innerHTML = '';
-    tableLabels.forEach(function(label, i) {
+    BOQ_TABLES.forEach(function(t, i) {
       var o = document.createElement('option');
-      o.value = i; o.textContent = label;
+      o.value = i; o.textContent = t.label;
       sel.appendChild(o);
     });
     sel.value = currentTableIndex;
+    updateDisciplineBoxFromCurrentTable();
+  }
+
+  // The Discipline field in the project bar always mirrors whichever table
+  // is currently selected — this is literally what the 3 (now N) tables
+  // represent (Mechanical / Electrical / Civil, or whatever the admin named
+  // them), so it should never show stale or manually-typed text.
+  function updateDisciplineBoxFromCurrentTable() {
+    var el = document.getElementById('pbDiscipline');
+    if (el && BOQ_TABLES[currentTableIndex]) el.value = BOQ_TABLES[currentTableIndex].label;
   }
 
   function switchBoqTable(idxStr) {
@@ -1099,7 +1205,95 @@
     currentTableIndex = idx;
     SHEET_NAME = BOQ_TABLES[idx].sheetName;
     boqSheetId = boqSheetIds[idx];
+    updateDisciplineBoxFromCurrentTable();
     loadFullTable();
+  }
+
+  /* ===================== Control Panel: Tables management (admin-only) ===================== */
+  async function renderTablesList() {
+    var list = document.getElementById('cpTablesList');
+    if (!list) return;
+    list.innerHTML = '';
+    BOQ_TABLES.forEach(function(t, idx) {
+      var row = document.createElement('div');
+      row.className = 'fw-list-item';
+
+      if (cpTableRenameTarget === idx) {
+        var editRow = document.createElement('div'); editRow.className = 'fw-rename-row';
+        var input = document.createElement('input'); input.type = 'text'; input.value = t.label;
+        var saveBtn = document.createElement('button'); saveBtn.textContent = 'Save';
+        saveBtn.onclick = function() { commitRenameBoqTable(idx, input.value.trim()); };
+        var cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = function() { cpTableRenameTarget = null; renderTablesList(); };
+        editRow.appendChild(input); editRow.appendChild(saveBtn); editRow.appendChild(cancelBtn);
+        row.appendChild(editRow);
+        list.appendChild(row);
+        return;
+      }
+
+      var span = document.createElement('span'); span.textContent = t.label;
+      var actions = document.createElement('div'); actions.className = 'fw-actions';
+      var renameBtn = document.createElement('button'); renameBtn.className = 'fw-rename';
+      renameBtn.title = 'Rename'; renameBtn.textContent = '✎';
+      renameBtn.onclick = function() { cpTableRenameTarget = idx; renderTablesList(); };
+      actions.appendChild(renameBtn);
+      if (BOQ_TABLES.length > 1) {
+        var removeBtn = document.createElement('button'); removeBtn.className = 'fw-remove';
+        removeBtn.title = 'Delete this table (and every item in it)'; removeBtn.textContent = '✕';
+        removeBtn.onclick = function() { confirmRemoveBoqTable(idx); };
+        actions.appendChild(removeBtn);
+      }
+      row.appendChild(span); row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }
+
+  var cpTableRenameTarget = null;
+
+  async function commitRenameBoqTable(idx, newLabel) {
+    var msg = document.getElementById('cpTablesMsg');
+    if (!newLabel) { cpTableRenameTarget = null; renderTablesList(); return; }
+    try {
+      await renameBoqTable(idx, newLabel);
+      cpTableRenameTarget = null;
+      renderTablesList();
+      renderTableSelect();
+      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم تعديل الاسم.'; }
+    } catch (e) {
+      if (msg) msg.textContent = 'فشل الحفظ: ' + (e.message || e);
+    }
+  }
+
+  async function addTableFromControlPanel() {
+    var input = document.getElementById('cpNewTableName');
+    var msg = document.getElementById('cpTablesMsg');
+    var label = input.value.trim();
+    if (!label) { msg.style.color = '#d93025'; msg.textContent = 'اكتب اسم الجدول.'; return; }
+    msg.style.color = '#d93025'; msg.textContent = '';
+    try {
+      await addBoqTable(label);
+      input.value = '';
+      renderTablesList();
+      renderTableSelect();
+      msg.style.color = '#1e8e3e';
+      msg.textContent = 'تمت إضافة الجدول.';
+    } catch (e) {
+      msg.textContent = 'فشلت الإضافة: ' + (e.message || e);
+    }
+  }
+
+  function confirmRemoveBoqTable(idx) {
+    var t = BOQ_TABLES[idx];
+    if (!confirm('حذف جدول "' + t.label + '" نهائياً؟ هذا الإجراء سيحذف كل الأصناف الموجودة فيه ولا يمكن التراجع عنه.')) return;
+    var msg = document.getElementById('cpTablesMsg');
+    removeBoqTable(idx).then(function() {
+      renderTablesList();
+      renderTableSelect();
+      if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
+      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم الحذف.'; }
+    }).catch(function(e) {
+      if (msg) msg.textContent = 'فشل الحذف: ' + (e.message || e);
+    });
   }
 
   function enterApp() {
@@ -1108,7 +1302,7 @@
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
     applyPermissionsToUI();
     loadProjectBar();
-    loadTableLabels();
+    renderTableSelect();
     loadFormOptions().then(function() { return loadFullTable(); }).then(function() {
       loadSubmittalStatus();
       loadSubmittalDashboard();
@@ -1126,16 +1320,15 @@
     var importBtn = document.getElementById('importXlsxBtn');
     if (importBtn) importBtn.style.display = perm('canAdd') ? '' : 'none';
 
-    var renameTableBtn = document.getElementById('renameTableBtn');
-    if (renameTableBtn) renameTableBtn.style.display = currentUserPerms.isAdmin ? '' : 'none';
-
     var usersCard = document.getElementById('cpUsersCard');
     var noAccessCard = document.getElementById('cpNoAccessCard');
     var inviteCard = document.getElementById('cpInviteCard');
+    var tablesCard = document.getElementById('cpTablesCard');
     if (currentUserPerms.isAdmin) {
       if (usersCard) usersCard.style.display = '';
       if (noAccessCard) noAccessCard.style.display = 'none';
       if (inviteCard) inviteCard.style.display = '';
+      if (tablesCard) tablesCard.style.display = '';
       var link = window.location.origin + window.location.pathname + '?sheet=' + spreadsheetId;
       var linkInput = document.getElementById('cpInviteLink');
       if (linkInput) linkInput.value = link;
@@ -1143,6 +1336,7 @@
       if (usersCard) usersCard.style.display = 'none';
       if (noAccessCard) noAccessCard.style.display = '';
       if (inviteCard) inviteCard.style.display = 'none';
+      if (tablesCard) tablesCard.style.display = 'none';
     }
   }
 
@@ -1326,7 +1520,7 @@
     document.getElementById('fullTableToolbar').style.display = (name === 'fulltable') ? 'flex' : 'none';
     if (name === 'msstatus') loadSubmittalStatus();
     if (name === 'subdash') loadSubmittalDashboard();
-    if (name === 'controlpanel' && currentUserPerms.isAdmin) renderTeamMembersList();
+    if (name === 'controlpanel' && currentUserPerms.isAdmin) { renderTeamMembersList(); renderTablesList(); }
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
   }
 
@@ -1340,7 +1534,8 @@
       const values = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 5, 2, 5, 4));
       document.getElementById('pbProjectName').value = (values[0] && values[0][0]) || '';
       document.getElementById('pbProjectNumber').value = (values[1] && values[1][0]) || '';
-      document.getElementById('pbDiscipline').value = (values[2] && values[2][0]) || '';
+      // Discipline is intentionally not loaded here — it always mirrors the
+      // selected Full Table (see updateDisciplineBoxFromCurrentTable()).
     } catch (e) { console.warn('Failed to load project settings: ', e); }
     const d = new Date();
     document.getElementById('pbDate').textContent = '📅 ' + d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -2395,12 +2590,71 @@
     allTablesRows = all;
   }
 
-  function nonPackageItems() {
-    return allTablesRows.filter(function(v) { return v[COL.ROWTYPE - 1] !== 'Package'; });
+  function nonPackageItems(rows) {
+    return (rows || allTablesRows).filter(function(v) { return v[COL.ROWTYPE - 1] !== 'Package'; });
   }
 
-  function getSubmittalStatusDataClient() {
-    var items = nonPackageItems();
+  // ===== Per-discipline table selector, shared by both the Material
+  // Submittal Status page and the Submittal Dashboard =====
+  // 'overall' reads the combined allTablesRows pool (sum of every BOQ table);
+  // a numeric string reads just that one BOQ table's own rows. The list of
+  // choices in every such dropdown always tracks the live BOQ_TABLES array.
+  function renderDisciplineSelect(selectId, currentVal) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return currentVal;
+    sel.innerHTML = '';
+    BOQ_TABLES.forEach(function(t, i) {
+      var o = document.createElement('option');
+      o.value = String(i); o.textContent = t.label;
+      sel.appendChild(o);
+    });
+    var overallOpt = document.createElement('option');
+    overallOpt.value = 'overall'; overallOpt.textContent = 'Overall (All Disciplines)';
+    sel.appendChild(overallOpt);
+    // keep the previous selection if it still exists (e.g. table wasn't the one removed)
+    var stillValid = (currentVal === 'overall') || (parseInt(currentVal, 10) < BOQ_TABLES.length);
+    var resolved = stillValid ? currentVal : 'overall';
+    sel.value = resolved;
+    return resolved;
+  }
+
+  // Resolves the rows for a given selection value ('overall' or a BOQ_TABLES index).
+  async function fetchRowsForSelection(selection) {
+    if (selection === 'overall') {
+      await fetchAllTablesRows();
+      return allTablesRows;
+    }
+    var idx = parseInt(selection, 10);
+    var t = BOQ_TABLES[idx];
+    if (!t) { await fetchAllTablesRows(); return allTablesRows; }
+    return await fetchRowsForSheet(t.sheetName);
+  }
+
+  var currentMsStatusSelection = 'overall';
+  function renderMsStatusTableSelect() {
+    currentMsStatusSelection = renderDisciplineSelect('msStatusTableSelect', currentMsStatusSelection);
+  }
+  function switchMsStatusTable(val) {
+    if (val === currentMsStatusSelection) return;
+    currentMsStatusSelection = val;
+    loadSubmittalStatus();
+  }
+  async function fetchMsStatusSelectedRows() {
+    return fetchRowsForSelection(currentMsStatusSelection);
+  }
+
+  var currentSdSelection = 'overall';
+  function renderSdTableSelect() {
+    currentSdSelection = renderDisciplineSelect('sdTableSelect', currentSdSelection);
+  }
+  function switchSdTable(val) {
+    if (val === currentSdSelection) return;
+    currentSdSelection = val;
+    loadSubmittalDashboard();
+  }
+
+  function getSubmittalStatusDataClient(rows) {
+    var items = nonPackageItems(rows);
     var nonLLI = items.filter(function(r) { return r[COL.LLI - 1] === 'No'; });
     var lli = items.filter(function(r) { return r[COL.LLI - 1] === 'Yes'; });
     var ms = [
@@ -2412,9 +2666,9 @@
     return { ms: ms, pqd: pqd };
   }
 
-  function getFilesByBuyerDataClient() {
-    var names = OPTION_LISTS.names.slice();
-    var items = nonPackageItems();
+  function getFilesByBuyerDataClient(rows, restrictToUsed) {
+    var names = restrictToUsed ? [] : OPTION_LISTS.names.slice();
+    var items = nonPackageItems(rows);
     var lliCounts = {}, nonLliCounts = {};
     names.forEach(function(n) { lliCounts[n] = 0; nonLliCounts[n] = 0; });
     items.forEach(function(r) {
@@ -2444,8 +2698,13 @@
 
   // "Balance Submittal to be Prepared" click-through — Main items in `group`
   // (nonlli/lli/all) whose M/S Status isn't yet submitted to client.
+  // Click-throughs on the Material Submittal Status page read whichever
+  // discipline/table is currently selected there (set by loadSubmittalStatus);
+  // null falls back to the combined allTablesRows pool via nonPackageItems().
+  var msStatusCurrentRows = null;
+
   function getBalanceSubmittalItemsClient(group) {
-    var items = nonPackageItems().filter(function(r) {
+    var items = nonPackageItems(msStatusCurrentRows).filter(function(r) {
       if (r[COL.MAINALT - 1] !== 'M') return false;
       if (group === 'lli' && r[COL.LLI - 1] !== 'Yes') return false;
       if (group === 'nonlli' && r[COL.LLI - 1] !== 'No') return false;
@@ -2458,7 +2717,7 @@
   // Main or Alt.
   function getStatusCategoryItemsClient(track, group, mainAlt, category) {
     var codeCol = track === 'pqd' ? COL.PQD_CODE : COL.MS_CODE;
-    var items = nonPackageItems().filter(function(r) {
+    var items = nonPackageItems(msStatusCurrentRows).filter(function(r) {
       var mainAltVal = r[COL.MAINALT - 1];
       if (mainAlt === 'main' && mainAltVal !== 'M') return false;
       if (mainAlt === 'alt' && mainAltVal !== 'A') return false;
@@ -2544,13 +2803,16 @@
 
   async function loadSubmittalStatus() {
     if (!document.getElementById('msStatusHead')) return;
-    await fetchAllTablesRows();
+    renderMsStatusTableSelect();
+    var rows = await fetchMsStatusSelectedRows();
+    msStatusCurrentRows = rows;
+    var isOverall = currentMsStatusSelection === 'overall';
     buildSubmittalHead(document.getElementById('msStatusHead'), MS_GROUPS);
     buildSubmittalHead(document.getElementById('pqdStatusHead'), PQD_GROUPS);
-    var data = getSubmittalStatusDataClient();
+    var data = getSubmittalStatusDataClient(rows);
     renderSubmittalBody(document.getElementById('msStatusBody'), MS_GROUPS, MS_ROW_LABELS, data.ms, 'ms');
     renderSubmittalBody(document.getElementById('pqdStatusBody'), PQD_GROUPS, PQD_ROW_LABELS, data.pqd, 'pqd');
-    renderBuyerTable(getFilesByBuyerDataClient());
+    renderBuyerTable(getFilesByBuyerDataClient(rows, !isOverall));
   }
 
   function renderBuyerTable(data) {
@@ -2656,10 +2918,12 @@
   var SD_PALETTE = ['#1a73e8', '#34a853', '#f4a300', '#e8453c', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
   async function loadSubmittalDashboard() {
-    await fetchAllTablesRows();
-    var data = getSubmittalStatusDataClient();
+    renderSdTableSelect();
+    var rows = await fetchRowsForSelection(currentSdSelection);
+    var isOverall = currentSdSelection === 'overall';
+    var data = getSubmittalStatusDataClient(rows);
     renderSubmittalDashboard(data.ms, data.pqd);
-    renderBuyerChart(getFilesByBuyerDataClient());
+    renderBuyerChart(getFilesByBuyerDataClient(rows, !isOverall));
   }
 
   function renderSubmittalDashboard(msRows, pqdRows) {
