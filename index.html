@@ -25,6 +25,16 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 24px;
+    width: 100%;
+    text-align: left;
+  }
+  /* The sign-in card is a different thing entirely (a small centered
+     prompt) from every other ".card" in the app (Material Submittal
+     Status tables, Control Panel sections) — those must never inherit
+     its narrow max-width, which was previously capping every data table
+     and Control Panel section at 480px regardless of available space. */
+  #signinScreen .card {
     padding: 40px;
     max-width: 480px;
     width: 90%;
@@ -227,6 +237,13 @@
   /* ---- "File With" / "Action By" list management (gear-button modals) ---- */
   .gear-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:12px;padding:0 0 0 4px;vertical-align:middle;opacity:.85}
   .gear-btn:hover{opacity:1}
+
+  /* ---- PQD Number dot (column unchanged — just hides the number itself) ---- */
+  #fullTable td.indicator-cell{text-align:center;padding:4px 0}
+  .indicator-dot{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;color:#333}
+  .indicator-dot.filled{color:#1e8e3e}
+  .indicator-dot:disabled{cursor:default;opacity:.5}
+  .indicator-dot:hover:not(:disabled){opacity:.75}
   .fw-list{max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:4px;margin-top:8px}
   .fw-list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
     border-bottom:1px solid #f1f1f1;font-size:13px}
@@ -242,6 +259,10 @@
 
   /* ---- Material Submittal Status / PQD tables ---- */
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
+  /* Control Panel's own cards (forms/lists, not wide tables) make better use
+     of the page as a responsive multi-column grid instead of one long
+     single-file column. */
+  #view-controlpanel .ms-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));align-items:start}
   .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
   .ms-table-wrap{overflow-x:auto}
   table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px}
@@ -252,7 +273,8 @@
   table.ms-table tr.grand-total{font-weight:700;background:#eef3fc !important}
   table.ms-table td.ms-label-cell{text-align:left;font-weight:600;white-space:nowrap}
   table.ms-table td.ms-computed-cell{background:#fcfdff}
-  table.ms-table td.tw-col, table.ms-table th.tw-col{background:#fff8e1}
+  table.ms-table td.tw-col{background:#fff8e1}
+  table.ms-table th.tw-col{background:#fff8e1;color:#333}
 
   /* ---- Submittal Dashboard ---- */
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
@@ -292,6 +314,10 @@
       تسجيل الدخول بحساب Google
     </button>
 
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-top:12px;justify-content:center;cursor:pointer">
+      <input type="checkbox" id="keepSignedInChk" style="width:auto;margin:0"> تذكرني على هذا المتصفح (Keep me signed in)
+    </label>
+
     <div id="status"></div>
   </div>
 </div>
@@ -300,7 +326,6 @@
   <div class="app-header-sticky">
     <header class="app-title">
       <span>Procurement Progress Report</span>
-      <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
     </header>
     <div class="project-bar" id="projectBar">
       <div class="pb-field"><label>Project Name:</label>
@@ -316,11 +341,11 @@
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
+      <label style="font-size:12.5px;color:#555;margin:0 2px 0 8px;align-self:center">Discipline:</label>
+      <select id="globalTableSelect" onchange="switchGlobalTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px;align-self:center"></select>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
       <span id="addMsg"></span>
-      <label style="font-size:12.5px;color:#555;margin:0 2px 0 0">Table:</label>
-      <select id="boqTableSelect" onchange="switchBoqTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
       <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
       <span id="clipboardStatus"></span>
@@ -329,10 +354,6 @@
 
   <!-- ===================== SUBMITTAL DASHBOARD ===================== -->
   <div class="view active" id="view-subdash">
-    <div style="display:flex;align-items:center;gap:8px;padding:0 16px 10px">
-      <label style="font-size:12.5px;color:#555;font-weight:600">Discipline:</label>
-      <select id="sdTableSelect" onchange="switchSdTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
-    </div>
     <div class="sd-section-title">📦 Material — Key Numbers</div>
     <div class="sd-kpi-row">
       <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Total Materials (Main)</div></div>
@@ -387,10 +408,6 @@
 
   <!-- ===================== MATERIAL SUBMITTAL STATUS / PQD STATUS ===================== -->
   <div class="view" id="view-msstatus">
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0">
-      <label style="font-size:12.5px;color:#555;font-weight:600">Discipline:</label>
-      <select id="msStatusTableSelect" onchange="switchMsStatusTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px"></select>
-    </div>
     <div class="ms-card-grid">
       <div class="card">
         <h3>STATUS OF MATERIAL SUBMITTAL</h3>
@@ -463,6 +480,9 @@
           <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
         </div>
         <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+          <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
+        </div>
       </div>
 
       <div class="card" id="cpTablesCard">
@@ -478,6 +498,34 @@
           <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
         </div>
         <div id="cpTablesMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+      </div>
+
+      <div class="card" id="cpBackupCard">
+        <h3>Auto Backup</h3>
+        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          Mails a full backup of the entire spreadsheet (every table, Material Submittal Status,
+          and team settings) as an Excel file to the address below, sent through your own Google
+          account. "Send Backup Now" sends one immediately. The periodic schedule is checked each
+          time an Admin opens this app — it fires on the next time someone with Admin access opens
+          it at or after the interval, not at an exact clock time, since there is no server running
+          in the background here.
+        </p>
+        <label>Backup email</label><input type="text" id="cpBackupEmail" placeholder="name@example.com">
+        <div style="margin-top:10px">
+          <label>Frequency</label>
+          <select id="cpBackupFrequency" style="width:auto;padding:6px 8px">
+            <option value="off">Off (manual only)</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="primary" onclick="saveBackupSettings()" style="width:auto;padding:8px 14px">💾 Save</button>
+          <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
+        </div>
+        <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
+        <div id="cpBackupMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
       </div>
 
       <div class="card" id="cpInviteCard">
@@ -508,6 +556,7 @@
             <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
             <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
             <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
+            <label><input type="checkbox" id="cpNewCanAccessCP"> Can access Control Panel</label>
           </div>
           <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
         </div>
@@ -601,11 +650,15 @@
 <script>
   // ===== Google OAuth config — reused as-is from the working MVP =====
   const CLIENT_ID = "543026821266-teh5rbarpabeeeropf3312vnqt3pm059.apps.googleusercontent.com";
-  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
+  // gmail.send is needed so the signed-in Admin's own Google account can mail
+  // the full-backup attachment directly from the browser — no backend to do
+  // it on anyone's behalf.
+  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.send";
   const SHEET_TITLE = "Procurement Progress Report";
   const LISTS_SHEET_NAME = "Lists";
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
   const USERS_SHEET_NAME = "Users";
+  const BACKUP_CONFIG_SHEET_NAME = "BackupConfig";
 
   // The single "Full Table" tab can hold any number of independent item
   // sets — each one a real Sheets tab (internal name "BOQ Database",
@@ -664,28 +717,69 @@
   // sheet, loaded from the Users tab after sign-in (see loadCurrentUserPerms()).
   // isAdmin implies every other flag is true, everywhere this is checked.
   let currentUserEmail = null;
-  let currentUserPerms = { isAdmin: false, canAdd: false, canDelete: false, canMove: false, canChangeStatus: false, allowed: false };
-  function perm(flag) { return currentUserPerms.isAdmin || !!currentUserPerms[flag]; }
+  let currentUserPerms = { isAdmin: false, canAccessControlPanel: false, allowed: false };
+  // Per-table permissions for the signed-in user: { sheetName: {canAdd,
+  // canDelete, canMove, canChangeStatus} }. isAdmin/canAccessControlPanel
+  // are global (table-independent), checked directly off currentUserPerms;
+  // everything else is scoped to whichever table (SHEET_NAME) is active.
+  let currentUserTablePerms = {};
+  function perm(flag) {
+    if (currentUserPerms.isAdmin) return true;
+    if (flag === 'isAdmin' || flag === 'canAccessControlPanel') return !!currentUserPerms[flag];
+    var t = currentUserTablePerms[SHEET_NAME];
+    return !!(t && t[flag]);
+  }
 
   function log(html) { statusEl.innerHTML = html; }
   function appendLog(html) { statusEl.innerHTML += '<div>' + html + '</div>'; }
 
+  // "Keep me signed in": Google Identity Services' browser token client never
+  // hands out a long-lived refresh token (by design, for security), so a
+  // truly permanent session isn't possible from pure client-side code with
+  // no backend. What this DOES give us: with prompt:'' (silent mode),
+  // requestAccessToken() can mint a fresh access token with NO popup and NO
+  // click at all, as long as the browser still has an active Google session
+  // — which is the normal case. Remembering the choice in localStorage and
+  // firing that silent request automatically on load is what actually
+  // removes the "sign in every time" friction for everyday reopening of the
+  // tab; it only falls back to asking for a click if the silent attempt
+  // can't complete (session/cookies cleared, consent revoked, etc).
+  var triedSilentSignin = false;
   window.onload = function () {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
       callback: (resp) => {
         if (resp.error) {
+          if (triedSilentSignin) {
+            // Silent auto-sign-in couldn't complete — not a real error from
+            // the user's point of view, just fall back to the normal button.
+            log('');
+            return;
+          }
           log('<span class="err">حدث خطأ أثناء تسجيل الدخول: ' + resp.error + '</span>');
           return;
         }
         accessToken = resp.access_token;
+        if (document.getElementById('keepSignedInChk').checked) {
+          localStorage.setItem('keepMeSignedIn', '1');
+        } else {
+          localStorage.removeItem('keepMeSignedIn');
+        }
         handleSignedIn();
       }
     });
+
+    if (localStorage.getItem('keepMeSignedIn') === '1') {
+      document.getElementById('keepSignedInChk').checked = true;
+      triedSilentSignin = true;
+      log('<span class="spinner"></span> جاري تسجيل الدخول تلقائياً...');
+      tokenClient.requestAccessToken({ prompt: '' });
+    }
   };
 
   signinBtn.addEventListener('click', () => {
+    triedSilentSignin = false;
     log('<span class="spinner"></span> جاري تسجيل الدخول...');
     tokenClient.requestAccessToken();
   });
@@ -824,7 +918,11 @@
 
       await loadCurrentUserPerms();
       if (!currentUserPerms.allowed) {
-        appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا الفريق. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.</span>');
+        if (currentUserPerms.onHold) {
+          appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') موقوف مؤقتاً (On Hold) من الأدمن. تواصل مع الأدمن لإعادة التفعيل.</span>');
+        } else {
+          appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا الفريق. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.</span>');
+        }
         return;
       }
 
@@ -849,7 +947,13 @@
     return null;
   }
 
-  const USERS_HEADER_ROW = ['Email', 'Can Add Items', 'Can Delete Items', 'Can Move Items', 'Can Change Status', 'Is Admin', 'Drive Permission Id'];
+  // 9-column, per-table schema. A user has ONE "global" row (Table blank)
+  // carrying IsAdmin / CanAccessControlPanel / DrivePermissionId, plus one
+  // "per-table" row per BOQ table carrying that table's CanAdd/CanDelete/
+  // CanMove/CanChangeStatus — so an admin can grant different editing rights
+  // per discipline/table instead of one blanket set for the whole sheet.
+  const USERS_HEADER_ROW = ['Email', 'Table', 'Can Add Items', 'Can Delete Items', 'Can Move Items', 'Can Change Status', 'Is Admin', 'Can Access Control Panel', 'Drive Permission Id', 'On Hold'];
+  const USERS_LAST_COL = 10; // bump this (and the column list above) if more global/per-table flags are ever added
 
   async function createNewSheet() {
     const createData = await apiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -879,13 +983,14 @@
     await sheetsUpdateValues(newId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 2), [[BOQ_TABLES[0].sheetName, BOQ_TABLES[0].label, todayStamp(false)]], 'RAW');
 
     await seedListsSheet(newId);
-    await sheetsUpdateValues(newId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
+    await sheetsUpdateValues(newId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 1), [USERS_HEADER_ROW], 'RAW');
 
     // The person creating a brand-new team sheet becomes its Admin automatically.
     if (currentUserEmail) {
       const savedId = spreadsheetId;
       spreadsheetId = newId; // addUserRow() reads/writes through the global spreadsheetId
-      await addUserRow(currentUserEmail, { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, isAdmin: true }, null);
+      await addUserRow(currentUserEmail, { isAdmin: true, canAccessControlPanel: true },
+        { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true }, null);
       spreadsheetId = savedId;
     }
     return newId;
@@ -941,6 +1046,7 @@
       if (!fw.length || !String(fw[0][0] || '').trim()) await seedListsSheet(spreadsheetId);
     }
     await ensureUsersSheet(meta);
+    await ensureBackupConfigSheet(meta);
   }
 
   /* ===================== TABLES CONFIG (admin-managed, dynamic table list) =====================
@@ -1061,62 +1167,144 @@
     if (!usersSheet) {
       const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: USERS_SHEET_NAME } } }]);
       usersSheetId = res.replies[0].addSheet.properties.sheetId;
-      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 1), [USERS_HEADER_ROW], 'RAW');
     } else {
       usersSheetId = usersSheet.properties.sheetId;
+      await migrateUsersSheetIfNeeded();
+    }
+  }
+
+  // Upgrades a Users sheet from the old 7-column, table-independent schema
+  // (Email|CanAdd|CanDelete|CanMove|CanChangeStatus|IsAdmin|DrivePermissionId)
+  // to the current 10-column, per-table schema (adds the "On Hold" global
+  // flag on top of the earlier per-table migration). Everyone's existing
+  // flags are copied onto every table that currently exists, so nobody
+  // loses access the moment this ships — an admin can then fine-tune per
+  // table, or put someone on hold, from the team-members list.
+  async function migrateUsersSheetIfNeeded() {
+    const header = await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 1));
+    if (header.length && String(header[0][1] || '').trim() === 'Table') {
+      // Already on the per-table schema — just make sure the header row
+      // itself carries the "On Hold" column label (rows don't need touching:
+      // a missing 10th cell reads as FALSE/not-on-hold already).
+      if (String((header[0][9] || '')).trim() !== 'On Hold') {
+        await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 1), [USERS_HEADER_ROW], 'RAW');
+      }
+      return;
+    }
+    const oldRows = await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, 7, 500));
+    const newRows = [];
+    oldRows.forEach(function(r) {
+      var email = String((r && r[0]) || '').trim();
+      if (!email) return;
+      var canAdd = String(r[1] || '').toUpperCase() === 'TRUE';
+      var canDelete = String(r[2] || '').toUpperCase() === 'TRUE';
+      var canMove = String(r[3] || '').toUpperCase() === 'TRUE';
+      var canChangeStatus = String(r[4] || '').toUpperCase() === 'TRUE';
+      var isAdmin = String(r[5] || '').toUpperCase() === 'TRUE';
+      var permissionId = r[6] || '';
+      newRows.push([email, '', '', '', '', '', isAdmin ? 'TRUE' : 'FALSE', isAdmin ? 'TRUE' : 'FALSE', permissionId, 'FALSE']);
+      BOQ_TABLES.forEach(function(t) {
+        newRows.push([email, t.sheetName, canAdd ? 'TRUE' : 'FALSE', canDelete ? 'TRUE' : 'FALSE',
+          canMove ? 'TRUE' : 'FALSE', canChangeStatus ? 'TRUE' : 'FALSE', '', '', '', '']);
+      });
+    });
+    // Clear the whole old range first (old schema only used 7 columns and
+    // may have had more/fewer rows than the expanded layout needs), then
+    // write the new header + rows.
+    var blank = [];
+    for (var i = 0; i < 500; i++) blank.push(new Array(USERS_LAST_COL).fill(''));
+    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 500), blank, 'RAW');
+    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, USERS_LAST_COL, 1), [USERS_HEADER_ROW], 'RAW');
+    if (newRows.length) {
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, USERS_LAST_COL, 1 + newRows.length), newRows, 'RAW');
     }
   }
 
   async function fetchUsersRows() {
-    return await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, 7, 200));
+    return await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, USERS_LAST_COL, 2000));
   }
 
-  async function addUserRow(email, perms, drivePermissionId) {
+  // Adds a brand-new user: one global row (IsAdmin / CanAccessControlPanel /
+  // DrivePermissionId) plus one per-table row (CanAdd/CanDelete/CanMove/
+  // CanChangeStatus, same values applied to every current table at creation
+  // time — an admin can later give different tables different values from
+  // the team-members list).
+  async function addUserRow(email, globalPerms, tablePerms, drivePermissionId) {
     const rows = await fetchUsersRows();
-    var slot = rows.length;
+    var startSlot = rows.length;
     for (var i = 0; i < rows.length; i++) {
-      if (!rows[i] || String(rows[i][0] || '').trim() === '') { slot = i; break; }
+      if (!rows[i] || String(rows[i][0] || '').trim() === '') { startSlot = i; break; }
     }
-    const rowData = [
-      email,
-      perms.canAdd ? 'TRUE' : 'FALSE',
-      perms.canDelete ? 'TRUE' : 'FALSE',
-      perms.canMove ? 'TRUE' : 'FALSE',
-      perms.canChangeStatus ? 'TRUE' : 'FALSE',
-      perms.isAdmin ? 'TRUE' : 'FALSE',
-      drivePermissionId || ''
-    ];
-    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2 + slot, 7, 2 + slot), [rowData], 'RAW');
+    globalPerms = globalPerms || {};
+    tablePerms = tablePerms || {};
+    const newRows = [[
+      email, '', '', '', '', '',
+      globalPerms.isAdmin ? 'TRUE' : 'FALSE',
+      globalPerms.canAccessControlPanel ? 'TRUE' : 'FALSE',
+      drivePermissionId || '',
+      'FALSE' // a brand-new member is never created already on hold
+    ]];
+    BOQ_TABLES.forEach(function(t) {
+      newRows.push([
+        email, t.sheetName,
+        tablePerms.canAdd ? 'TRUE' : 'FALSE', tablePerms.canDelete ? 'TRUE' : 'FALSE',
+        tablePerms.canMove ? 'TRUE' : 'FALSE', tablePerms.canChangeStatus ? 'TRUE' : 'FALSE',
+        '', '', '', ''
+      ]);
+    });
+    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2 + startSlot, USERS_LAST_COL, 1 + startSlot + newRows.length), newRows, 'RAW');
   }
 
   async function loadCurrentUserPerms() {
     if (!currentUserEmail) {
       // Could not read the signed-in email (userinfo call failed) — fail
       // open as Admin rather than locking the whole app out.
-      currentUserPerms = { isAdmin: true, canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, allowed: true };
+      currentUserPerms = { isAdmin: true, canAccessControlPanel: true, allowed: true };
+      currentUserTablePerms = {};
       return;
     }
     const rows = await fetchUsersRows();
-    const match = rows.find(function(r) { return String((r && r[0]) || '').trim().toLowerCase() === currentUserEmail; });
-    if (match) {
+    const mine = rows.filter(function(r) { return String((r && r[0]) || '').trim().toLowerCase() === currentUserEmail; });
+    if (mine.length) {
+      var globalRow = mine.find(function(r) { return String(r[1] || '').trim() === ''; });
+      var onHold = globalRow ? String(globalRow[9] || '').toUpperCase() === 'TRUE' : false;
       currentUserPerms = {
-        canAdd: String(match[1] || '').toUpperCase() === 'TRUE',
-        canDelete: String(match[2] || '').toUpperCase() === 'TRUE',
-        canMove: String(match[3] || '').toUpperCase() === 'TRUE',
-        canChangeStatus: String(match[4] || '').toUpperCase() === 'TRUE',
-        isAdmin: String(match[5] || '').toUpperCase() === 'TRUE',
-        allowed: true
+        isAdmin: !onHold && (globalRow ? String(globalRow[6] || '').toUpperCase() === 'TRUE' : false),
+        canAccessControlPanel: !onHold && (globalRow ? String(globalRow[7] || '').toUpperCase() === 'TRUE' : false),
+        onHold: onHold,
+        // On hold = kept on the team sheet (so un-holding restores everything
+        // instantly) but blocked from signing in, same as not being on the
+        // list at all.
+        allowed: !onHold
       };
+      currentUserTablePerms = {};
+      mine.forEach(function(r) {
+        var t = String(r[1] || '').trim();
+        if (!t) return;
+        currentUserTablePerms[t] = {
+          canAdd: String(r[2] || '').toUpperCase() === 'TRUE',
+          canDelete: String(r[3] || '').toUpperCase() === 'TRUE',
+          canMove: String(r[4] || '').toUpperCase() === 'TRUE',
+          canChangeStatus: String(r[5] || '').toUpperCase() === 'TRUE'
+        };
+      });
       return;
     }
     if (!rows.length) {
       // Nobody registered yet on this team sheet (first open after an
       // upgrade, or a race on a brand-new one) — this person becomes Admin.
-      await addUserRow(currentUserEmail, { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, isAdmin: true }, null);
-      currentUserPerms = { isAdmin: true, canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, allowed: true };
+      await addUserRow(currentUserEmail, { isAdmin: true, canAccessControlPanel: true },
+        { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true }, null);
+      currentUserPerms = { isAdmin: true, canAccessControlPanel: true, allowed: true };
+      currentUserTablePerms = {};
+      BOQ_TABLES.forEach(function(t) {
+        currentUserTablePerms[t.sheetName] = { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true };
+      });
       return;
     }
-    currentUserPerms = { isAdmin: false, canAdd: false, canDelete: false, canMove: false, canChangeStatus: false, allowed: false };
+    currentUserPerms = { isAdmin: false, canAccessControlPanel: false, allowed: false };
+    currentUserTablePerms = {};
   }
 
   // Full 28-column BOQ Database header, exactly matching the original Code.gs COL map
@@ -1178,15 +1366,6 @@
   /* ===================== Full Table picker (selection only — add/rename/
      remove tables all live in Control Panel, admin-only) ===================== */
   function renderTableSelect() {
-    var sel = document.getElementById('boqTableSelect');
-    if (!sel) return;
-    sel.innerHTML = '';
-    BOQ_TABLES.forEach(function(t, i) {
-      var o = document.createElement('option');
-      o.value = i; o.textContent = t.label;
-      sel.appendChild(o);
-    });
-    sel.value = currentTableIndex;
     updateDisciplineBoxFromCurrentTable();
   }
 
@@ -1258,6 +1437,7 @@
       cpTableRenameTarget = null;
       renderTablesList();
       renderTableSelect();
+      renderGlobalTableSelect();
       if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم تعديل الاسم.'; }
     } catch (e) {
       if (msg) msg.textContent = 'فشل الحفظ: ' + (e.message || e);
@@ -1275,6 +1455,7 @@
       input.value = '';
       renderTablesList();
       renderTableSelect();
+      renderGlobalTableSelect();
       msg.style.color = '#1e8e3e';
       msg.textContent = 'تمت إضافة الجدول.';
     } catch (e) {
@@ -1289,6 +1470,7 @@
     removeBoqTable(idx).then(function() {
       renderTablesList();
       renderTableSelect();
+      renderGlobalTableSelect();
       if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
       if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'تم الحذف.'; }
     }).catch(function(e) {
@@ -1303,10 +1485,12 @@
     applyPermissionsToUI();
     loadProjectBar();
     renderTableSelect();
+    renderGlobalTableSelect();
     loadFormOptions().then(function() { return loadFullTable(); }).then(function() {
       loadSubmittalStatus();
       loadSubmittalDashboard();
     });
+    checkAndRunScheduledBackup();
   }
 
   /* ===================== Permission gating (soft, UI-level) =====================
@@ -1320,23 +1504,35 @@
     var importBtn = document.getElementById('importXlsxBtn');
     if (importBtn) importBtn.style.display = perm('canAdd') ? '' : 'none';
 
+    // Control Panel itself is restricted to Admins plus anyone an Admin has
+    // granted the separate "Can access Control Panel" flag to — the nav
+    // button only shows for one of those two.
+    var canOpenCP = currentUserPerms.isAdmin || currentUserPerms.canAccessControlPanel;
+    var navBtn = document.getElementById('navControlPanel');
+    if (navBtn) navBtn.style.display = canOpenCP ? '' : 'none';
+
     var usersCard = document.getElementById('cpUsersCard');
     var noAccessCard = document.getElementById('cpNoAccessCard');
     var inviteCard = document.getElementById('cpInviteCard');
     var tablesCard = document.getElementById('cpTablesCard');
+    var backupCard = document.getElementById('cpBackupCard');
     if (currentUserPerms.isAdmin) {
       if (usersCard) usersCard.style.display = '';
       if (noAccessCard) noAccessCard.style.display = 'none';
       if (inviteCard) inviteCard.style.display = '';
       if (tablesCard) tablesCard.style.display = '';
+      if (backupCard) backupCard.style.display = '';
       var link = window.location.origin + window.location.pathname + '?sheet=' + spreadsheetId;
       var linkInput = document.getElementById('cpInviteLink');
       if (linkInput) linkInput.value = link;
     } else {
+      // Being granted Control Panel access does NOT include managing team
+      // members/permissions or backups — those stay Admin-only.
       if (usersCard) usersCard.style.display = 'none';
-      if (noAccessCard) noAccessCard.style.display = '';
+      if (noAccessCard) noAccessCard.style.display = canOpenCP ? '' : 'none';
       if (inviteCard) inviteCard.style.display = 'none';
       if (tablesCard) tablesCard.style.display = 'none';
+      if (backupCard) backupCard.style.display = 'none';
     }
   }
 
@@ -1374,89 +1570,148 @@
     } catch (e) { console.warn('Could not revoke Drive permission (non-fatal): ', e); }
   }
 
-  /* ===================== Control Panel: team members table ===================== */
+  /* ===================== Control Panel: team members table — grouped by
+     table/discipline, plus a Global section for Admin / Control Panel access
+     ===================== */
   async function renderTeamMembersList() {
     var list = document.getElementById('cpUsersList');
     list.innerHTML = 'Loading...';
     try {
       const rows = await fetchUsersRows();
-      list.innerHTML = '';
-      var any = false;
+      var byEmail = {};
       rows.forEach(function(r, idx) {
         var email = String((r && r[0]) || '').trim();
         if (!email) return;
-        any = true;
-        var perms = {
-          canAdd: String(r[1] || '').toUpperCase() === 'TRUE',
-          canDelete: String(r[2] || '').toUpperCase() === 'TRUE',
-          canMove: String(r[3] || '').toUpperCase() === 'TRUE',
-          canChangeStatus: String(r[4] || '').toUpperCase() === 'TRUE',
-          isAdmin: String(r[5] || '').toUpperCase() === 'TRUE'
-        };
-        var permissionId = r[6] || '';
+        var table = String(r[1] || '').trim();
+        var rowNum = 2 + idx;
+        if (!byEmail[email]) byEmail[email] = { tables: {} };
+        if (!table) {
+          byEmail[email].globalRow = {
+            rowNum: rowNum,
+            isAdmin: String(r[6] || '').toUpperCase() === 'TRUE',
+            canAccessControlPanel: String(r[7] || '').toUpperCase() === 'TRUE',
+            permissionId: r[8] || '',
+            onHold: String(r[9] || '').toUpperCase() === 'TRUE'
+          };
+        } else {
+          byEmail[email].tables[table] = {
+            rowNum: rowNum,
+            canAdd: String(r[2] || '').toUpperCase() === 'TRUE',
+            canDelete: String(r[3] || '').toUpperCase() === 'TRUE',
+            canMove: String(r[4] || '').toUpperCase() === 'TRUE',
+            canChangeStatus: String(r[5] || '').toUpperCase() === 'TRUE'
+          };
+        }
+      });
+      var emails = Object.keys(byEmail);
+      list.innerHTML = '';
+      if (!emails.length) { list.innerHTML = '<div class="fw-list-item">No members yet.</div>'; return; }
 
+      var globalHead = document.createElement('div');
+      globalHead.style.fontWeight = '700'; globalHead.style.margin = '2px 0 6px'; globalHead.style.fontSize = '13px';
+      globalHead.textContent = 'Global (every member)';
+      list.appendChild(globalHead);
+      emails.forEach(function(email) {
+        var g = byEmail[email].globalRow;
+        if (!g) return;
         var row = document.createElement('div');
-        row.className = 'fw-list-item';
-        row.style.flexWrap = 'wrap';
-
+        row.className = 'fw-list-item'; row.style.flexWrap = 'wrap';
         var emailSpan = document.createElement('span');
         emailSpan.textContent = email + (email === currentUserEmail ? ' (you)' : '');
-        emailSpan.style.fontWeight = '600';
-        emailSpan.style.flex = '1 0 100%';
+        emailSpan.style.fontWeight = '600'; emailSpan.style.flex = '1 0 auto';
         row.appendChild(emailSpan);
-
         var checksWrap = document.createElement('div');
         checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
         checksWrap.style.gap = '10px'; checksWrap.style.fontSize = '12px'; checksWrap.style.margin = '4px 0';
-
-        [['canAdd', 'Add'], ['canDelete', 'Delete'], ['canMove', 'Move'], ['canChangeStatus', 'Status'], ['isAdmin', 'Admin']].forEach(function(pair) {
+        [['isAdmin', 'Admin (full control)'], ['canAccessControlPanel', 'Can access Control Panel'], ['onHold', 'On Hold (suspend access)']].forEach(function(pair) {
           var label = document.createElement('label');
-          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!perms[pair[0]];
-          // Can't strip your own Admin flag — avoids a mistake locking everyone, including yourself, out.
-          if (pair[0] === 'isAdmin' && email === currentUserEmail) cb.disabled = true;
-          cb.onchange = function() {
-            perms[pair[0]] = cb.checked;
-            updateTeamMemberPerms(idx, perms);
-          };
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!g[pair[0]];
+          // Can't strip your own Admin flag, or put yourself on hold — avoids
+          // a mistake locking everyone, including yourself, out.
+          if ((pair[0] === 'isAdmin' || pair[0] === 'onHold') && email === currentUserEmail) cb.disabled = true;
+          cb.onchange = function() { updateGlobalMemberPerms(g.rowNum, pair[0], cb.checked); };
           label.appendChild(cb);
           label.appendChild(document.createTextNode(' ' + pair[1]));
           checksWrap.appendChild(label);
         });
         row.appendChild(checksWrap);
-
         var actions = document.createElement('div'); actions.className = 'fw-actions';
         if (email !== currentUserEmail) {
           var removeBtn = document.createElement('button'); removeBtn.className = 'fw-remove';
           removeBtn.title = 'Remove from team'; removeBtn.style.fontSize = '12px';
           removeBtn.textContent = '✕ Remove';
-          removeBtn.onclick = function() { removeTeamMember(idx, email, permissionId); };
+          removeBtn.onclick = function() { removeTeamMember(email, g.permissionId); };
           actions.appendChild(removeBtn);
         }
         row.appendChild(actions);
         list.appendChild(row);
       });
-      if (!any) list.innerHTML = '<div class="fw-list-item">No members yet.</div>';
+
+      BOQ_TABLES.forEach(function(t) {
+        var head = document.createElement('div');
+        head.style.fontWeight = '700'; head.style.margin = '16px 0 6px'; head.style.fontSize = '13px';
+        head.textContent = t.label;
+        list.appendChild(head);
+        var any = false;
+        emails.forEach(function(email) {
+          var tp = byEmail[email].tables[t.sheetName];
+          if (!tp) return;
+          any = true;
+          var row = document.createElement('div');
+          row.className = 'fw-list-item'; row.style.flexWrap = 'wrap';
+          var emailSpan = document.createElement('span');
+          emailSpan.textContent = email; emailSpan.style.flex = '1 0 100%';
+          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = '#555';
+          row.appendChild(emailSpan);
+          var checksWrap = document.createElement('div');
+          checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
+          checksWrap.style.gap = '10px'; checksWrap.style.fontSize = '12px';
+          [['canAdd', 'Add'], ['canDelete', 'Delete'], ['canMove', 'Move'], ['canChangeStatus', 'Status']].forEach(function(pair) {
+            var label = document.createElement('label');
+            var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!tp[pair[0]];
+            cb.onchange = function() { updateTableMemberPerms(tp.rowNum, pair[0], cb.checked); };
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + pair[1]));
+            checksWrap.appendChild(label);
+          });
+          row.appendChild(checksWrap);
+          list.appendChild(row);
+        });
+        if (!any) {
+          var none = document.createElement('div'); none.className = 'fw-list-item';
+          none.style.color = '#999'; none.style.fontSize = '12px';
+          none.textContent = 'No members with access to this table yet.';
+          list.appendChild(none);
+        }
+      });
     } catch (e) {
       list.innerHTML = '';
       document.getElementById('cpUsersMsg').textContent = 'Failed to load team members: ' + (e.message || e);
     }
   }
 
-  async function updateTeamMemberPerms(idx, perms) {
+  async function updateGlobalMemberPerms(rowNum, field, checked) {
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#d93025'; msg.textContent = '';
     try {
-      const row = 2 + idx;
-      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 2, row, 6, row), [[
-        perms.canAdd ? 'TRUE' : 'FALSE',
-        perms.canDelete ? 'TRUE' : 'FALSE',
-        perms.canMove ? 'TRUE' : 'FALSE',
-        perms.canChangeStatus ? 'TRUE' : 'FALSE',
-        perms.isAdmin ? 'TRUE' : 'FALSE'
-      ]], 'RAW');
-    } catch (e) {
-      msg.textContent = 'Save failed: ' + (e.message || e);
-    }
+      var colMap = { isAdmin: 7, canAccessControlPanel: 8, onHold: 10 };
+      var col = colMap[field];
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
+      if (checked && field === 'onHold') {
+        msg.style.color = '#1e8e3e';
+        msg.textContent = 'On hold — they will be blocked from signing in until this is unchecked.';
+      }
+    } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
+  }
+
+  async function updateTableMemberPerms(rowNum, field, checked) {
+    var msg = document.getElementById('cpUsersMsg');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    var colMap = { canAdd: 3, canDelete: 4, canMove: 5, canChangeStatus: 6 };
+    try {
+      var col = colMap[field];
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
+    } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
   async function addTeamMember() {
@@ -1469,38 +1724,48 @@
       if (rows.some(function(r) { return String((r && r[0]) || '').trim().toLowerCase() === email; })) {
         throw new Error('This email is already a team member.');
       }
-      const perms = {
+      var globalPerms = {
+        isAdmin: document.getElementById('cpNewIsAdmin').checked,
+        canAccessControlPanel: document.getElementById('cpNewCanAccessCP').checked
+      };
+      var tablePerms = {
         canAdd: document.getElementById('cpNewCanAdd').checked,
         canDelete: document.getElementById('cpNewCanDelete').checked,
         canMove: document.getElementById('cpNewCanMove').checked,
-        canChangeStatus: document.getElementById('cpNewCanStatus').checked,
-        isAdmin: document.getElementById('cpNewIsAdmin').checked
+        canChangeStatus: document.getElementById('cpNewCanStatus').checked
       };
-      const driveRole = (perms.canAdd || perms.canDelete || perms.canMove || perms.canChangeStatus || perms.isAdmin) ? 'writer' : 'reader';
+      var hasAnyWrite = globalPerms.isAdmin || tablePerms.canAdd || tablePerms.canDelete || tablePerms.canMove || tablePerms.canChangeStatus;
+      var driveRole = hasAnyWrite ? 'writer' : 'reader';
       var permissionId = null;
       try {
         permissionId = await driveShareFile(spreadsheetId, email, driveRole);
       } catch (e) {
         console.warn('Drive sharing failed (continuing — share manually from the Google Sheet if needed): ', e);
       }
-      await addUserRow(email, perms, permissionId);
+      await addUserRow(email, globalPerms, tablePerms, permissionId);
       document.getElementById('cpNewUserEmail').value = '';
-      ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin'].forEach(function(id) { document.getElementById(id).checked = false; });
+      ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin', 'cpNewCanAccessCP'].forEach(function(id) { document.getElementById(id).checked = false; });
       msg.style.color = '#1e8e3e';
-      msg.textContent = 'Added. Now send them the invite link above.';
+      msg.textContent = 'Added — they now have access to every current table. Send them the invite link above, and fine-tune per-table permissions in the list above if needed.';
       renderTeamMembersList();
     } catch (e) {
       msg.textContent = e.message || String(e);
     }
   }
 
-  async function removeTeamMember(idx, email, permissionId) {
+  async function removeTeamMember(email, permissionId) {
     if (!confirm('Remove "' + email + '" from the team? They will lose access to this sheet.')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#d93025'; msg.textContent = '';
     try {
-      const row = 2 + idx;
-      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, row, 7, row), [['', '', '', '', '', '', '']], 'RAW');
+      const rows = await fetchUsersRows();
+      var rowNums = [];
+      rows.forEach(function(r, idx) {
+        if (String((r && r[0]) || '').trim().toLowerCase() === email.toLowerCase()) rowNums.push(2 + idx);
+      });
+      for (var i = 0; i < rowNums.length; i++) {
+        await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, rowNums[i], USERS_LAST_COL, rowNums[i]), [new Array(USERS_LAST_COL).fill('')], 'RAW');
+      }
       await driveUnshareFile(spreadsheetId, permissionId);
       msg.style.color = '#1e8e3e';
       msg.textContent = 'Removed.';
@@ -1510,17 +1775,175 @@
     }
   }
 
+  /* ===================== AUTO BACKUP (admin-only) =====================
+     Mails a full copy of the ENTIRE spreadsheet (every BOQ table, Material
+     Submittal Status, Users, TablesConfig, Lists — not just the currently
+     selected table) as an .xlsx attachment, sent through the signed-in
+     Admin's own Gmail (gmail.send scope) straight from the browser — there
+     is no backend/server here to send it on anyone's behalf, so a backup
+     can only go out while an Admin is signed in.
+     "Immediate" (the Admin clicking "Send Backup Now") works exactly like
+     any other button. "Periodic" has no real server-side clock to run on
+     purely client-side code, so it is approximated: every time an Admin
+     opens/refreshes the app, checkAndRunScheduledBackup() checks how long
+     it's been since the last backup against the saved frequency and, if
+     due, sends one silently in the background and stamps the time — i.e.
+     it fires on the next Admin visit at/after the interval, not necessarily
+     at the exact minute. This is disclosed to the Admin in the Control
+     Panel UI text itself rather than being left implicit. */
+  const BACKUP_CONFIG_HEADER_ROW = ['Backup Email', 'Frequency', 'Last Backup At'];
+
+  async function ensureBackupConfigSheet(meta) {
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === BACKUP_CONFIG_SHEET_NAME; });
+    if (!sheet) {
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: BACKUP_CONFIG_SHEET_NAME, hidden: true } } }]);
+      await sheetsUpdateValues(spreadsheetId, a1Range(BACKUP_CONFIG_SHEET_NAME, 1, 1, 3, 2),
+        [BACKUP_CONFIG_HEADER_ROW, ['', 'off', '']], 'RAW');
+    }
+  }
+
+  async function fetchBackupConfig() {
+    const rows = await sheetsGetValues(spreadsheetId, a1Range(BACKUP_CONFIG_SHEET_NAME, 1, 2, 3, 2));
+    var r = rows[0] || [];
+    return { email: String(r[0] || '').trim(), frequency: String(r[1] || 'off').trim() || 'off', lastBackupAt: String(r[2] || '').trim() };
+  }
+
+  async function saveBackupConfig(email, frequency) {
+    await sheetsUpdateValues(spreadsheetId, a1Range(BACKUP_CONFIG_SHEET_NAME, 1, 2, 2, 2), [[email, frequency]], 'RAW');
+  }
+
+  async function stampLastBackupAt() {
+    await sheetsUpdateValues(spreadsheetId, a1Range(BACKUP_CONFIG_SHEET_NAME, 3, 2, 3, 2), [[new Date().toISOString()]], 'RAW');
+  }
+
+  // Builds a MIME multipart/mixed message (plain-text body + the xlsx as a
+  // base64 attachment) and sends it through Gmail API as the signed-in user.
+  async function sendBackupEmail(toEmail) {
+    const exportRes = await fetch('https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/export?format=xlsx', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if (!exportRes.ok) throw new Error('Could not export the spreadsheet (' + exportRes.status + ')');
+    const blob = await exportRes.blob();
+    const base64Data = await new Promise(function(resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function() { resolve(String(reader.result).split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const stamp = todayStamp(false);
+    const filename = 'Procurement_Progress_Report_Backup_' + stamp.replace(/[^0-9a-zA-Z_-]/g, '_') + '.xlsx';
+    const boundary = 'boqbackup' + Date.now();
+    const mime =
+      'To: ' + toEmail + '\r\n' +
+      'Subject: Procurement Progress Report — Backup (' + stamp + ')\r\n' +
+      'MIME-Version: 1.0\r\n' +
+      'Content-Type: multipart/mixed; boundary="' + boundary + '"\r\n\r\n' +
+      '--' + boundary + '\r\n' +
+      'Content-Type: text/plain; charset="UTF-8"\r\n\r\n' +
+      'Attached is a full backup of the Procurement Progress Report spreadsheet (' + stamp + '), including every BOQ table, Material Submittal Status, and team/user settings.\r\n\r\n' +
+      '--' + boundary + '\r\n' +
+      'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="' + filename + '"\r\n' +
+      'Content-Disposition: attachment; filename="' + filename + '"\r\n' +
+      'Content-Transfer-Encoding: base64\r\n\r\n' +
+      base64Data + '\r\n' +
+      '--' + boundary + '--';
+    const rawMessage = btoa(unescape(encodeURIComponent(mime))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    await apiFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      body: JSON.stringify({ raw: rawMessage })
+    });
+    await stampLastBackupAt();
+  }
+
+  var FREQUENCY_DAYS = { daily: 1, weekly: 7, monthly: 30 };
+
+  // Runs once per app load for an Admin: fires a backup silently if the
+  // saved frequency says one is due, based on time elapsed since the last
+  // one (see the note above this section about what "periodic" means here).
+  async function checkAndRunScheduledBackup() {
+    if (!currentUserPerms.isAdmin) return;
+    try {
+      const cfg = await fetchBackupConfig();
+      if (!cfg.email || cfg.frequency === 'off' || !FREQUENCY_DAYS[cfg.frequency]) return;
+      const dueDays = FREQUENCY_DAYS[cfg.frequency];
+      const last = cfg.lastBackupAt ? new Date(cfg.lastBackupAt) : null;
+      const elapsedDays = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
+      if (elapsedDays >= dueDays) {
+        await sendBackupEmail(cfg.email);
+        console.log('Scheduled backup sent to ' + cfg.email);
+      }
+    } catch (e) { console.warn('Scheduled backup check failed (non-fatal): ', e); }
+  }
+
+  async function loadBackupSettingsUI() {
+    try {
+      const cfg = await fetchBackupConfig();
+      var emailEl = document.getElementById('cpBackupEmail');
+      var freqEl = document.getElementById('cpBackupFrequency');
+      if (emailEl) emailEl.value = cfg.email;
+      if (freqEl) freqEl.value = cfg.frequency;
+      var lastEl = document.getElementById('cpBackupLast');
+      if (lastEl) lastEl.textContent = cfg.lastBackupAt ? ('Last backup sent: ' + new Date(cfg.lastBackupAt).toLocaleString()) : 'No backup sent yet.';
+    } catch (e) { console.warn('Could not load backup settings: ', e); }
+  }
+
+  async function saveBackupSettings() {
+    var msg = document.getElementById('cpBackupMsg');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    var email = document.getElementById('cpBackupEmail').value.trim();
+    var frequency = document.getElementById('cpBackupFrequency').value;
+    if (email && email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
+    try {
+      await saveBackupConfig(email, frequency);
+      msg.style.color = '#1e8e3e';
+      msg.textContent = 'Saved.';
+    } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
+  }
+
+  async function sendBackupNow() {
+    var msg = document.getElementById('cpBackupMsg');
+    var btn = document.getElementById('cpBackupNowBtn');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    var email = document.getElementById('cpBackupEmail').value.trim();
+    if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address first, then Save.'; return; }
+    btn.disabled = true; btn.textContent = '⏳ Sending…';
+    try {
+      await saveBackupConfig(email, document.getElementById('cpBackupFrequency').value);
+      await sendBackupEmail(email);
+      msg.style.color = '#1e8e3e';
+      msg.textContent = 'Backup sent to ' + email + '.';
+      loadBackupSettingsUI();
+    } catch (e) {
+      msg.textContent = 'Send failed: ' + (e.message || e) + ' — if this is the first backup, you may need to sign out and sign in again to grant the Gmail-send permission.';
+    } finally {
+      btn.disabled = false; btn.textContent = '📤 Send Backup Now';
+    }
+  }
+
   /* ===================== View switching (Submittal Dashboard / Material Submittal
      Status / Full Table) ===================== */
   function showView(name, btn) {
+    if (name === 'controlpanel' && !(currentUserPerms.isAdmin || currentUserPerms.canAccessControlPanel)) return;
     document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
     document.getElementById('view-' + name).classList.add('active');
     document.querySelectorAll('nav.main-nav button').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
     document.getElementById('fullTableToolbar').style.display = (name === 'fulltable') ? 'flex' : 'none';
+    if (name === 'fulltable') {
+      // Full Table has no "Overall" concept (there is no single sheet that
+      // merges every table), so resolve 'overall' down to a real table, then
+      // make sure the table actually open matches the shared selector.
+      if (currentGlobalSelection === 'overall') {
+        currentGlobalSelection = BOQ_TABLES.length ? '0' : 'overall';
+        renderGlobalTableSelect();
+      }
+      if (currentGlobalSelection !== 'overall' && parseInt(currentGlobalSelection, 10) !== currentTableIndex) {
+        switchBoqTable(currentGlobalSelection);
+      }
+    }
     if (name === 'msstatus') loadSubmittalStatus();
     if (name === 'subdash') loadSubmittalDashboard();
-    if (name === 'controlpanel' && currentUserPerms.isAdmin) { renderTeamMembersList(); renderTablesList(); }
+    if (name === 'controlpanel' && currentUserPerms.isAdmin) { renderTeamMembersList(); renderTablesList(); loadBackupSettingsUI(); }
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
   }
 
@@ -1584,7 +2007,11 @@
     { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 70,  type: 'select', opts: 'csStatus' },
     { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 62,  type: 'select', opts: 'yesno' },
     { col: COL.PQD_PLANNED_DATE, label: 'PQD Planned Submission Date', width: 125, type: 'date' },
-    { col: COL.PQD_NUM, label: 'PQD Number',                  width: 90,  type: 'text' },
+    // The number itself is never shown directly in the table — only a dot
+    // that turns green once a number is on file (black/grey while empty).
+    // Click the dot to type/edit the number inline; nothing else about this
+    // column (or the M/S one) changed from before.
+    { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot' },
     { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode' },
     { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly' },
     { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno' },
@@ -1742,9 +2169,41 @@
   // action (add/move/delete/paste) instead of loadFullTable() alone, so those
   // other views never go stale after an edit that changes row order or count.
   async function refreshEverything() {
+    await repairAllSnFormulas();
     await loadFullTable();
     loadSubmittalStatus();
     loadSubmittalDashboard();
+  }
+
+  // Bulletproof S/N correction pass: rewrites EVERY filled row's S/N formula
+  // from scratch, in one batched write, based on each row's actual current
+  // row number. Insert/delete/move all rely on Sheets auto-adjusting formula
+  // references, which normally works — but two row-mutating actions firing
+  // close together (fast double-clicks, a move that deletes+re-inserts) can
+  // race on a stale fetchFilledRows() snapshot and leave a formula pointing
+  // at the wrong range (the "1, 1, 3" duplicate/skip bug). Running this after
+  // every refresh means the displayed S/N is always correct regardless of
+  // what caused a formula to drift, instead of chasing the race itself.
+  async function repairAllSnFormulas() {
+    try {
+      const filled = await fetchFilledRows();
+      if (!filled.length) return;
+      const firstRow = filled[0].row;
+      const lastRow = filled[filled.length - 1].row;
+      const formulas = [];
+      for (var r = firstRow; r <= lastRow; r++) formulas.push([snFormulaFor(r)]);
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.SN, firstRow, COL.SN, lastRow), formulas, 'USER_ENTERED');
+    } catch (e) { console.warn('SN repair failed (non-fatal): ', e); }
+  }
+
+  // Serializes every row-mutating action (add/delete/move/cut/paste) so two
+  // of them can never run concurrently and race on the same fetchFilledRows()
+  // snapshot — the other half of the S/N fix above.
+  var rowOpBusy = false;
+  async function withRowOpLock(fn) {
+    if (rowOpBusy) { alert('Please wait for the current change to finish before making another.'); return; }
+    rowOpBusy = true;
+    try { await fn(); } finally { rowOpBusy = false; }
   }
 
   function renderFullTable(rows) {
@@ -1850,16 +2309,20 @@
   }
 
   async function addNewItemClient(data) {
-    await insertRowAtPosition(data.position, null, data);
-    await refreshEverything();
+    await withRowOpLock(async function() {
+      await insertRowAtPosition(data.position, null, data);
+      await refreshEverything();
+    });
   }
 
   async function deleteItem(row) {
     if (!confirm('Delete this item? This cannot be undone.')) return;
-    try {
-      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
-      await refreshEverything();
-    } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+    await withRowOpLock(async function() {
+      try {
+        await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+        await refreshEverything();
+      } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+    });
   }
 
   // Moves one row up/down by a single position, computed from its current
@@ -1870,12 +2333,14 @@
     const currentPos = idx + 1;
     const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
     if (newPos < 1 || newPos > lastLoadedRows.length) return;
-    try {
-      const values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
-      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
-      await insertRowAtPosition(newPos, values, null);
-      await refreshEverything();
-    } catch (e) { alert('Move failed: ' + (e.message || e)); }
+    await withRowOpLock(async function() {
+      try {
+        const values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
+        await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+        await insertRowAtPosition(newPos, values, null);
+        await refreshEverything();
+      } catch (e) { alert('Move failed: ' + (e.message || e)); }
+    });
   }
 
   // Clipboard lives only in this browser tab's memory (not on the server), so
@@ -1900,12 +2365,14 @@
     if (!rowObj) return;
     if (!confirm('Cut this item? It will be removed from the list until you paste it somewhere.')) return;
     var values = rowObj.values.slice(1);
-    try {
-      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
-      rowClipboard = { mode: 'cut', values: values };
-      updateClipboardStatus();
-      await refreshEverything();
-    } catch (e) { alert('Cut failed: ' + (e.message || e)); }
+    await withRowOpLock(async function() {
+      try {
+        await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+        rowClipboard = { mode: 'cut', values: values };
+        updateClipboardStatus();
+        await refreshEverything();
+      } catch (e) { alert('Cut failed: ' + (e.message || e)); }
+    });
   }
 
   async function pasteRow(targetRow) {
@@ -1913,12 +2380,14 @@
     var idx = lastLoadedRows.findIndex(function(r) { return r.row === targetRow; });
     if (idx === -1) return;
     var newPosition = idx + 2; // right after the clicked item
-    try {
-      await insertRowAtPosition(newPosition, rowClipboard.values, null);
-      rowClipboard = null;
-      updateClipboardStatus();
-      await refreshEverything();
-    } catch (e) { alert('Paste failed: ' + (e.message || e)); }
+    await withRowOpLock(async function() {
+      try {
+        await insertRowAtPosition(newPosition, rowClipboard.values, null);
+        rowClipboard = null;
+        updateClipboardStatus();
+        await refreshEverything();
+      } catch (e) { alert('Paste failed: ' + (e.message || e)); }
+    });
   }
 
   function buildActionsCell(row, index, total) {
@@ -2100,6 +2569,15 @@
     if (colDef.col === COL.REMARKS) td.className = 'remarks-cell';
     if (colDef.col === COL.SN) td.className = 'sn-cell';
 
+    if (colDef.type === 'numdot') {
+      // Package rows: nothing to show. Closed rows: dot only, not clickable
+      // — never reveal the number itself even then, same as always.
+      td.classList.add('indicator-cell');
+      if (isPackage) return td;
+      renderNumDotCell(td, row, colDef, value, isClosed);
+      return td;
+    }
+
     if (colDef.type === 'readonly') {
       const roVal = value == null ? '' : String(value);
       if (colDef.col === COL.DATESTAMP && roVal.indexOf(' ') !== -1) {
@@ -2258,6 +2736,46 @@
     return td;
   }
 
+  /* ===================== PQD Number dot (col unchanged, display only) =====================
+     Everything about this column is exactly as before (same column, same
+     saveCell() write path) — the only change is what's shown in the table:
+     a dot instead of the number text, green once a number is on file. */
+  function renderNumDotCell(td, row, colDef, value, isClosed) {
+    td.innerHTML = '';
+    var filled = String(value || '').trim() !== '';
+    var dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'indicator-dot' + (filled ? ' filled' : '');
+    dot.textContent = '●';
+    dot.title = filled ? (colDef.label + ' — click to edit') : ('Click to add ' + colDef.label);
+    if (isClosed) {
+      dot.disabled = true;
+    } else {
+      dot.onclick = function() { renderNumDotInput(td, row, colDef, value); };
+    }
+    td.appendChild(dot);
+  }
+
+  function renderNumDotInput(td, row, colDef, value) {
+    td.innerHTML = '';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = value || '';
+    td.appendChild(input);
+    input.focus(); input.select();
+    var committed = false;
+    function commit() {
+      if (committed) return;
+      committed = true;
+      var newVal = input.value;
+      saveCell(row, colDef.col, newVal, null).then(function() {
+        renderNumDotCell(td, row, colDef, newVal, false);
+      });
+    }
+    input.onblur = commit;
+    input.onkeydown = function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); } };
+  }
+
   /* ===================== 3-way horizontal scroll sync (body / header / top strip) ===================== */
   (function() {
     const bodyWrap = document.getElementById('tableBodyWrap');
@@ -2266,11 +2784,27 @@
     const topScrollInner = document.getElementById('tableTopScrollInner');
     if (!bodyWrap || !headerWrap || !topScroll || !topScrollInner) return;
 
+    // Sync by PROPORTION of each element's own scrollable range, not by raw
+    // scrollLeft pixel value. bodyWrap reserves space for its vertical
+    // scrollbar (overflow-y:scroll) while topScroll does not, so bodyWrap's
+    // own max scrollLeft ends up a few pixels LARGER than topScroll's max.
+    // Copying raw scrollLeft values 1:1 meant that as soon as the body
+    // scrolled past topScroll's smaller ceiling, topScroll's scrollLeft got
+    // silently clamped to its own max by the browser and stayed stuck there
+    // (the visible thumb pinned at the far right) for the rest of the
+    // scroll range — even though the body kept scrolling further. Matching
+    // proportions instead means every element reaches its own 100% only
+    // when the source is also at its own 100%, so the thumb always tracks.
     let syncing = false;
     function syncFrom(source, targets) {
       if (syncing) return;
       syncing = true;
-      targets.forEach(function(el) { el.scrollLeft = source.scrollLeft; });
+      var srcMax = source.scrollWidth - source.clientWidth;
+      var ratio = srcMax > 0 ? source.scrollLeft / srcMax : 0;
+      targets.forEach(function(el) {
+        var max = el.scrollWidth - el.clientWidth;
+        el.scrollLeft = max > 0 ? Math.round(ratio * max) : 0;
+      });
       syncing = false;
     }
     bodyWrap.addEventListener('scroll', function() { syncFrom(bodyWrap, [headerWrap, topScroll]); });
@@ -2287,7 +2821,15 @@
       document.body.removeChild(outer);
       return width;
     }
-    headerWrap.style.paddingRight = measureScrollbarWidth() + 'px';
+    // Give topScroll the SAME right-padding compensation as headerWrap, so
+    // its own clientWidth (and therefore its scrollable range) stays as
+    // close as possible to bodyWrap's — the proportional sync above makes
+    // this exact match unnecessary for correctness, but keeping the ranges
+    // close means the thumb's on-screen travel still lines up with the
+    // header/body columns passing by, not just the end-to-end percentage.
+    var scrollbarW = measureScrollbarWidth();
+    headerWrap.style.paddingRight = scrollbarW + 'px';
+    topScroll.style.paddingRight = scrollbarW + 'px';
 
     function syncTopScrollWidth() {
       const fullTable = document.getElementById('fullTable');
@@ -2630,27 +3172,33 @@
     return await fetchRowsForSheet(t.sheetName);
   }
 
-  var currentMsStatusSelection = 'overall';
-  function renderMsStatusTableSelect() {
-    currentMsStatusSelection = renderDisciplineSelect('msStatusTableSelect', currentMsStatusSelection);
+  // ONE shared discipline/table selector, in the fixed header next to the
+  // Full Table tab, drives all 3 views (Dashboard, Material Submittal
+  // Status, Full Table) together — replacing what used to be 3 separate
+  // per-view dropdowns. Full Table itself has no "Overall" concept (there is
+  // no single real sheet to edit that merges every table), so showView()
+  // resolves 'overall' down to a real table whenever Full Table becomes the
+  // active view; the other two views read currentGlobalSelection as-is.
+  var currentGlobalSelection = '0';
+  function renderGlobalTableSelect() {
+    currentGlobalSelection = renderDisciplineSelect('globalTableSelect', currentGlobalSelection);
   }
-  function switchMsStatusTable(val) {
-    if (val === currentMsStatusSelection) return;
-    currentMsStatusSelection = val;
-    loadSubmittalStatus();
-  }
-  async function fetchMsStatusSelectedRows() {
-    return fetchRowsForSelection(currentMsStatusSelection);
-  }
-
-  var currentSdSelection = 'overall';
-  function renderSdTableSelect() {
-    currentSdSelection = renderDisciplineSelect('sdTableSelect', currentSdSelection);
-  }
-  function switchSdTable(val) {
-    if (val === currentSdSelection) return;
-    currentSdSelection = val;
-    loadSubmittalDashboard();
+  function switchGlobalTable(val) {
+    if (val === currentGlobalSelection) return;
+    currentGlobalSelection = val;
+    var activeView = document.querySelector('.view.active');
+    var activeId = activeView ? activeView.id : '';
+    if (activeId === 'view-fulltable') {
+      if (currentGlobalSelection === 'overall') {
+        currentGlobalSelection = BOQ_TABLES.length ? '0' : 'overall';
+        renderGlobalTableSelect();
+      }
+      if (currentGlobalSelection !== 'overall') switchBoqTable(currentGlobalSelection);
+    } else if (activeId === 'view-msstatus') {
+      loadSubmittalStatus();
+    } else if (activeId === 'view-subdash') {
+      loadSubmittalDashboard();
+    }
   }
 
   function getSubmittalStatusDataClient(rows) {
@@ -2803,10 +3351,10 @@
 
   async function loadSubmittalStatus() {
     if (!document.getElementById('msStatusHead')) return;
-    renderMsStatusTableSelect();
-    var rows = await fetchMsStatusSelectedRows();
+    renderGlobalTableSelect();
+    var rows = await fetchRowsForSelection(currentGlobalSelection);
     msStatusCurrentRows = rows;
-    var isOverall = currentMsStatusSelection === 'overall';
+    var isOverall = currentGlobalSelection === 'overall';
     buildSubmittalHead(document.getElementById('msStatusHead'), MS_GROUPS);
     buildSubmittalHead(document.getElementById('pqdStatusHead'), PQD_GROUPS);
     var data = getSubmittalStatusDataClient(rows);
@@ -2918,9 +3466,9 @@
   var SD_PALETTE = ['#1a73e8', '#34a853', '#f4a300', '#e8453c', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
   async function loadSubmittalDashboard() {
-    renderSdTableSelect();
-    var rows = await fetchRowsForSelection(currentSdSelection);
-    var isOverall = currentSdSelection === 'overall';
+    renderGlobalTableSelect();
+    var rows = await fetchRowsForSelection(currentGlobalSelection);
+    var isOverall = currentGlobalSelection === 'overall';
     var data = getSubmittalStatusDataClient(rows);
     renderSubmittalDashboard(data.ms, data.pqd);
     renderBuyerChart(getFilesByBuyerDataClient(rows, !isOverall));
