@@ -40,6 +40,39 @@
     width: 90%;
     text-align: center;
   }
+  /* Project picker: shown right after sign-in, before the main app — lets
+     a user with access to more than one fully-separate project (each its
+     own spreadsheet, own tables, own Users/permissions) choose which one
+     to open, and lets anyone spin up a brand-new, completely independent
+     project. Mirrors #signinScreen's centered-card layout. */
+  #projectPickerScreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #projectPickerScreen .card {
+    padding: 36px;
+    max-width: 460px;
+    width: 90%;
+    text-align: center;
+  }
+  .project-pick-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; text-align: right; background: #f4f7fd; border: 1px solid #d7dce3;
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; font-size: 14.5px;
+    font-weight: 600; color: #1a3d7c; cursor: pointer;
+  }
+  .project-pick-btn:hover { background: #e8f0fe; border-color: #1a73e8; }
+  .project-pick-arrow { color: #1a73e8; font-size: 16px; }
+  #projectPickerNewRow input {
+    padding: 10px; border: 1px solid #d7dce3; border-radius: 6px; font-size: 14px;
+  }
+  #projectPickerNewRow button {
+    background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+    padding: 0 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #projectPickerNewRow button:disabled { opacity: .5; cursor: default; }
   h1 {
     font-size: 22px;
     color: #1a73e8;
@@ -330,6 +363,19 @@
   </div>
 </div>
 
+<div id="projectPickerScreen" class="hidden">
+  <div class="card">
+    <h1>اختيار المشروع</h1>
+    <p class="subtitle">كل مشروع منفصل بالكامل: جداوله، مستخدموه، وصلاحياته خاصة فيه وحده</p>
+    <div id="projectPickerList"></div>
+    <div id="projectPickerNewRow" style="margin-top:14px;display:flex;gap:6px">
+      <input type="text" id="newProjectNameInput" placeholder="اسم المشروع الجديد" style="flex:1">
+      <button type="button" id="createProjectBtn" style="width:auto">+ إنشاء مشروع جديد</button>
+    </div>
+    <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:#333"></div>
+  </div>
+</div>
+
 <div id="appScreen" class="hidden">
   <div class="app-header-sticky">
     <header class="app-title">
@@ -343,6 +389,7 @@
       <div class="pb-field"><label>Discipline:</label>
         <input type="text" id="pbDiscipline" placeholder="—" readonly title="Follows the table selected in Full Table — rename it from Control Panel"></div>
       <div class="pb-date" id="pbDate"></div>
+      <button type="button" onclick="switchProject()" id="navSwitchProject" title="فتح مشروع تاني (كل مشروع بياناته منفصلة بالكامل)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">🔁 Switch Project</button>
       <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">⚙ Control Panel</button>
     </div>
     <nav class="main-nav">
@@ -795,6 +842,11 @@
     tokenClient.requestAccessToken();
   });
 
+  document.getElementById('createProjectBtn').addEventListener('click', submitNewProject);
+  document.getElementById('newProjectNameInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); submitNewProject(); }
+  });
+
   /* ===================== Thin fetch() wrapper over Sheets API v4 / Drive API v3 ===================== */
   async function apiFetch(url, opts) {
     opts = opts || {};
@@ -906,56 +958,147 @@
       currentUserEmail = await fetchSignedInEmail();
 
       // A link of the form ?sheet=<spreadsheetId> is how an invited teammate
-      // opens the team's SHARED sheet directly, instead of this app searching
-      // for / creating a personal one for them (see Control Panel → Invite link).
+      // opens one SHARED project directly, instead of being shown the
+      // project picker at all — they never need to know other projects exist
+      // (see Control Panel → Invite link).
       const urlSheetId = new URLSearchParams(window.location.search).get('sheet');
 
       if (urlSheetId) {
         appendLog('<span class="ok">✔ جاري فتح شيت الفريق المشترك...</span>');
         spreadsheetId = urlSheetId;
-        await ensureBoqSheetReady();
-      } else {
-        const existing = await findExistingSheet();
-        if (existing) {
-          appendLog('<span class="ok">✔ تم العثور على شيت موجود مسبقاً.</span>');
-          spreadsheetId = existing.id;
-          await ensureBoqSheetReady();
-        } else {
-          appendLog('<span class="ok">✔ لا يوجد شيت سابق — جاري إنشاء واحد جديد...</span>');
-          spreadsheetId = await createNewSheet();
-          appendLog('<span class="ok">✔ تم إنشاء الشيت بنجاح!</span>');
-        }
-      }
-
-      await loadCurrentUserPerms();
-      if (!currentUserPerms.allowed) {
-        if (currentUserPerms.onHold) {
-          appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') موقوف مؤقتاً (On Hold) من الأدمن. تواصل مع الأدمن لإعادة التفعيل.</span>');
-        } else {
-          appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا الفريق. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.</span>');
-        }
+        await proceedAfterSpreadsheetChosen();
         return;
       }
 
-      appendLog('<a class="sheetLink" href="https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit" target="_blank">فتح الشيت ↗</a>');
-      enterApp();
+      appendLog('<span class="ok">✔ جاري البحث عن المشاريع المتاحة لحسابك...</span>');
+      const projects = await findAllProjectSheets();
+      showProjectPicker(projects);
     } catch (err) {
       console.error(err);
       appendLog('<span class="err">حدث خطأ: ' + (err.message || err) + '</span>');
     }
   }
 
-  async function findExistingSheet() {
+  // Every completely separate "project" (own BOQ tables, own Users sheet,
+  // own permissions — nothing shared between them) is its own Google
+  // Spreadsheet file, named either exactly SHEET_TITLE (the original/legacy
+  // project, kept as-is for backward compatibility with whatever the live
+  // spreadsheet is already called) or "<SHEET_TITLE> — <project name>" for
+  // every project created afterward via the picker's "+ New Project". This
+  // Drive search is how the app discovers every project the signed-in
+  // Google account currently has access to — no separate registry file to
+  // keep in sync; Drive sharing (driveShareFile, same as today's per-user
+  // invites) IS the access control.
+  async function findAllProjectSheets() {
     const q = encodeURIComponent(
-      `name='${SHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
+      `(name = '${SHEET_TITLE}' or name contains '${SHEET_TITLE} — ') and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
     );
     const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&orderBy=name`,
       { headers: { Authorization: 'Bearer ' + accessToken } }
     );
     const data = await res.json();
-    if (data.files && data.files.length > 0) return data.files[0];
-    return null;
+    return (data.files || []).map(function(f) {
+      var prefix = SHEET_TITLE + ' — ';
+      var label = (f.name === SHEET_TITLE) ? 'Project 1' : (f.name.indexOf(prefix) === 0 ? f.name.slice(prefix.length) : f.name);
+      return { id: f.id, name: f.name, label: label };
+    });
+  }
+
+  /* ===================== Project picker screen ===================== */
+  function showProjectPicker(projects) {
+    document.getElementById('signinScreen').classList.add('hidden');
+    document.getElementById('projectPickerScreen').classList.remove('hidden');
+    renderProjectPickerList(projects);
+  }
+
+  function renderProjectPickerList(projects) {
+    var list = document.getElementById('projectPickerList');
+    if (!projects.length) {
+      list.innerHTML = '<p style="color:#888;font-size:13.5px;margin:0 0 4px">ما في أي مشروع متاح لحسابك حالياً. أنشئ أول مشروع من تحت.</p>';
+    } else {
+      list.innerHTML = projects.map(function(p) {
+        return '<button type="button" class="project-pick-btn" data-id="' + p.id + '">' +
+          '<span class="project-pick-name">' + p.label + '</span>' +
+          '<span class="project-pick-arrow">↗</span></button>';
+      }).join('');
+      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-btn'), function(btn) {
+        btn.onclick = function() { pickProject(btn.getAttribute('data-id')); };
+      });
+    }
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    if (statusEl2) statusEl2.innerHTML = '';
+  }
+
+  async function pickProject(id) {
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    statusEl2.innerHTML = '<span class="spinner"></span> جاري فتح المشروع...';
+    try {
+      spreadsheetId = id;
+      await proceedAfterSpreadsheetChosen();
+    } catch (err) {
+      console.error(err);
+      statusEl2.innerHTML = '<span class="err">حدث خطأ: ' + (err.message || err) + '</span>';
+    }
+  }
+
+  async function submitNewProject() {
+    var input = document.getElementById('newProjectNameInput');
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    var name = (input.value || '').trim();
+    if (!name) { statusEl2.innerHTML = '<span class="err">اكتب اسم المشروع أولاً.</span>'; return; }
+    var btn = document.getElementById('createProjectBtn');
+    btn.disabled = true;
+    statusEl2.innerHTML = '<span class="spinner"></span> جاري إنشاء المشروع...';
+    try {
+      // A brand-new project starts from a clean slate — never inherit
+      // BOQ_TABLES/table state any previously-viewed project left behind.
+      BOQ_TABLES = [{ sheetName: 'BOQ Database', label: 'Table 1' }];
+      var title = SHEET_TITLE + ' — ' + name;
+      spreadsheetId = await createNewSheet(title);
+      await proceedAfterSpreadsheetChosen();
+    } catch (err) {
+      console.error(err);
+      statusEl2.innerHTML = '<span class="err">حدث خطأ: ' + (err.message || err) + '</span>';
+      btn.disabled = false;
+    }
+  }
+
+  // Shared tail for all 3 ways a spreadsheetId gets chosen (invite link,
+  // picked from the project list, or just created): make sure its schema
+  // is fully up to date (idempotent — safe even right after createNewSheet()
+  // already set everything up), load this account's permissions on it, then
+  // either show the "not added" message or enter the app.
+  async function proceedAfterSpreadsheetChosen() {
+    await ensureBoqSheetReady();
+    await loadCurrentUserPerms();
+    if (!currentUserPerms.allowed) {
+      var msg = currentUserPerms.onHold
+        ? ('حسابك (' + (currentUserEmail || '؟') + ') موقوف مؤقتاً (On Hold) من الأدمن. تواصل مع الأدمن لإعادة التفعيل.')
+        : ('حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا المشروع. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.');
+      var statusEl2 = document.getElementById('projectPickerStatus');
+      if (statusEl2 && !document.getElementById('projectPickerScreen').classList.contains('hidden')) {
+        statusEl2.innerHTML = '<span class="err">' + msg + '</span>';
+      } else {
+        document.getElementById('signinScreen').classList.remove('hidden');
+        document.getElementById('projectPickerScreen').classList.add('hidden');
+        appendLog('<span class="err">' + msg + '</span>');
+      }
+      return;
+    }
+    enterApp();
+  }
+
+  // Reloads the page (dropping any ?sheet= invite param) so sign-in runs
+  // again from scratch and the project picker is shown — the simplest safe
+  // way to fully reset every in-memory global (BOQ_TABLES, permissions,
+  // loaded rows, scheduled-backup state, etc.) rather than trying to tear
+  // down and rebuild a live app in place.
+  function switchProject() {
+    if (!confirm('بدك تفتح مشروع تاني؟ رح يتم إعادة تحميل الصفحة.')) return;
+    var url = new URL(window.location.href);
+    url.searchParams.delete('sheet');
+    window.location.href = url.toString();
   }
 
   // 9-column, per-table schema. A user has ONE "global" row (Table blank)
@@ -966,11 +1109,11 @@
   const USERS_HEADER_ROW = ['Email', 'Table', 'Can Add Items', 'Can Delete Items', 'Can Move Items', 'Can Change Status', 'Is Admin', 'Can Access Control Panel', 'Drive Permission Id', 'On Hold'];
   const USERS_LAST_COL = 10; // bump this (and the column list above) if more global/per-table flags are ever added
 
-  async function createNewSheet() {
+  async function createNewSheet(title) {
     const createData = await apiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
       body: JSON.stringify({
-        properties: { title: SHEET_TITLE },
+        properties: { title: title || SHEET_TITLE },
         sheets: [
           { properties: { title: BOQ_TABLES[0].sheetName } },
           { properties: { title: SUBMITTAL_SHEET_NAME } },
@@ -1534,6 +1677,7 @@
 
   function enterApp() {
     document.getElementById('signinScreen').classList.add('hidden');
+    document.getElementById('projectPickerScreen').classList.add('hidden');
     document.getElementById('appScreen').classList.remove('hidden');
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
     applyPermissionsToUI();
