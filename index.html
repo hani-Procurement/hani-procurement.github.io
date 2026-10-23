@@ -57,6 +57,8 @@
     width: 90%;
     text-align: center;
   }
+  .project-pick-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .project-pick-row .project-pick-btn { margin-bottom: 0; flex: 1; }
   .project-pick-btn {
     display: flex; align-items: center; justify-content: space-between;
     width: 100%; text-align: right; background: #f4f7fd; border: 1px solid #d7dce3;
@@ -65,6 +67,11 @@
   }
   .project-pick-btn:hover { background: #e8f0fe; border-color: #1a73e8; }
   .project-pick-arrow { color: #1a73e8; font-size: 16px; }
+  .project-pick-icon-btn {
+    flex: none; width: 40px; border: 1px solid #d7dce3; border-radius: 8px;
+    background: #fff; cursor: pointer; font-size: 15px; color: #666;
+  }
+  .project-pick-icon-btn:hover { background: #f4f7fd; border-color: #1a73e8; color: #1a73e8; }
   #projectPickerNewRow input {
     padding: 10px; border: 1px solid #d7dce3; border-radius: 6px; font-size: 14px;
   }
@@ -756,6 +763,39 @@
   const USERS_SHEET_NAME = "Users";
   const BACKUP_CONFIG_SHEET_NAME = "BackupConfig";
   const FILEWITH_LISTS_SHEET_NAME = "FileWithLists";
+  // Every project spreadsheet (see createNewSheet()) is filed into this one
+  // Drive folder (found by name, created the first time it's needed) so new
+  // projects never land loose in Drive root next to everything else.
+  const PROJECTS_FOLDER_NAME = "Procurement Progress Reports";
+  var projectsFolderId = null;
+
+  async function findOrCreateProjectsFolder() {
+    if (projectsFolderId) return projectsFolderId;
+    const q = encodeURIComponent(
+      `name='${PROJECTS_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    );
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const data = await res.json();
+    if (data.files && data.files.length) { projectsFolderId = data.files[0].id; return projectsFolderId; }
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: PROJECTS_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    const created = await createRes.json();
+    projectsFolderId = created.id;
+    return projectsFolderId;
+  }
+
+  async function moveFileToProjectsFolder(fileId) {
+    const folderId = await findOrCreateProjectsFolder();
+    await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${folderId}&removeParents=root&fields=id,parents`,
+      { method: 'PATCH', headers: { Authorization: 'Bearer ' + accessToken } }
+    );
+  }
 
   // The single "Full Table" tab can hold any number of independent item
   // sets — each one a real Sheets tab (internal name "BOQ Database",
@@ -1061,16 +1101,74 @@
       list.innerHTML = '<p style="color:#888;font-size:13.5px;margin:0 0 4px">ما في أي مشروع متاح لحسابك حالياً. أنشئ أول مشروع من تحت.</p>';
     } else {
       list.innerHTML = projects.map(function(p) {
-        return '<button type="button" class="project-pick-btn" data-id="' + p.id + '">' +
-          '<span class="project-pick-name">' + p.label + '</span>' +
-          '<span class="project-pick-arrow">↗</span></button>';
+        return '<div class="project-pick-row">' +
+          '<button type="button" class="project-pick-btn" data-id="' + p.id + '">' +
+            '<span class="project-pick-name">' + p.label + '</span>' +
+            '<span class="project-pick-arrow">↗</span></button>' +
+          '<button type="button" class="project-pick-icon-btn" data-action="rename" data-id="' + p.id + '" title="إعادة تسمية">✎</button>' +
+          '<button type="button" class="project-pick-icon-btn" data-action="delete" data-id="' + p.id + '" title="نقل لسلة المهملات">🗑</button>' +
+          '</div>';
       }).join('');
       Array.prototype.forEach.call(list.querySelectorAll('.project-pick-btn'), function(btn) {
         btn.onclick = function() { pickProject(btn.getAttribute('data-id')); };
       });
+      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-icon-btn[data-action="rename"]'), function(btn) {
+        var id = btn.getAttribute('data-id');
+        var p = projects.find(function(x) { return x.id === id; });
+        btn.onclick = function() { renameProjectFile(id, p ? p.label : ''); };
+      });
+      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-icon-btn[data-action="delete"]'), function(btn) {
+        var id = btn.getAttribute('data-id');
+        var p = projects.find(function(x) { return x.id === id; });
+        btn.onclick = function() { deleteProjectFile(id, p ? p.label : ''); };
+      });
     }
     var statusEl2 = document.getElementById('projectPickerStatus');
     if (statusEl2) statusEl2.innerHTML = '';
+  }
+
+  // Both act directly on the Drive file (Google's own permissions are what
+  // actually gate who can rename/trash it — someone with only read/comment
+  // access on this spreadsheet will simply get an error back from the API).
+  async function renameProjectFile(id, currentLabel) {
+    var newName = prompt('اسم جديد للمشروع:', currentLabel || '');
+    if (newName === null) return;
+    newName = newName.trim();
+    if (!newName) return;
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    statusEl2.innerHTML = '<span class="spinner"></span> جاري إعادة التسمية...';
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: SHEET_TITLE + ' — ' + newName })
+      });
+      if (!res.ok) { var errBody = await res.json().catch(function() { return {}; }); throw new Error((errBody.error && errBody.error.message) || ('HTTP ' + res.status)); }
+      var projects = await findAllProjectSheets();
+      renderProjectPickerList(projects);
+    } catch (e) {
+      console.error(e);
+      statusEl2.innerHTML = '<span class="err">تعذرت إعادة التسمية: ' + (e.message || e) + '</span>';
+    }
+  }
+
+  async function deleteProjectFile(id, label) {
+    if (!confirm('بدك تنقل مشروع "' + label + '" بالكامل لسلة المهملات (Trash) بقوقل درايف؟ رح يختفي من هاي القائمة فوراً لكل اللي معهم وصول إله. ممكن تسترجعه لاحقاً من داخل Google Drive > Trash خلال 30 يوم، وبعدها بينحذف نهائياً.')) return;
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    statusEl2.innerHTML = '<span class="spinner"></span> جاري النقل لسلة المهملات...';
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trashed: true })
+      });
+      if (!res.ok) { var errBody = await res.json().catch(function() { return {}; }); throw new Error((errBody.error && errBody.error.message) || ('HTTP ' + res.status)); }
+      var projects = await findAllProjectSheets();
+      renderProjectPickerList(projects);
+    } catch (e) {
+      console.error(e);
+      statusEl2.innerHTML = '<span class="err">تعذر الحذف: ' + (e.message || e) + '</span>';
+    }
   }
 
   async function pickProject(id) {
@@ -1170,6 +1268,12 @@
     boqSheetIds[0] = createData.sheets[0].properties.sheetId;
     usersSheetId = createData.sheets[3].properties.sheetId;
     tablesConfigSheetId = createData.sheets[4].properties.sheetId;
+
+    // Keep every project's spreadsheet tidy in one Drive folder instead of
+    // scattered across Drive root — non-fatal: if this fails for any reason
+    // (e.g. a permission edge case) the project itself is still created and
+    // fully usable, just left wherever Drive put it.
+    try { await moveFileToProjectsFolder(newId); } catch (e) { console.warn('Could not move new project into the projects folder (non-fatal): ', e); }
 
     currentTableIndex = 0;
     SHEET_NAME = BOQ_TABLES[0].sheetName;
