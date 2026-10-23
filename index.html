@@ -6,6 +6,7 @@
 <title>Procurement Progress Report</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -131,8 +132,8 @@
   .table-top-scroll-wrap{position:relative}
   .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid #ddd}
   .table-top-scroll div{height:1px}
-  .table-top-scroll-mask{position:absolute;top:0;left:0;width:440px;height:16px;background:#fff;border-bottom:1px solid #ddd;pointer-events:none;z-index:2}
-  #fullTableHeader, #fullTable{min-width:2150px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0}
+  .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:#fff;border-bottom:1px solid #ddd;pointer-events:none;z-index:2}
+  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:#1a73e8;color:white}
   #fullTableHeader th,#fullTable td{border:1px solid #ddd;padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#f9fafb}
@@ -148,7 +149,7 @@
   #headerMainRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
   #headerMainRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
   #headerMainRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
-  #headerMainRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:440px;z-index:7}
+  #headerMainRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:460px;z-index:7}
   #fullTable td:nth-child(-n+5){z-index:2;background:#fff}
   #headerMainRow th:nth-child(-n+5){z-index:8}
   #fullTable td:nth-child(5), #headerMainRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(0,0,0,0.3)}
@@ -184,6 +185,13 @@
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
   #loadingMsg{padding:30px;text-align:center;color:#666}
 
+  /* ---- Filter row (below header labels) ---- */
+  #headerFilterRow th{background:#eef3fc;padding:2px 4px;border:1px solid #ddd}
+  #headerFilterRow th.actions-header{background:#eef3fc}
+  .filter-input{width:100%;box-sizing:border-box;font-size:10.5px;padding:2px 4px;border:1px solid #c7d2e3;border-radius:3px;font-family:inherit;color:#1a3a66;background:#fff}
+  .filter-input::placeholder{color:#9aa9c2}
+  .filter-input:focus{outline:none;border-color:#1a73e8}
+
   /* ---- Row actions column ---- */
   #fullTable td.actions-cell, #headerMainRow th.actions-header{width:50px;min-width:50px;padding:2px}
   .actions-wrap{display:flex;flex-wrap:wrap;gap:1px;justify-content:center}
@@ -215,6 +223,22 @@
   .radio-row{display:flex;gap:16px;font-size:13px;margin-top:4px}
   .balance-clickable{cursor:pointer;text-decoration:underline;color:#1a73e8}
   .balance-clickable:hover{background:#eef3fc}
+
+  /* ---- "File With" / "Action By" list management (gear-button modals) ---- */
+  .gear-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:12px;padding:0 0 0 4px;vertical-align:middle;opacity:.85}
+  .gear-btn:hover{opacity:1}
+  .fw-list{max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:4px;margin-top:8px}
+  .fw-list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
+    border-bottom:1px solid #f1f1f1;font-size:13px}
+  .fw-list-item:last-child{border-bottom:none}
+  .fw-list-item .fw-actions{display:flex;gap:10px;align-items:center}
+  .fw-remove{background:none;border:none;color:#d93025;cursor:pointer;font-size:14px}
+  .fw-rename{background:none;border:none;color:#1a73e8;cursor:pointer;font-size:14px}
+  .fw-add-row{display:flex;gap:6px;margin-top:10px}
+  .fw-add-row input{flex:1}
+  .fw-rename-row{display:flex;gap:6px;align-items:center;flex:1}
+  .fw-rename-row input{flex:1;font-size:13px}
+  .fw-rename-row button{font-size:11px;padding:2px 8px;width:auto}
 
   /* ---- Material Submittal Status / PQD tables ---- */
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
@@ -291,12 +315,12 @@
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
+      <button onclick="showView('controlpanel', this)" id="navControlPanel">⚙ Control Panel</button>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
       <span id="addMsg"></span>
-      <button type="button" class="primary" onclick="openAddModal()">＋ Add Item</button>
+      <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
-      <button type="button" onclick="exportToXlsx()" id="exportXlsxBtn">⬇ Export BOQ &amp; M/S to Excel</button>
       <span id="clipboardStatus"></span>
     </div>
   </div>
@@ -416,6 +440,62 @@
       </div>
     </div>
   </div>
+
+  <!-- ===================== CONTROL PANEL ===================== -->
+  <div class="view" id="view-controlpanel" style="padding:16px">
+    <div class="ms-card-grid">
+
+      <div class="card">
+        <h3>Import / Export</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <button type="button" onclick="exportToXlsx()" id="exportXlsxBtn">⬇ Export BOQ &amp; M/S to Excel</button>
+          <button type="button" onclick="document.getElementById('importFileInput').click()" id="importXlsxBtn">⬆ Import from Excel</button>
+          <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
+        </div>
+        <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
+      </div>
+
+      <div class="card" id="cpInviteCard">
+        <h3>Invite link</h3>
+        <p style="font-size:12.5px;color:#555;margin:0 0 8px">
+          Send this link to a teammate <b>after</b> adding them below. It opens this same team sheet
+          directly — without it, their sign-in would try to create a separate sheet of their own.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="cpInviteLink" readonly style="flex:1;font-size:12px">
+          <button type="button" onclick="copyInviteLink()" style="width:auto">Copy</button>
+        </div>
+      </div>
+
+      <div class="card" id="cpUsersCard">
+        <h3>Team members &amp; permissions</h3>
+        <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          Control exactly who can add items, delete items, reorder/move items, or change status
+          fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
+          view everything and edit the regular fields.
+        </p>
+        <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
+          <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
+          <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
+            <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
+            <label><input type="checkbox" id="cpNewCanDelete"> Delete items</label>
+            <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
+            <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
+            <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
+          </div>
+          <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
+        </div>
+        <div id="cpUsersMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+      </div>
+
+      <div class="card" id="cpNoAccessCard" style="display:none">
+        <h3>Team members &amp; permissions</h3>
+        <p style="font-size:13px;color:#666">Only an Admin can manage team members. Ask your admin to make changes here.</p>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <!-- ===================== Add Item modal ===================== -->
@@ -451,6 +531,36 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="fileWithModalOverlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Manage "File With" List</h3>
+    <div class="fw-list" id="fwList"></div>
+    <div class="fw-add-row">
+      <input type="text" id="fwNewName" placeholder="New name...">
+      <button class="primary" onclick="addFileWithEntry()" style="padding:8px 12px;width:auto">Add</button>
+    </div>
+    <div id="fwMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeFileWithModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="actionByModalOverlay" style="display:none;">
+  <div class="modal-box">
+    <h3>Manage "Action By" List</h3>
+    <div class="fw-list" id="abList"></div>
+    <div class="fw-add-row">
+      <input type="text" id="abNewName" placeholder="New value...">
+      <button class="primary" onclick="addActionByEntry()" style="padding:8px 12px;width:auto">Add</button>
+    </div>
+    <div id="abMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeActionByModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Shared "which items make up this number" popup — Balance Submittal to be
      Prepared / Code C & D / Under Approval W/Client, both MS and PQD tables. -->
 <div class="modal-overlay" id="balanceModalOverlay" style="display:none;">
@@ -466,11 +576,12 @@
 <script>
   // ===== Google OAuth config — reused as-is from the working MVP =====
   const CLIENT_ID = "543026821266-teh5rbarpabeeeropf3312vnqt3pm059.apps.googleusercontent.com";
-  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
+  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
   const SHEET_TITLE = "Procurement Progress Report";
   const SHEET_NAME = "BOQ Database";
   const LISTS_SHEET_NAME = "Lists";
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
+  const USERS_SHEET_NAME = "Users";
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
   const LAST_DATA_COL = 28;
@@ -491,12 +602,28 @@
   };
   const NO_DEFAULT_COLS = [COL.LLI, COL.RFQ, COL.QUOT, COL.PQD_SUB, COL.MS_SUB, COL.PR, COL.PO1];
 
+  // Columns that count as "status" fields for the Control Panel's
+  // "Change status" permission — everything else (description, qty, file
+  // with, remarks, etc.) stays editable by anyone who can open the view.
+  const STATUS_SELECT_COLS = [
+    COL.CS_STATUS, COL.PQD_SUB, COL.PQD_CODE, COL.MS_SUB, COL.MS_CODE,
+    COL.ACTIONBY, COL.PR, COL.PO1
+  ];
+
   const statusEl = document.getElementById('status');
   const signinBtn = document.getElementById('signinBtn');
   let tokenClient;
   let accessToken = null;
   let spreadsheetId = null;
   let boqSheetId = null; // numeric sheetId of the 'BOQ Database' tab, needed for batchUpdate
+  let usersSheetId = null; // numeric sheetId of the 'Users' tab
+
+  // Signed-in user's email + their permission flags on the current team
+  // sheet, loaded from the Users tab after sign-in (see loadCurrentUserPerms()).
+  // isAdmin implies every other flag is true, everywhere this is checked.
+  let currentUserEmail = null;
+  let currentUserPerms = { isAdmin: false, canAdd: false, canDelete: false, canMove: false, canChangeStatus: false, allowed: false };
+  function perm(flag) { return currentUserPerms.isAdmin || !!currentUserPerms[flag]; }
 
   function log(html) { statusEl.innerHTML = html; }
   function appendLog(html) { statusEl.innerHTML += '<div>' + html + '</div>'; }
@@ -616,20 +743,50 @@
   }
 
   /* ===================== Sign-in -> find/create spreadsheet (unchanged flow) ===================== */
-  async function handleSignedIn() {
-    log('<span class="spinner"></span> تم تسجيل الدخول، جاري البحث عن الشيت الخاص بك...');
+  async function fetchSignedInEmail() {
     try {
-      const existing = await findExistingSheet();
-      if (existing) {
-        appendLog('<span class="ok">✔ تم العثور على شيت موجود مسبقاً.</span>');
-        spreadsheetId = existing.id;
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      const data = await res.json();
+      return (data && data.email) ? String(data.email).toLowerCase() : null;
+    } catch (e) { console.warn('Could not fetch signed-in email: ', e); return null; }
+  }
+
+  async function handleSignedIn() {
+    log('<span class="spinner"></span> تم تسجيل الدخول، جاري التحقق من حسابك...');
+    try {
+      currentUserEmail = await fetchSignedInEmail();
+
+      // A link of the form ?sheet=<spreadsheetId> is how an invited teammate
+      // opens the team's SHARED sheet directly, instead of this app searching
+      // for / creating a personal one for them (see Control Panel → Invite link).
+      const urlSheetId = new URLSearchParams(window.location.search).get('sheet');
+
+      if (urlSheetId) {
+        appendLog('<span class="ok">✔ جاري فتح شيت الفريق المشترك...</span>');
+        spreadsheetId = urlSheetId;
         await ensureBoqSheetReady();
       } else {
-        appendLog('<span class="ok">✔ لا يوجد شيت سابق — جاري إنشاء واحد جديد...</span>');
-        spreadsheetId = await createNewSheet();
-        appendLog('<span class="ok">✔ تم إنشاء الشيت بنجاح!</span>');
+        const existing = await findExistingSheet();
+        if (existing) {
+          appendLog('<span class="ok">✔ تم العثور على شيت موجود مسبقاً.</span>');
+          spreadsheetId = existing.id;
+          await ensureBoqSheetReady();
+        } else {
+          appendLog('<span class="ok">✔ لا يوجد شيت سابق — جاري إنشاء واحد جديد...</span>');
+          spreadsheetId = await createNewSheet();
+          appendLog('<span class="ok">✔ تم إنشاء الشيت بنجاح!</span>');
+        }
       }
-      appendLog('<a class="sheetLink" href="https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit" target="_blank">فتح الشيت الخاص بي ↗</a>');
+
+      await loadCurrentUserPerms();
+      if (!currentUserPerms.allowed) {
+        appendLog('<span class="err">حسابك (' + (currentUserEmail || '؟') + ') غير مُضاف لهذا الفريق. اطلب من الأدمن يضيفك من لوحة التحكم (Control Panel) ثم يرسلك رابط الدعوة.</span>');
+        return;
+      }
+
+      appendLog('<a class="sheetLink" href="https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit" target="_blank">فتح الشيت ↗</a>');
       enterApp();
     } catch (err) {
       console.error(err);
@@ -650,6 +807,8 @@
     return null;
   }
 
+  const USERS_HEADER_ROW = ['Email', 'Can Add Items', 'Can Delete Items', 'Can Move Items', 'Can Change Status', 'Is Admin', 'Drive Permission Id'];
+
   async function createNewSheet() {
     const createData = await apiFetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
@@ -658,21 +817,34 @@
         sheets: [
           { properties: { title: SHEET_NAME } },
           { properties: { title: SUBMITTAL_SHEET_NAME } },
-          { properties: { title: LISTS_SHEET_NAME } }
+          { properties: { title: LISTS_SHEET_NAME } },
+          { properties: { title: USERS_SHEET_NAME } }
         ]
       })
     });
     const newId = createData.spreadsheetId;
     boqSheetId = createData.sheets[0].properties.sheetId;
+    usersSheetId = createData.sheets[3].properties.sheetId;
 
     await writeBoqHeader(newId);
     await seedListsSheet(newId);
+    await sheetsUpdateValues(newId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
+
+    // The person creating a brand-new team sheet becomes its Admin automatically.
+    if (currentUserEmail) {
+      const savedId = spreadsheetId;
+      spreadsheetId = newId; // addUserRow() reads/writes through the global spreadsheetId
+      await addUserRow(currentUserEmail, { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, isAdmin: true }, null);
+      spreadsheetId = savedId;
+    }
     return newId;
   }
 
   /* On an existing spreadsheet, find the BOQ Database tab's numeric sheetId
      and, only if its header row looks unwritten, write the full 28-column
-     header (never overwrites a header that's already there). */
+     header (never overwrites a header that's already there). Also makes
+     sure the Users tab exists (older sheets created before this feature
+     shipped get it added here, lazily, the first time anyone opens them). */
   async function ensureBoqSheetReady() {
     const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
     const boqSheet = (meta.sheets || []).find(function(s) { return s.properties.title === SHEET_NAME; });
@@ -689,6 +861,75 @@
       const fw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2));
       if (!fw.length || !String(fw[0][0] || '').trim()) await seedListsSheet(spreadsheetId);
     }
+    await ensureUsersSheet(meta);
+  }
+
+  /* ===================== TEAM / USERS SHEET (Users!A2:G200) =====================
+     One shared team spreadsheet, an admin-controlled list of who may use it and
+     what they may do. This is a cooperative, UI-level control (hides/disables
+     buttons) — not a hard security boundary: anyone the admin granted Drive
+     "Editor" access to can still edit the underlying Google Sheet directly. */
+  async function ensureUsersSheet(meta) {
+    var usersSheet = (meta.sheets || []).find(function(s) { return s.properties.title === USERS_SHEET_NAME; });
+    if (!usersSheet) {
+      const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: USERS_SHEET_NAME } } }]);
+      usersSheetId = res.replies[0].addSheet.properties.sheetId;
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 1, 7, 1), [USERS_HEADER_ROW], 'RAW');
+    } else {
+      usersSheetId = usersSheet.properties.sheetId;
+    }
+  }
+
+  async function fetchUsersRows() {
+    return await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, 7, 200));
+  }
+
+  async function addUserRow(email, perms, drivePermissionId) {
+    const rows = await fetchUsersRows();
+    var slot = rows.length;
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i] || String(rows[i][0] || '').trim() === '') { slot = i; break; }
+    }
+    const rowData = [
+      email,
+      perms.canAdd ? 'TRUE' : 'FALSE',
+      perms.canDelete ? 'TRUE' : 'FALSE',
+      perms.canMove ? 'TRUE' : 'FALSE',
+      perms.canChangeStatus ? 'TRUE' : 'FALSE',
+      perms.isAdmin ? 'TRUE' : 'FALSE',
+      drivePermissionId || ''
+    ];
+    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2 + slot, 7, 2 + slot), [rowData], 'RAW');
+  }
+
+  async function loadCurrentUserPerms() {
+    if (!currentUserEmail) {
+      // Could not read the signed-in email (userinfo call failed) — fail
+      // open as Admin rather than locking the whole app out.
+      currentUserPerms = { isAdmin: true, canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, allowed: true };
+      return;
+    }
+    const rows = await fetchUsersRows();
+    const match = rows.find(function(r) { return String((r && r[0]) || '').trim().toLowerCase() === currentUserEmail; });
+    if (match) {
+      currentUserPerms = {
+        canAdd: String(match[1] || '').toUpperCase() === 'TRUE',
+        canDelete: String(match[2] || '').toUpperCase() === 'TRUE',
+        canMove: String(match[3] || '').toUpperCase() === 'TRUE',
+        canChangeStatus: String(match[4] || '').toUpperCase() === 'TRUE',
+        isAdmin: String(match[5] || '').toUpperCase() === 'TRUE',
+        allowed: true
+      };
+      return;
+    }
+    if (!rows.length) {
+      // Nobody registered yet on this team sheet (first open after an
+      // upgrade, or a race on a brand-new one) — this person becomes Admin.
+      await addUserRow(currentUserEmail, { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, isAdmin: true }, null);
+      currentUserPerms = { isAdmin: true, canAdd: true, canDelete: true, canMove: true, canChangeStatus: true, allowed: true };
+      return;
+    }
+    currentUserPerms = { isAdmin: false, canAdd: false, canDelete: false, canMove: false, canChangeStatus: false, allowed: false };
   }
 
   // Full 28-column BOQ Database header, exactly matching the original Code.gs COL map
@@ -702,7 +943,7 @@
     'M/S Submitted', 'M/S Planned Submission Date', 'M/S Number', 'M/S Status', 'M/S Status Date',
     'PR', 'PO (Issued)', 'PO Number / Supplier Name', 'REMARKS', 'Row Type', 'Action By', 'Date Stamp'
   ];
-  const BOQ_COL_WIDTHS = [45,280,65,70,90,50,55,62,62,62,70,62,125,90,62,90,62,125,90,62,90,55,62,130,240,80,100,115];
+  const BOQ_COL_WIDTHS = [45,280,85,90,110,50,55,62,62,62,70,62,125,90,62,90,62,125,90,62,90,55,62,130,240,80,100,115];
 
   async function writeBoqHeader(ssId) {
     await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, 1, 2, LAST_DATA_COL, 2), [BOQ_HEADER_ROW2]);
@@ -751,11 +992,210 @@
     document.getElementById('signinScreen').classList.add('hidden');
     document.getElementById('appScreen').classList.remove('hidden');
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
+    applyPermissionsToUI();
     loadProjectBar();
     loadFormOptions().then(function() { return loadFullTable(); }).then(function() {
       loadSubmittalStatus();
       loadSubmittalDashboard();
     });
+  }
+
+  /* ===================== Permission gating (soft, UI-level) =====================
+     Hides/disables the four admin-controlled actions per currentUserPerms.
+     Re-run after every table render since buildActionsCell()/buildCell()
+     rebuild the DOM from scratch on each refresh. */
+  function applyPermissionsToUI() {
+    var addBtn = document.getElementById('addItemBtn');
+    if (addBtn) addBtn.style.display = perm('canAdd') ? '' : 'none';
+
+    var importBtn = document.getElementById('importXlsxBtn');
+    if (importBtn) importBtn.style.display = perm('canAdd') ? '' : 'none';
+
+    var usersCard = document.getElementById('cpUsersCard');
+    var noAccessCard = document.getElementById('cpNoAccessCard');
+    var inviteCard = document.getElementById('cpInviteCard');
+    if (currentUserPerms.isAdmin) {
+      if (usersCard) usersCard.style.display = '';
+      if (noAccessCard) noAccessCard.style.display = 'none';
+      if (inviteCard) inviteCard.style.display = '';
+      var link = window.location.origin + window.location.pathname + '?sheet=' + spreadsheetId;
+      var linkInput = document.getElementById('cpInviteLink');
+      if (linkInput) linkInput.value = link;
+    } else {
+      if (usersCard) usersCard.style.display = 'none';
+      if (noAccessCard) noAccessCard.style.display = '';
+      if (inviteCard) inviteCard.style.display = 'none';
+    }
+  }
+
+  function copyInviteLink() {
+    var input = document.getElementById('cpInviteLink');
+    input.select();
+    try {
+      navigator.clipboard.writeText(input.value);
+      document.getElementById('cpUsersMsg').style.color = '#1e8e3e';
+      document.getElementById('cpUsersMsg').textContent = 'تم نسخ الرابط.';
+    } catch (e) {
+      document.execCommand('copy');
+    }
+  }
+
+  /* ===================== Drive-level sharing (so an invited member's own
+     OAuth token is actually allowed to read/write this spreadsheet) ===================== */
+  async function driveShareFile(fileId, email, role) {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?sendNotificationEmail=false`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: role, type: 'user', emailAddress: email })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error((data.error && data.error.message) || 'Drive sharing failed.');
+    return data.id; // permissionId, stored so removal can revoke it later
+  }
+
+  async function driveUnshareFile(fileId, permissionId) {
+    if (!permissionId) return;
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions/${permissionId}`, {
+        method: 'DELETE', headers: { Authorization: 'Bearer ' + accessToken }
+      });
+    } catch (e) { console.warn('Could not revoke Drive permission (non-fatal): ', e); }
+  }
+
+  /* ===================== Control Panel: team members table ===================== */
+  async function renderTeamMembersList() {
+    var list = document.getElementById('cpUsersList');
+    list.innerHTML = 'Loading...';
+    try {
+      const rows = await fetchUsersRows();
+      list.innerHTML = '';
+      var any = false;
+      rows.forEach(function(r, idx) {
+        var email = String((r && r[0]) || '').trim();
+        if (!email) return;
+        any = true;
+        var perms = {
+          canAdd: String(r[1] || '').toUpperCase() === 'TRUE',
+          canDelete: String(r[2] || '').toUpperCase() === 'TRUE',
+          canMove: String(r[3] || '').toUpperCase() === 'TRUE',
+          canChangeStatus: String(r[4] || '').toUpperCase() === 'TRUE',
+          isAdmin: String(r[5] || '').toUpperCase() === 'TRUE'
+        };
+        var permissionId = r[6] || '';
+
+        var row = document.createElement('div');
+        row.className = 'fw-list-item';
+        row.style.flexWrap = 'wrap';
+
+        var emailSpan = document.createElement('span');
+        emailSpan.textContent = email + (email === currentUserEmail ? ' (you)' : '');
+        emailSpan.style.fontWeight = '600';
+        emailSpan.style.flex = '1 0 100%';
+        row.appendChild(emailSpan);
+
+        var checksWrap = document.createElement('div');
+        checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
+        checksWrap.style.gap = '10px'; checksWrap.style.fontSize = '12px'; checksWrap.style.margin = '4px 0';
+
+        [['canAdd', 'Add'], ['canDelete', 'Delete'], ['canMove', 'Move'], ['canChangeStatus', 'Status'], ['isAdmin', 'Admin']].forEach(function(pair) {
+          var label = document.createElement('label');
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!perms[pair[0]];
+          // Can't strip your own Admin flag — avoids a mistake locking everyone, including yourself, out.
+          if (pair[0] === 'isAdmin' && email === currentUserEmail) cb.disabled = true;
+          cb.onchange = function() {
+            perms[pair[0]] = cb.checked;
+            updateTeamMemberPerms(idx, perms);
+          };
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(' ' + pair[1]));
+          checksWrap.appendChild(label);
+        });
+        row.appendChild(checksWrap);
+
+        var actions = document.createElement('div'); actions.className = 'fw-actions';
+        if (email !== currentUserEmail) {
+          var removeBtn = document.createElement('button'); removeBtn.className = 'fw-remove';
+          removeBtn.title = 'Remove from team'; removeBtn.style.fontSize = '12px';
+          removeBtn.textContent = '✕ Remove';
+          removeBtn.onclick = function() { removeTeamMember(idx, email, permissionId); };
+          actions.appendChild(removeBtn);
+        }
+        row.appendChild(actions);
+        list.appendChild(row);
+      });
+      if (!any) list.innerHTML = '<div class="fw-list-item">No members yet.</div>';
+    } catch (e) {
+      list.innerHTML = '';
+      document.getElementById('cpUsersMsg').textContent = 'Failed to load team members: ' + (e.message || e);
+    }
+  }
+
+  async function updateTeamMemberPerms(idx, perms) {
+    var msg = document.getElementById('cpUsersMsg');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    try {
+      const row = 2 + idx;
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 2, row, 6, row), [[
+        perms.canAdd ? 'TRUE' : 'FALSE',
+        perms.canDelete ? 'TRUE' : 'FALSE',
+        perms.canMove ? 'TRUE' : 'FALSE',
+        perms.canChangeStatus ? 'TRUE' : 'FALSE',
+        perms.isAdmin ? 'TRUE' : 'FALSE'
+      ]], 'RAW');
+    } catch (e) {
+      msg.textContent = 'Save failed: ' + (e.message || e);
+    }
+  }
+
+  async function addTeamMember() {
+    var email = document.getElementById('cpNewUserEmail').value.trim().toLowerCase();
+    var msg = document.getElementById('cpUsersMsg');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
+    try {
+      const rows = await fetchUsersRows();
+      if (rows.some(function(r) { return String((r && r[0]) || '').trim().toLowerCase() === email; })) {
+        throw new Error('This email is already a team member.');
+      }
+      const perms = {
+        canAdd: document.getElementById('cpNewCanAdd').checked,
+        canDelete: document.getElementById('cpNewCanDelete').checked,
+        canMove: document.getElementById('cpNewCanMove').checked,
+        canChangeStatus: document.getElementById('cpNewCanStatus').checked,
+        isAdmin: document.getElementById('cpNewIsAdmin').checked
+      };
+      const driveRole = (perms.canAdd || perms.canDelete || perms.canMove || perms.canChangeStatus || perms.isAdmin) ? 'writer' : 'reader';
+      var permissionId = null;
+      try {
+        permissionId = await driveShareFile(spreadsheetId, email, driveRole);
+      } catch (e) {
+        console.warn('Drive sharing failed (continuing — share manually from the Google Sheet if needed): ', e);
+      }
+      await addUserRow(email, perms, permissionId);
+      document.getElementById('cpNewUserEmail').value = '';
+      ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin'].forEach(function(id) { document.getElementById(id).checked = false; });
+      msg.style.color = '#1e8e3e';
+      msg.textContent = 'Added. Now send them the invite link above.';
+      renderTeamMembersList();
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+    }
+  }
+
+  async function removeTeamMember(idx, email, permissionId) {
+    if (!confirm('Remove "' + email + '" from the team? They will lose access to this sheet.')) return;
+    var msg = document.getElementById('cpUsersMsg');
+    msg.style.color = '#d93025'; msg.textContent = '';
+    try {
+      const row = 2 + idx;
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, row, 7, row), [['', '', '', '', '', '', '']], 'RAW');
+      await driveUnshareFile(spreadsheetId, permissionId);
+      msg.style.color = '#1e8e3e';
+      msg.textContent = 'Removed.';
+      renderTeamMembersList();
+    } catch (e) {
+      msg.textContent = 'Remove failed: ' + (e.message || e);
+    }
   }
 
   /* ===================== View switching (Submittal Dashboard / Material Submittal
@@ -768,6 +1208,7 @@
     document.getElementById('fullTableToolbar').style.display = (name === 'fulltable') ? 'flex' : 'none';
     if (name === 'msstatus') loadSubmittalStatus();
     if (name === 'subdash') loadSubmittalDashboard();
+    if (name === 'controlpanel' && currentUserPerms.isAdmin) renderTeamMembersList();
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
   }
 
@@ -819,9 +1260,9 @@
   const COLS = [
     { col: COL.SN,  label: 'S/N',                        width: 45,  type: 'readonly' },
     { col: COL.DESC,  label: 'Item description',            width: 280, type: 'textarea' },
-    { col: COL.UNIT,  label: 'Unit',                        width: 65,  type: 'select', opts: 'units' },
-    { col: COL.QTY,  label: 'Estimated QTY',               width: 70,  type: 'number' },
-    { col: COL.FILEWITH,  label: 'File With',                   width: 90,  type: 'select', opts: 'names' },
+    { col: COL.UNIT,  label: 'Unit',                        width: 85,  type: 'select', opts: 'units' },
+    { col: COL.QTY,  label: 'Estimated QTY',               width: 90,  type: 'number' },
+    { col: COL.FILEWITH,  label: 'File With',                   width: 110,  type: 'select', opts: 'names' },
     { col: COL.MAINALT,  label: 'Main OR Alt. File',            width: 50,  type: 'select', opts: 'mainAlt' },
     { col: COL.PRIORITY,  label: 'Priority',                    width: 55,  type: 'select', opts: 'priority' },
     { col: COL.LLI,  label: 'LLI',                         width: 62,  type: 'select', opts: 'yesno' },
@@ -863,6 +1304,8 @@
     } catch (e) { console.warn('Could not load Action By list: ', e); }
   }
 
+  var filterValues = {};
+
   function buildTableStructure() {
     const headerColgroup = document.getElementById('headerColgroup');
     const bodyColgroup = document.getElementById('bodyColgroup');
@@ -875,13 +1318,71 @@
     var actTh = document.createElement('th'); actTh.className = 'actions-header'; actTh.textContent = 'Actions';
     headerMainRow.appendChild(actTh);
 
+    // Filter row: a second <tr> in the same <thead>, one text input per column,
+    // so the person can type a substring and narrow the visible rows live.
+    var thead = headerMainRow.parentNode;
+    var filterRow = document.getElementById('headerFilterRow');
+    if (filterRow) { filterRow.remove(); }
+    filterRow = document.createElement('tr');
+    filterRow.id = 'headerFilterRow';
+    var actFilterTh = document.createElement('th');
+    actFilterTh.className = 'actions-header';
+    filterRow.appendChild(actFilterTh);
+
     COLS.forEach(function(colDef) {
       var c1 = document.createElement('col'); c1.style.width = colDef.width + 'px';
       var c2 = document.createElement('col'); c2.style.width = colDef.width + 'px';
       headerColgroup.appendChild(c1); bodyColgroup.appendChild(c2);
       var th = document.createElement('th');
       th.textContent = colDef.label;
+      if ((colDef.col === COL.FILEWITH || colDef.col === COL.ACTIONBY) && currentUserPerms.isAdmin) {
+        var gearBtn = document.createElement('button');
+        gearBtn.type = 'button';
+        gearBtn.className = 'gear-btn';
+        gearBtn.textContent = '⚙';
+        gearBtn.title = colDef.col === COL.FILEWITH ? 'Manage File With list' : 'Manage Action By list';
+        gearBtn.onclick = colDef.col === COL.FILEWITH ? openFileWithModal : openActionByModal;
+        th.appendChild(gearBtn);
+      }
       headerMainRow.appendChild(th);
+
+      var fth = document.createElement('th');
+      var finput = document.createElement('input');
+      finput.type = 'text';
+      finput.className = 'filter-input';
+      finput.placeholder = '🔍';
+      finput.value = filterValues[colDef.col] || '';
+      finput.oninput = function() {
+        var v = finput.value.trim().toLowerCase();
+        if (v) filterValues[colDef.col] = v; else delete filterValues[colDef.col];
+        applyRowFilters();
+      };
+      fth.appendChild(finput);
+      filterRow.appendChild(fth);
+    });
+
+    thead.appendChild(filterRow);
+    applyRowFilters();
+  }
+
+  function applyRowFilters() {
+    var activeCols = Object.keys(filterValues);
+    var bodyEl = document.getElementById('fullTableBody');
+    if (!bodyEl) return;
+    var trs = bodyEl.querySelectorAll('tr[data-row]');
+    trs.forEach(function(tr) {
+      if (!activeCols.length) { tr.style.display = ''; return; }
+      var row = parseInt(tr.getAttribute('data-row'), 10);
+      var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+      var visible = true;
+      if (rowObj) {
+        for (var i = 0; i < activeCols.length; i++) {
+          var col = parseInt(activeCols[i], 10);
+          var val = String(rowObj.values[col - 1] == null ? '' : rowObj.values[col - 1]).toLowerCase();
+          if (val.indexOf(filterValues[col]) === -1) { visible = false; break; }
+        }
+      }
+      tr.style.display = visible ? '' : 'none';
     });
   }
 
@@ -911,9 +1412,13 @@
       const rows = await fetchFilledRows();
       lastLoadedRows = rows;
       buildTableStructure();
-      renderFullTable(rows);
+      // Unhide BEFORE rendering: #tableOuter is display:none while hidden, and a
+      // display:none element always reports scrollWidth 0 — renderFullTable()'s
+      // syncTopScrollWidth() call needs the table to actually be visible first,
+      // otherwise the top scroll strip gets sized to 0 and never shows anything.
       document.getElementById('loadingMsg').classList.add('hidden');
       document.getElementById('tableOuter').classList.remove('hidden');
+      renderFullTable(rows);
     } catch (e) {
       document.getElementById('loadingMsg').textContent = 'Failed to load: ' + (e.message || e);
     }
@@ -947,6 +1452,7 @@
       body.appendChild(tr);
     });
     if (!rows.length) body.innerHTML = '<tr><td colspan="' + (COLS.length + 1) + '">No data</td></tr>';
+    applyRowFilters();
     if (window.syncTopScrollWidth) window.syncTopScrollWidth();
   }
 
@@ -1108,18 +1614,21 @@
     var wrap = document.createElement('div');
     wrap.className = 'actions-wrap';
 
+    var canMove = perm('canMove');
+    var canDelete = perm('canDelete');
+
     var upBtn = document.createElement('button'); upBtn.title = 'Move up'; upBtn.textContent = '▲';
-    upBtn.disabled = (index === 0); upBtn.onclick = function() { moveItemDir(row, 'up'); };
+    upBtn.disabled = (index === 0) || !canMove; upBtn.onclick = function() { moveItemDir(row, 'up'); };
     var downBtn = document.createElement('button'); downBtn.title = 'Move down'; downBtn.textContent = '▼';
-    downBtn.disabled = (index === total - 1); downBtn.onclick = function() { moveItemDir(row, 'down'); };
+    downBtn.disabled = (index === total - 1) || !canMove; downBtn.onclick = function() { moveItemDir(row, 'down'); };
     var delBtn = document.createElement('button'); delBtn.title = 'Delete item'; delBtn.textContent = '🗑';
-    delBtn.onclick = function() { deleteItem(row); };
+    delBtn.disabled = !canDelete; delBtn.onclick = function() { deleteItem(row); };
     var copyBtn = document.createElement('button'); copyBtn.title = 'Copy item'; copyBtn.textContent = '📋';
-    copyBtn.onclick = function() { copyRow(row); };
+    copyBtn.disabled = !canMove; copyBtn.onclick = function() { copyRow(row); };
     var cutBtn = document.createElement('button'); cutBtn.title = 'Cut item'; cutBtn.textContent = '✂';
-    cutBtn.onclick = function() { cutRow(row); };
+    cutBtn.disabled = !canMove; cutBtn.onclick = function() { cutRow(row); };
     var pasteBtn = document.createElement('button'); pasteBtn.title = 'Paste after this item'; pasteBtn.textContent = '📥';
-    pasteBtn.onclick = function() { pasteRow(row); };
+    pasteBtn.disabled = !canMove; pasteBtn.onclick = function() { pasteRow(row); };
 
     [upBtn, downBtn, delBtn, copyBtn, cutBtn, pasteBtn].forEach(function(b) { wrap.appendChild(b); });
     td.appendChild(wrap);
@@ -1128,6 +1637,7 @@
 
   /* ===================== Add Item modal ===================== */
   function openAddModal() {
+    if (!perm('canAdd')) { alert('ما عندك صلاحية إضافة بنود — اطلب من الأدمن يفعّلها لك من Control Panel.'); return; }
     document.getElementById('addDesc').value = '';
     document.getElementById('addQty').value = '';
     document.getElementById('addMsgModal').textContent = '';
@@ -1309,6 +1819,9 @@
         sel.appendChild(o);
       });
       colorizeSelectByOpts(sel, colDef.opts);
+      if (STATUS_SELECT_COLS.indexOf(colDef.col) !== -1 && !perm('canChangeStatus')) {
+        sel.disabled = true;
+      }
       if (colDef.col === COL.ACTIONBY) {
         sel.onchange = function() { saveCell(row, colDef.col, sel.value, td); };
       } else {
@@ -2265,6 +2778,374 @@
       btn.disabled = false; btn.textContent = '⬇ Export this tab to Excel';
     }
   }
+
+  /* ===================== FILE WITH LIST MANAGEMENT (Lists!A2:A100) =====================
+     Ported from the original Apps Script app's gear-button modal next to the
+     "File With" column header (addFileWithName/renameFileWithName/removeFileWithName
+     in Code.gs) — ran against the Sheets API directly instead of google.script.run,
+     but same rules: "-" is reserved/unassigned, rename updates every BOQ item
+     already on the old name in one pass, remove resets affected items to "-". */
+  const FILEWITH_UNASSIGNED_VALUE = '-';
+  var fwRenameTarget = null;
+
+  function openFileWithModal() {
+    document.getElementById('fwMsg').textContent = '';
+    document.getElementById('fwNewName').value = '';
+    fwRenameTarget = null;
+    renderFileWithList();
+    document.getElementById('fileWithModalOverlay').style.display = 'flex';
+  }
+  function closeFileWithModal() {
+    document.getElementById('fileWithModalOverlay').style.display = 'none';
+  }
+
+  async function fetchFileWithNames() {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+    return raw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
+  }
+
+  async function renderFileWithList() {
+    var list = document.getElementById('fwList');
+    list.innerHTML = 'Loading...';
+    try {
+      var names = await fetchFileWithNames();
+      list.innerHTML = '';
+      if (!names.length) { list.innerHTML = '<div class="fw-list-item">No names yet.</div>'; return; }
+      names.forEach(function(name) {
+        var row = document.createElement('div');
+        row.className = 'fw-list-item';
+        if (fwRenameTarget === name) {
+          var editRow = document.createElement('div'); editRow.className = 'fw-rename-row';
+          var input = document.createElement('input'); input.type = 'text'; input.value = name;
+          var saveBtn = document.createElement('button'); saveBtn.textContent = 'Save';
+          saveBtn.onclick = function() { renameFileWithEntry(name, input.value.trim()); };
+          var cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel';
+          cancelBtn.onclick = function() { fwRenameTarget = null; renderFileWithList(); };
+          editRow.appendChild(input); editRow.appendChild(saveBtn); editRow.appendChild(cancelBtn);
+          row.appendChild(editRow); list.appendChild(row); return;
+        }
+        var span = document.createElement('span'); span.textContent = name;
+        var actions = document.createElement('div'); actions.className = 'fw-actions';
+        var renameBtn = document.createElement('button'); renameBtn.className = 'fw-rename';
+        renameBtn.title = 'Rename — also updates every item already using this name'; renameBtn.textContent = '✎';
+        renameBtn.onclick = function() { fwRenameTarget = name; renderFileWithList(); };
+        var removeBtn = document.createElement('button'); removeBtn.className = 'fw-remove';
+        removeBtn.title = 'Remove'; removeBtn.textContent = '✕';
+        removeBtn.onclick = function() { removeFileWithEntry(name); };
+        actions.appendChild(renameBtn); actions.appendChild(removeBtn);
+        row.appendChild(span); row.appendChild(actions); list.appendChild(row);
+      });
+    } catch (e) {
+      list.innerHTML = '';
+      document.getElementById('fwMsg').textContent = 'Failed to load: ' + (e.message || e);
+    }
+  }
+
+  async function refreshFileWithOptionsEverywhere() {
+    await loadFormOptions();
+    await loadFullTable();
+  }
+
+  async function addFileWithEntry() {
+    var name = document.getElementById('fwNewName').value.trim();
+    if (!name) return;
+    document.getElementById('fwMsg').textContent = '';
+    try {
+      if (name === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" is reserved.');
+      var names = await fetchFileWithNames();
+      if (names.some(function(n) { return n.toLowerCase() === name.toLowerCase(); })) throw new Error('This name already exists.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      var slot = -1;
+      for (var i = 0; i < 99; i++) { if (!raw[i] || String(raw[i][0] || '').trim() === '') { slot = i; break; } }
+      if (slot === -1) throw new Error('No space left in the list.');
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + slot, 1, 2 + slot), [[name]], 'RAW');
+      document.getElementById('fwNewName').value = '';
+      await renderFileWithList();
+      await refreshFileWithOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('fwMsg').textContent = e.message || String(e);
+    }
+  }
+
+  async function bulkUpdateFileWithClient(oldValue, newValue) {
+    const totalRows = LAST_DATA_ROW - FIRST_DATA_ROW + 1;
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, COL.FILEWITH, FIRST_DATA_ROW, COL.FILEWITH, LAST_DATA_ROW));
+    var updated = 0, out = [];
+    for (var i = 0; i < totalRows; i++) {
+      var cur = (raw[i] && raw[i][0] != null) ? raw[i][0] : '';
+      if (String(cur).trim() === oldValue) { out.push([newValue]); updated++; }
+      else out.push([cur]);
+    }
+    if (updated > 0) await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.FILEWITH, FIRST_DATA_ROW, COL.FILEWITH, LAST_DATA_ROW), out, 'RAW');
+    return updated;
+  }
+
+  async function renameFileWithEntry(oldName, newName) {
+    if (!newName || newName === oldName) { fwRenameTarget = null; renderFileWithList(); return; }
+    document.getElementById('fwMsg').textContent = '';
+    try {
+      if (oldName === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" cannot be renamed — it is reserved for items that need a new File With.');
+      if (newName === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" is reserved.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      var oldRow = -1, newExists = false;
+      for (var i = 0; i < 99; i++) {
+        var v = String((raw[i] && raw[i][0]) || '').trim();
+        if (v === oldName) oldRow = i;
+        if (v.toLowerCase() === newName.toLowerCase() && v !== oldName) newExists = true;
+      }
+      if (oldRow === -1) throw new Error('Name not found.');
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + oldRow, 1, 2 + oldRow), [[newExists ? '' : newName]], 'RAW');
+      var updated = await bulkUpdateFileWithClient(oldName, newName);
+      fwRenameTarget = null;
+      document.getElementById('fwMsg').textContent = 'Renamed. ' + updated + ' item(s) updated.';
+      await renderFileWithList();
+      await refreshFileWithOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('fwMsg').textContent = e.message || String(e);
+    }
+  }
+
+  async function removeFileWithEntry(name) {
+    if (!confirm('Remove "' + name + '" from the list? Any item still set to this name will be reset to "-" so it can be reassigned later.')) return;
+    document.getElementById('fwMsg').textContent = '';
+    try {
+      if (name === FILEWITH_UNASSIGNED_VALUE) throw new Error('"-" cannot be removed — it is reserved for items that need a new File With.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 100));
+      var rowIdx = -1;
+      for (var i = 0; i < 99; i++) { if (String((raw[i] && raw[i][0]) || '').trim() === name) { rowIdx = i; break; } }
+      if (rowIdx === -1) throw new Error('Name not found.');
+      var resetCount = await bulkUpdateFileWithClient(name, FILEWITH_UNASSIGNED_VALUE);
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 1, 2 + rowIdx, 1, 2 + rowIdx), [['']], 'RAW');
+      document.getElementById('fwMsg').textContent = 'Removed. ' + resetCount + ' item(s) reset to "-".';
+      await renderFileWithList();
+      await refreshFileWithOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('fwMsg').textContent = e.message || String(e);
+    }
+  }
+
+  /* ===================== ACTION BY LIST MANAGEMENT (Lists!C2:C100) =====================
+     Same pattern as File With above, reached via the gear button next to the
+     "Action By" column header. "Closed" is protected (cannot be renamed or
+     removed) since the row-lock feature depends on that exact value always
+     existing, and a rename also moves the Date Stamp forward for every
+     affected row, exactly like a normal Action By edit would. */
+  const ACTIONBY_CLOSED_VALUE = 'Closed';
+  var abRenameTarget = null;
+
+  function openActionByModal() {
+    document.getElementById('abMsg').textContent = '';
+    document.getElementById('abNewName').value = '';
+    abRenameTarget = null;
+    renderActionByList();
+    document.getElementById('actionByModalOverlay').style.display = 'flex';
+  }
+  function closeActionByModal() {
+    document.getElementById('actionByModalOverlay').style.display = 'none';
+  }
+
+  async function fetchActionByValues() {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
+    var names = raw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
+    if (names.indexOf(ACTIONBY_CLOSED_VALUE) === -1) names.push(ACTIONBY_CLOSED_VALUE);
+    return names;
+  }
+
+  async function renderActionByList() {
+    var list = document.getElementById('abList');
+    list.innerHTML = 'Loading...';
+    try {
+      var values = await fetchActionByValues();
+      list.innerHTML = '';
+      if (!values.length) { list.innerHTML = '<div class="fw-list-item">No values yet.</div>'; return; }
+      values.forEach(function(val) {
+        var row = document.createElement('div'); row.className = 'fw-list-item';
+        if (abRenameTarget === val) {
+          var editRow = document.createElement('div'); editRow.className = 'fw-rename-row';
+          var input = document.createElement('input'); input.type = 'text'; input.value = val;
+          var saveBtn = document.createElement('button'); saveBtn.textContent = 'Save';
+          saveBtn.onclick = function() { renameActionByEntry(val, input.value.trim()); };
+          var cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel';
+          cancelBtn.onclick = function() { abRenameTarget = null; renderActionByList(); };
+          editRow.appendChild(input); editRow.appendChild(saveBtn); editRow.appendChild(cancelBtn);
+          row.appendChild(editRow); list.appendChild(row); return;
+        }
+        var span = document.createElement('span'); span.textContent = val;
+        var actions = document.createElement('div'); actions.className = 'fw-actions';
+        if (val !== ACTIONBY_CLOSED_VALUE) {
+          var renameBtn = document.createElement('button'); renameBtn.className = 'fw-rename';
+          renameBtn.title = 'Rename — also updates every item already using this value'; renameBtn.textContent = '✎';
+          renameBtn.onclick = function() { abRenameTarget = val; renderActionByList(); };
+          var removeBtn = document.createElement('button'); removeBtn.className = 'fw-remove';
+          removeBtn.title = 'Remove'; removeBtn.textContent = '✕';
+          removeBtn.onclick = function() { removeActionByEntry(val); };
+          actions.appendChild(renameBtn); actions.appendChild(removeBtn);
+        } else {
+          var lockSpan = document.createElement('span');
+          lockSpan.style.fontSize = '11px'; lockSpan.style.color = '#888';
+          lockSpan.textContent = 'protected';
+          actions.appendChild(lockSpan);
+        }
+        row.appendChild(span); row.appendChild(actions); list.appendChild(row);
+      });
+    } catch (e) {
+      list.innerHTML = '';
+      document.getElementById('abMsg').textContent = 'Failed to load: ' + (e.message || e);
+    }
+  }
+
+  async function refreshActionByOptionsEverywhere() {
+    await loadFormOptions();
+    await loadFullTable();
+  }
+
+  async function addActionByEntry() {
+    var name = document.getElementById('abNewName').value.trim();
+    if (!name) return;
+    document.getElementById('abMsg').textContent = '';
+    try {
+      var values = await fetchActionByValues();
+      if (values.some(function(v) { return v.toLowerCase() === name.toLowerCase(); })) throw new Error('This value already exists.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
+      var slot = -1;
+      for (var i = 0; i < 99; i++) { if (!raw[i] || String(raw[i][0] || '').trim() === '') { slot = i; break; } }
+      if (slot === -1) throw new Error('No space left in the list.');
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2 + slot, 3, 2 + slot), [[name]], 'RAW');
+      document.getElementById('abNewName').value = '';
+      await renderActionByList();
+      await refreshActionByOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('abMsg').textContent = e.message || String(e);
+    }
+  }
+
+  async function countItemsUsingActionByClient(name) {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
+    var count = 0;
+    raw.forEach(function(r) {
+      if (!r) return;
+      if (String(r[COL.DESC - 1] || '').trim() === '' || r[COL.ROWTYPE - 1] === 'Package') return;
+      if (String(r[COL.ACTIONBY - 1] || '').trim() === name) count++;
+    });
+    return count;
+  }
+
+  async function bulkUpdateActionByClient(oldValue, newValue) {
+    const totalRows = LAST_DATA_ROW - FIRST_DATA_ROW + 1;
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, COL.ACTIONBY, FIRST_DATA_ROW, COL.ACTIONBY, LAST_DATA_ROW));
+    var updated = 0, rowsToStamp = [], out = [];
+    for (var i = 0; i < totalRows; i++) {
+      var cur = (raw[i] && raw[i][0] != null) ? raw[i][0] : '';
+      if (String(cur).trim() === oldValue) { out.push([newValue]); updated++; rowsToStamp.push(FIRST_DATA_ROW + i); }
+      else out.push([cur]);
+    }
+    if (updated > 0) {
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.ACTIONBY, FIRST_DATA_ROW, COL.ACTIONBY, LAST_DATA_ROW), out, 'RAW');
+      var stamp = todayStamp(true);
+      for (var j = 0; j < rowsToStamp.length; j++) {
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.DATESTAMP, rowsToStamp[j], COL.DATESTAMP, rowsToStamp[j]), [[stamp]], 'RAW');
+      }
+    }
+    return updated;
+  }
+
+  async function renameActionByEntry(oldName, newName) {
+    if (!newName || newName === oldName) { abRenameTarget = null; renderActionByList(); return; }
+    document.getElementById('abMsg').textContent = '';
+    try {
+      if (oldName === ACTIONBY_CLOSED_VALUE) throw new Error('"Closed" cannot be renamed — the row-lock feature depends on it.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
+      var oldRow = -1, newExists = false;
+      for (var i = 0; i < 99; i++) {
+        var v = String((raw[i] && raw[i][0]) || '').trim();
+        if (v === oldName) oldRow = i;
+        if (v.toLowerCase() === newName.toLowerCase() && v !== oldName) newExists = true;
+      }
+      if (oldRow === -1) throw new Error('Value not found.');
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2 + oldRow, 3, 2 + oldRow), [[newExists ? '' : newName]], 'RAW');
+      var updated = await bulkUpdateActionByClient(oldName, newName);
+      abRenameTarget = null;
+      document.getElementById('abMsg').textContent = 'Renamed. ' + updated + ' item(s) updated.';
+      await renderActionByList();
+      await refreshActionByOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('abMsg').textContent = e.message || String(e);
+    }
+  }
+
+  async function removeActionByEntry(name) {
+    if (!confirm('Remove "' + name + '" from the list? Removal is blocked while any item still uses this value — rename it first to move those items to another value.')) return;
+    document.getElementById('abMsg').textContent = '';
+    try {
+      if (name === ACTIONBY_CLOSED_VALUE) throw new Error('"Closed" cannot be removed — the row-lock feature depends on it.');
+      var inUse = await countItemsUsingActionByClient(name);
+      if (inUse > 0) throw new Error(inUse + ' item(s) still have "' + name + '" as Action By. Rename it to merge them into another value first, then remove it.');
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
+      var rowIdx = -1;
+      for (var i = 0; i < 99; i++) { if (String((raw[i] && raw[i][0]) || '').trim() === name) { rowIdx = i; break; } }
+      if (rowIdx === -1) throw new Error('Value not found.');
+      await sheetsUpdateValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2 + rowIdx, 3, 2 + rowIdx), [['']], 'RAW');
+      document.getElementById('abMsg').textContent = 'Removed.';
+      await renderActionByList();
+      await refreshActionByOptionsEverywhere();
+    } catch (e) {
+      document.getElementById('abMsg').textContent = e.message || String(e);
+    }
+  }
+
+  // ---- Import from Excel ----------------------------------------------
+  // Reads an .xlsx/.xls file with SheetJS and writes it into BOQ Database,
+  // starting at FIRST_DATA_ROW (row 3), assuming the same 28-column layout
+  // this app exports (col A = S/N formula, left alone; cols B..AB = data).
+  // This matches the round-trip use case: export, edit offline, import back.
+  (function wireImportInput() {
+    var input = document.getElementById('importFileInput');
+    if (!input) return;
+    input.addEventListener('change', async function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!perm('canAdd')) { alert('ما عندك صلاحية استيراد/إضافة بنود.'); e.target.value = ''; return; }
+      var btn = document.getElementById('importXlsxBtn');
+      try {
+        var buf = await file.arrayBuffer();
+        var wb = XLSX.read(buf, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+        // Rows 1-2 of our own export are the two header rows; skip them the
+        // same way this app's own sheet layout always does.
+        var dataRows = rows.slice(2);
+        if (!dataRows.length) { alert('No data rows found in that file (expected the same layout this app exports).'); return; }
+        if (dataRows.length > (LAST_DATA_ROW - FIRST_DATA_ROW + 1)) {
+          dataRows = dataRows.slice(0, LAST_DATA_ROW - FIRST_DATA_ROW + 1);
+        }
+        if (!confirm('This will overwrite BOQ Database rows ' + FIRST_DATA_ROW + '-' + (FIRST_DATA_ROW + dataRows.length - 1) + ' (' + dataRows.length + ' rows) with the data from "' + file.name + '". Continue?')) {
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Importing…'; }
+        var values = dataRows.map(function (r) {
+          var arr = [];
+          for (var c = 2; c <= LAST_DATA_COL; c++) {
+            var cellVal = r[c - 1];
+            arr.push(cellVal == null ? '' : cellVal);
+          }
+          return arr;
+        });
+        var endRow = FIRST_DATA_ROW + values.length - 1;
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, FIRST_DATA_ROW, LAST_DATA_COL, endRow), values, 'RAW');
+        for (var row = FIRST_DATA_ROW; row <= endRow; row++) {
+          await setSnFormula(row);
+        }
+        await refreshEverything();
+        var msg = document.getElementById('addMsg');
+        if (msg) msg.textContent = 'Import complete: ' + values.length + ' rows written.';
+      } catch (err) {
+        alert('Import failed: ' + (err.message || err));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⬆ Import from Excel'; }
+        e.target.value = '';
+      }
+    });
+  })();
 </script>
 
 </body>
