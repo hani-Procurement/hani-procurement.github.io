@@ -1794,6 +1794,21 @@
     if (el && BOQ_TABLES[currentTableIndex]) el.value = BOQ_TABLES[currentTableIndex].label;
   }
 
+  // Same field, but driven by the shared "Discipline:" selector in the nav
+  // bar (currentGlobalSelection) instead of Full Table's own currentTableIndex
+  // — the two are only guaranteed to agree while Full Table itself is the
+  // active view (see showView()/switchBoqTable()). Dashboard and Material
+  // Submittal Status never call switchBoqTable(), so without this the
+  // Discipline box silently kept showing whichever table Full Table was last
+  // on, regardless of what was actually picked for those two views.
+  function updateDisciplineBoxFromSelection(sel) {
+    var el = document.getElementById('pbDiscipline');
+    if (!el) return;
+    if (sel === 'overall') { el.value = 'Overall (All Disciplines)'; return; }
+    var idx = parseInt(sel, 10);
+    if (BOQ_TABLES[idx]) el.value = BOQ_TABLES[idx].label;
+  }
+
   async function switchBoqTable(idxStr) {
     var idx = parseInt(idxStr, 10);
     if (isNaN(idx) || idx === currentTableIndex) return;
@@ -2366,6 +2381,10 @@
     if (name === 'msstatus') loadSubmittalStatus();
     if (name === 'subdash') loadSubmittalDashboard();
     if (name === 'controlpanel' && currentUserPerms.isAdmin) { renderTeamMembersList(); renderTablesList(); loadBackupSettingsUI(); }
+    // Keep the Discipline box honest no matter which view we just switched
+    // into — Full Table already set it from currentTableIndex above, and
+    // for the other two it mirrors the shared selector directly.
+    updateDisciplineBoxFromSelection(currentGlobalSelection);
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
   }
 
@@ -3701,6 +3720,7 @@
   function switchGlobalTable(val) {
     if (val === currentGlobalSelection) return;
     currentGlobalSelection = val;
+    updateDisciplineBoxFromSelection(currentGlobalSelection);
     var activeView = document.querySelector('.view.active');
     var activeId = activeView ? activeView.id : '';
     if (activeId === 'view-fulltable') {
