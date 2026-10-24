@@ -7,6 +7,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -180,6 +181,10 @@
   .project-bar input:hover{border-color:var(--accent)}
   .project-bar input:focus{border-color:var(--accent);outline:none}
   .project-bar .pb-date{font-weight:700;color:var(--heading);margin-left:auto;font-family:var(--mono);font-size:12px}
+  .sync-indicator{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .sync-indicator.sync-saving{background:var(--accent-bg);color:var(--accent-dark)}
+  .sync-indicator.sync-saved{background:var(--ok-bg);color:var(--ok)}
+  .sync-indicator.sync-error{background:var(--warn-bg);color:var(--warn)}
   @media (max-width:700px){.project-bar{gap:10px}.project-bar .pb-date{margin-left:0}}
 
   /* ---- Nav ---- */
@@ -254,6 +259,11 @@
   #fullTable textarea{resize:vertical;min-height:30px;min-width:160px}
   #fullTable td.sn-cell{font-weight:bold;background:var(--accent-bg);font-family:var(--mono)}
   .saved-flash{background:var(--ok-bg) !important}
+  /* Smart overdue highlighting (Planned Submission Date passed, not yet
+     Submitted) — a quiet warning tint, not a hard red block, so it reads as
+     "needs attention" rather than an error state. */
+  .overdue-cell{background:var(--warn-bg) !important}
+  .overdue-cell input{background:transparent}
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
   #loadingMsg{padding:30px;text-align:center;color:var(--text-soft)}
 
@@ -322,6 +332,13 @@
 
   /* ---- Material Submittal Status / PQD tables ---- */
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
+  /* Printable PDF report shell (see exportStatusReportToPdf()) — rendered
+     off-screen only, never seen in the normal UI. */
+  .pdf-report{padding:20px;font-family:var(--sans);color:#111}
+  .pdf-report h1{font-size:20px;margin:0 0 4px}
+  .pdf-report h2{font-size:14px;margin:22px 0 8px;color:var(--accent-dark)}
+  .pdf-report .pdf-meta{display:flex;gap:18px;font-size:12px;color:#555;margin-bottom:6px}
+  .pdf-report table.ms-table{width:100%;min-width:0}
   .card h3{margin:0 0 10px;font-size:16px;color:var(--heading)}
 
   /* ---- Control Panel: page header + grouped sections, single centered column ---- */
@@ -422,6 +439,7 @@
       <div class="pb-field"><label>Discipline:</label>
         <input type="text" id="pbDiscipline" placeholder="—" readonly title="Follows the table selected in Full Table — rename it from Control Panel"></div>
       <div class="pb-date" id="pbDate"></div>
+      <div class="sync-indicator" id="syncStatusIndicator" style="display:none"></div>
       <button type="button" onclick="switchProject()" id="navSwitchProject" title="Open a different project (each project's data is fully separate)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-weight:600;font-size:13px;color:var(--text);cursor:pointer;font-family:var(--sans)">🔁 Switch Project</button>
       <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-weight:600;font-size:13px;color:var(--text);cursor:pointer;font-family:var(--sans)">⚙ Control Panel</button>
     </div>
@@ -436,6 +454,7 @@
       <span id="addMsg"></span>
       <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
+      <button type="button" onclick="clearAllFilters()" id="clearFiltersBtn" title="Clear every column filter (saved filters stay cleared on your next visit too)">✕ Clear Filters</button>
       <span id="clipboardStatus"></span>
     </div>
   </div>
@@ -491,6 +510,7 @@
     <div class="sd-section-title">👤 Items by Buyer (File With)</div>
     <div class="chart-grid">
       <div class="chart-card wide"><h4>Items by Buyer — Totals</h4><div class="chart-wrap"><canvas id="chartBuyer"></canvas></div></div>
+      <div class="chart-card wide"><h4>Buyer Workload — Done / Open / Overdue (M/S, Main items)</h4><div class="chart-wrap"><canvas id="chartBuyerWorkload"></canvas></div></div>
     </div>
   </div>
 
@@ -526,9 +546,16 @@
       </div>
       <div>
         <button type="button" onclick="exportSubmittalToXlsx()" id="exportSubmittalXlsxBtn">⬇ Export this tab to Excel</button>
+        <button type="button" onclick="exportStatusReportToPdf()" id="exportPdfBtn">🖨 Export Status Report (PDF)</button>
       </div>
     </div>
   </div>
+
+  <!-- Off-screen container the PDF export renders its printable report into
+       — never shown to the person, only read by html2pdf/html2canvas. Kept
+       in the DOM (not display:none) because html2canvas needs real layout
+       to rasterize; pushed out of the viewport instead. -->
+  <div id="pdfReportContainer" style="position:fixed;top:0;left:-10000px;width:1100px;background:#fff;"></div>
 
   <!-- ===================== FULL TABLE ===================== -->
   <div class="view" id="view-fulltable">
@@ -711,7 +738,7 @@
     <label id="addDescLabel">Item Description</label><input type="text" id="addDesc">
     <div id="itemOnlyFields">
       <label>Unit</label><select id="addUnit"></select>
-      <label>Estimated QTY</label><input type="number" id="addQty">
+      <label>Estimated QTY</label><input type="number" id="addQty" min="0">
       <label>File With</label><select id="addFileWith"></select>
       <label>Main / Alt</label><select id="addMainAlt"></select>
       <label>Priority</label><select id="addPriority"></select>
@@ -936,6 +963,48 @@
     }
   };
 
+  // ===== Silent token refresh =====
+  // GIS access tokens are short-lived (~1 hour). Without this, anyone who
+  // leaves the tab open past that (very plausible for a tracker like this,
+  // open all day) starts getting "Save failed: 401 Unauthorized" on their
+  // next edit with no obvious fix short of reloading and losing their place.
+  // A SEPARATE token client is used for this (rather than reusing the main
+  // `tokenClient` above) because GIS's requestAccessToken() always fires
+  // whichever single callback its own token client was created with — reusing
+  // the sign-in one would re-run the whole sign-in UI flow (status text,
+  // "keep me signed in" checkbox handling, handleSignedIn()) on every silent
+  // refresh, which is not what a transparent background refresh should do.
+  // This keeps the existing, already-working sign-in flow completely
+  // untouched.
+  let refreshTokenClient;
+  let pendingRefreshResolvers = [];
+  function ensureRefreshTokenClient() {
+    if (refreshTokenClient || typeof google === 'undefined') return;
+    refreshTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: function(resp) {
+        if (!resp.error) accessToken = resp.access_token;
+        var resolvers = pendingRefreshResolvers;
+        pendingRefreshResolvers = [];
+        resolvers.forEach(function(fn) { fn(!resp.error); });
+      }
+    });
+  }
+  var refreshInFlight = null;
+  function refreshAccessTokenSilently() {
+    // Coalesce concurrent 401s (several in-flight requests expiring at once)
+    // into the one silent request instead of firing a burst of them.
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = new Promise(function(resolve) {
+      ensureRefreshTokenClient();
+      if (!refreshTokenClient) { resolve(false); return; }
+      pendingRefreshResolvers.push(resolve);
+      refreshTokenClient.requestAccessToken({ prompt: '' });
+    }).finally(function() { refreshInFlight = null; });
+    return refreshInFlight;
+  }
+
   signinBtn.addEventListener('click', () => {
     triedSilentSignin = false;
     log('<span class="spinner"></span> Signing in...');
@@ -947,12 +1016,30 @@
     if (e.key === 'Enter') { e.preventDefault(); submitNewProject(); }
   });
 
-  /* ===================== Thin fetch() wrapper over Sheets API v4 / Drive API v3 ===================== */
-  async function apiFetch(url, opts) {
+  /* ===================== Thin fetch() wrapper over Sheets API v4 / Drive API v3 =====================
+     This is the one shared choke point almost every Sheets/Drive read and
+     write in the app goes through (sheetsGetValues/sheetsUpdateValues/
+     sheetsBatchUpdate/etc. below all call this), which is exactly why the
+     silent-token-refresh retry lives here: fixing it in this one place covers
+     the overwhelming majority of real usage (every cell save, every table
+     load) without having to touch each call site individually. A handful of
+     lower-frequency, one-off calls elsewhere (Drive sharing when adding a
+     team member, the userinfo lookup at sign-in, the .xlsx export/backup
+     downloads) still build their own raw fetch() and are NOT covered by
+     this — those are rare enough, and far enough from a long-idle-then-edit
+     scenario, that retrofitting all of them was judged not worth the extra
+     risk of touching that many call sites in one pass on a live app; a
+     session that hits one of those right as the token expires still just
+     needs a reload, same as before. */
+  async function apiFetch(url, opts, isTokenRetry) {
     opts = opts || {};
     const headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, opts.headers || {});
     if (opts.body) headers['Content-Type'] = 'application/json';
     const res = await fetch(url, Object.assign({}, opts, { headers }));
+    if (res.status === 401 && !isTokenRetry) {
+      var refreshed = await refreshAccessTokenSilently();
+      if (refreshed) return apiFetch(url, opts, true);
+    }
     let data = {};
     try { data = await res.json(); } catch (e) { /* no body */ }
     if (!res.ok || data.error) {
@@ -1369,7 +1456,45 @@
     }
     await ensureFileWithListsSheet(meta);
     await ensureUsersSheet(meta);
+    await ensureAllUsersHaveTableRows();
     await ensureBackupConfigSheet(meta);
+  }
+
+  // Self-healing counterpart to addMissingTablePermRowsForAllUsers(): fixes
+  // any (email, table) pairing that is STILL missing a Users row no matter
+  // how it happened — a table added before this fix shipped, a row that
+  // failed to write, manual edits to the Users sheet, etc. Without this, a
+  // team member can have full access on the table(s) that existed when
+  // they were added, and silently NO access at all (every canAdd/canDelete/
+  // canMove/canChangeStatus check reading as false) on a table added later
+  // — with no row for the Admin to even see in the Control Panel's
+  // team-members list to grant it from. Runs on every load; a spreadsheet
+  // with nothing missing does one read and writes nothing.
+  async function ensureAllUsersHaveTableRows() {
+    const rows = await fetchUsersRows();
+    var emails = [];
+    var seenEmail = {};
+    var have = {}; // "email||table" -> true
+    rows.forEach(function(r) {
+      var email = String((r && r[0]) || '').trim();
+      if (!email) return;
+      if (!seenEmail[email]) { seenEmail[email] = true; emails.push(email); }
+      var table = String(r[1] || '').trim();
+      if (table) have[email + '||' + table] = true;
+    });
+    if (!emails.length) return;
+    var missingRows = [];
+    emails.forEach(function(email) {
+      BOQ_TABLES.forEach(function(t) {
+        if (!have[email + '||' + t.sheetName]) missingRows.push([email, t.sheetName, 'FALSE', 'FALSE', 'FALSE', 'FALSE', '', '', '', '']);
+      });
+    });
+    if (!missingRows.length) return;
+    var startSlot = rows.length;
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i] || String(rows[i][0] || '').trim() === '') { startSlot = i; break; }
+    }
+    await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2 + startSlot, USERS_LAST_COL, 1 + startSlot + missingRows.length), missingRows, 'RAW');
   }
 
   // Each BOQ table used to share ONE "File With" (buyer) list, stored in the
@@ -1481,6 +1606,19 @@
 
     BOQ_TABLES.push({ sheetName: sheetName, label: label });
     boqSheetIds.push(newSheetId);
+
+    // Every team member added BEFORE this table existed otherwise has no
+    // (email, sheetName) row for it at all — perm() then reads that as
+    // canAdd/canDelete/canMove/canChangeStatus all FALSE for this table
+    // forever, AND the Control Panel's team-members grid has no row to
+    // even show/toggle for it (renderTeamMembersList() skips an email with
+    // no entry for a given table), so an Admin has no way to notice or fix
+    // it from the UI. Give every current member a (currently blank/FALSE)
+    // row for the new table now, purely so it becomes visible and
+    // grantable — this never silently grants access, it only makes the
+    // "no access yet" state visible and fixable.
+    try { await ensureAllUsersHaveTableRows(); }
+    catch (e) { console.warn('Could not create permission rows for the new table (non-fatal — an Admin can still add them manually from Control Panel if a member reports missing access): ', e); }
   }
 
   async function renameBoqTable(idx, newLabel) {
@@ -2492,7 +2630,30 @@
     } catch (e) { console.warn('Could not load Action By list: ', e); }
   }
 
-  var filterValues = {};
+  // Column filters are a per-viewer convenience, not shared project data, so
+  // they live in this browser's own localStorage (never on the Sheet) and
+  // are read back the next time this person opens the app on this browser.
+  // Wrapped in try/catch throughout: localStorage can throw or come back
+  // empty in a private window or with site data cleared, and the filter
+  // feature must keep working perfectly fine without it either way.
+  var FILTER_PREFS_KEY = 'procReportFilterPrefs_v1';
+  function loadFilterPrefs() {
+    try {
+      var raw = localStorage.getItem(FILTER_PREFS_KEY);
+      var parsed = raw ? JSON.parse(raw) : {};
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e) { return {}; }
+  }
+  function saveFilterPrefs() {
+    try { localStorage.setItem(FILTER_PREFS_KEY, JSON.stringify(filterValues)); } catch (e) { /* non-fatal */ }
+  }
+  var filterValues = loadFilterPrefs();
+
+  function clearAllFilters() {
+    filterValues = {};
+    saveFilterPrefs();
+    buildTableStructure();
+  }
 
   // Builds the common-header banner row ("PQD" / "Material Submittal")
   // spanning every column tagged with that colDef.group — a pure display
@@ -2581,6 +2742,7 @@
       finput.oninput = function() {
         var v = finput.value.trim().toLowerCase();
         if (v) filterValues[colDef.col] = v; else delete filterValues[colDef.col];
+        saveFilterPrefs();
         applyRowFilters();
       };
       fth.appendChild(finput);
@@ -2689,12 +2851,31 @@
   async function withRowOpLock(fn) {
     if (rowOpBusy) { alert('Please wait for the current change to finish before making another.'); return; }
     rowOpBusy = true;
-    try { await fn(); } finally { rowOpBusy = false; }
+    setSyncStatus('saving');
+    try {
+      await fn();
+      setSyncStatus('saved');
+    } catch (e) {
+      setSyncStatus('error', e.message || String(e));
+      throw e;
+    } finally {
+      rowOpBusy = false;
+    }
   }
 
   function renderFullTable(rows) {
     const body = document.getElementById('fullTableBody');
     body.innerHTML = '';
+    // Build every row into a detached DocumentFragment first, then attach
+    // it to the live DOM in one single append — not once per row. Appending
+    // directly to `body` inside the loop (the old code) forces the browser
+    // to consider the live, already-rendered table on every single
+    // iteration; building in a fragment (which has no layout/style of its
+    // own until it lands in the document) does the same construction work
+    // without the browser touching the real table's layout a few hundred
+    // times in a row. Pure performance change — same elements, same order,
+    // same classes; nothing about what gets rendered changes.
+    const fragment = document.createDocumentFragment();
     rows.forEach(function(r, index) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-row', r.row);
@@ -2705,10 +2886,11 @@
 
       tr.appendChild(buildActionsCell(r.row, index, rows.length));
       COLS.forEach(function(colDef) {
-        tr.appendChild(buildCell(r.row, colDef, r.values[colDef.col - 1], isPackage, isClosed));
+        tr.appendChild(buildCell(r.row, colDef, r.values[colDef.col - 1], isPackage, isClosed, r.values));
       });
-      body.appendChild(tr);
+      fragment.appendChild(tr);
     });
+    body.appendChild(fragment);
     if (!rows.length) body.innerHTML = '<tr><td colspan="' + (COLS.length + 1) + '">No data</td></tr>';
     applyRowFilters();
     if (window.syncTopScrollWidth) window.syncTopScrollWidth();
@@ -2807,7 +2989,7 @@
       try {
         await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
         await refreshEverything();
-      } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+      } catch (e) { alert('Delete failed: ' + (e.message || e)); throw e; }
     });
   }
 
@@ -2825,7 +3007,7 @@
         await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
         await insertRowAtPosition(newPos, values, null);
         await refreshEverything();
-      } catch (e) { alert('Move failed: ' + (e.message || e)); }
+      } catch (e) { alert('Move failed: ' + (e.message || e)); throw e; }
     });
   }
 
@@ -2857,7 +3039,7 @@
         rowClipboard = { mode: 'cut', values: values };
         updateClipboardStatus();
         await refreshEverything();
-      } catch (e) { alert('Cut failed: ' + (e.message || e)); }
+      } catch (e) { alert('Cut failed: ' + (e.message || e)); throw e; }
     });
   }
 
@@ -2872,7 +3054,7 @@
         rowClipboard = null;
         updateClipboardStatus();
         await refreshEverything();
-      } catch (e) { alert('Paste failed: ' + (e.message || e)); }
+      } catch (e) { alert('Paste failed: ' + (e.message || e)); throw e; }
     });
   }
 
@@ -2971,6 +3153,7 @@
       priority: document.getElementById('addPriority').value
     };
     if (!String(data.desc || '').trim()) { document.getElementById('addMsgModal').textContent = 'Description is required.'; return; }
+    if (data.qty !== '' && Number(data.qty) < 0) { document.getElementById('addMsgModal').textContent = 'Quantity cannot be negative.'; return; }
     document.getElementById('addMsgModal').textContent = (type === 'package' ? 'Adding package...' : 'Adding...');
     try {
       await addNewItemClient(data);
@@ -3022,6 +3205,41 @@
     setTimeout(function() { td.classList.remove('saved-flash'); }, 600);
   }
 
+  // ===== Sync status indicator =====
+  // Scoped to the two highest-traffic write paths in the app — saveCell()
+  // (every single Full Table cell edit) and withRowOpLock() (add/delete/
+  // move/cut/paste) — which together cover ordinary day-to-day field data
+  // entry, exactly the "am I actually saving right now" reassurance this
+  // was asked for. It does NOT wrap every write in the app (Control Panel
+  // actions, File With/Action By list edits, remarks, backups, exports):
+  // those already show their own inline "Saved."/"Failed:" message text
+  // next to their own button, so a second, different indicator for them
+  // would be redundant rather than additionally reassuring.
+  var syncIndicatorHideTimer = null;
+  function setSyncStatus(state, detail) {
+    var el = document.getElementById('syncStatusIndicator');
+    if (!el) return;
+    clearTimeout(syncIndicatorHideTimer);
+    if (state === 'saving') {
+      el.textContent = '💾 Saving…';
+      el.className = 'sync-indicator sync-saving';
+      el.style.display = '';
+    } else if (state === 'saved') {
+      el.textContent = '✅ Saved';
+      el.className = 'sync-indicator sync-saved';
+      el.style.display = '';
+      syncIndicatorHideTimer = setTimeout(function() { el.style.display = 'none'; }, 2500);
+    } else if (state === 'error') {
+      el.textContent = '⚠ ' + (detail || 'Save failed');
+      el.className = 'sync-indicator sync-error';
+      el.style.display = '';
+      // An error stays visible until the next save attempt (no auto-hide) —
+      // a failed save is exactly the moment this indicator matters most.
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   function updateLocalValue(row, col, value) {
     const rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
     if (rowObj) rowObj.values[col - 1] = value;
@@ -3031,8 +3249,49 @@
      side effects the original updateCell() in Code.gs applies: Action By ->
      also stamps Date Stamp and reloads the row set (its lock state changes);
      PQD/M-S track fields -> also stamp that track's own Status Date. */
+  // Optimistic conflict check, run once at the top of saveCell() — NOT a
+  // background poll (that would cost one extra API call per person per
+  // interval forever, whether anything changed or not; see the earlier
+  // discussion on quota). This instead spends exactly one lightweight read
+  // right before the write that was going to happen anyway, only on an
+  // actual edit, and only for the single cell being written — so it costs
+  // nothing while nobody is actively editing. Several engineers can have
+  // the same table open; if someone else already changed this very cell
+  // since this person's copy was loaded, writing straight over it would
+  // silently discard their teammate's edit with no trace. Returns true if
+  // the caller should proceed with the write, false if the person backed
+  // out (in which case the cell has already been restored to the live
+  // value on screen).
+  async function checkCellConflictBeforeSave(row, col, value) {
+    var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (!rowObj) return true; // not a row we have a "before" snapshot for — nothing to compare against
+    var expected = rowObj.values[col - 1] == null ? '' : String(rowObj.values[col - 1]);
+    var liveRaw;
+    try {
+      liveRaw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row));
+    } catch (e) {
+      return true; // couldn't check (offline/transient) — fall through to the normal save, which will surface any real error itself
+    }
+    var live = (liveRaw[0] && liveRaw[0][0] != null) ? String(liveRaw[0][0]) : '';
+    if (live === expected) return true; // no conflict — this is the overwhelmingly common case
+    var proceed = confirm(
+      'This cell was changed by someone else since you loaded this table.\n\n' +
+      'Their current value: "' + live + '"\n' +
+      'Your new value: "' + value + '"\n\n' +
+      'Press OK to overwrite their change with yours, or Cancel to keep their value (your edit will be discarded).'
+    );
+    if (!proceed) {
+      updateLocalValue(row, col, live);
+      loadFullTable(); // reflect the teammate's value on screen instead of still showing the edit just backed out of
+      return false;
+    }
+    return true;
+  }
+
   async function saveCell(row, col, value, td) {
     try {
+      setSyncStatus('saving');
+      if (!(await checkCellConflictBeforeSave(row, col, value))) { setSyncStatus(null); return; }
       await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row), [[value]]);
       updateLocalValue(row, col, value);
 
@@ -3040,6 +3299,7 @@
         const stamp = todayStamp(true);
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.DATESTAMP, row, COL.DATESTAMP, row), [[stamp]]);
         updateLocalValue(row, COL.DATESTAMP, stamp);
+        setSyncStatus('saved');
         await refreshEverything(); // row lock state changed -> re-render the whole row set
         return;
       }
@@ -3079,17 +3339,32 @@
       if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT || col === COL.FILEWITH) {
         loadSubmittalStatus(); loadSubmittalDashboard();
       }
+      setSyncStatus('saved');
     } catch (e) {
+      setSyncStatus('error', e.message || String(e));
       alert('Save failed: ' + (e.message || e));
     }
   }
 
-  function buildCell(row, colDef, value, isPackage, isClosed) {
+  function buildCell(row, colDef, value, isPackage, isClosed, rowValues) {
     const td = document.createElement('td');
     td.setAttribute('data-col', colDef.col);
     if (colDef.col === COL.DESC) td.className = 'desc-cell';
     if (colDef.col === COL.REMARKS) td.className = 'remarks-cell';
     if (colDef.col === COL.SN) td.className = 'sn-cell';
+
+    // Smart overdue highlighting: a Main/Alt item's own Planned Submission
+    // Date for whichever track this column belongs to (PQD or M/S) has
+    // already arrived (today or earlier — same "due" definition already
+    // used for the Planned Submission (%) stat elsewhere) while that same
+    // track is still not Submitted — a package row has neither field, and
+    // a closed row's date gets overwritten with plain read-only text below
+    // anyway, so neither needs the check.
+    if (!isPackage && !isClosed && rowValues && (colDef.col === COL.PQD_PLANNED_DATE || colDef.col === COL.MS_PLANNED_DATE)) {
+      var subCol = colDef.col === COL.PQD_PLANNED_DATE ? COL.PQD_SUB : COL.MS_SUB;
+      var isSubmitted = rowValues[subCol - 1] === 'Yes';
+      if (!isSubmitted && isDueByToday(value)) td.classList.add('overdue-cell');
+    }
 
     if (colDef.type === 'numdot') {
       // Package rows: nothing to show. Closed rows: dot only, not clickable
@@ -3246,12 +3521,26 @@
     }
 
     const input = document.createElement('input');
-    if (colDef.type === 'number') input.type = 'number';
+    if (colDef.type === 'number') { input.type = 'number'; input.min = '0'; }
     else if (colDef.type === 'date') input.type = 'date';
     else input.type = 'text';
     input.value = value == null ? '' : value;
     input.defaultValue = input.value;
-    const saveIfChanged = function() { if (input.value !== input.defaultValue) { saveCell(row, colDef.col, input.value, td); input.defaultValue = input.value; } };
+    const saveIfChanged = function() {
+      if (input.value === input.defaultValue) return;
+      // Quantity (the only 'number' column today) has no business ever
+      // being negative — the native min="0" above already stops the
+      // spinner arrows/slider from going below zero, but someone can still
+      // type "-5" directly, so this is the actual enforcement; reject it
+      // before it ever reaches a save/network call rather than after.
+      if (colDef.type === 'number' && input.value !== '' && Number(input.value) < 0) {
+        alert('Quantity cannot be negative.');
+        input.value = input.defaultValue;
+        return;
+      }
+      saveCell(row, colDef.col, input.value, td);
+      input.defaultValue = input.value;
+    };
     input.onblur = saveIfChanged;
     if (colDef.type === 'date') input.onchange = saveIfChanged;
     td.appendChild(input);
@@ -4078,6 +4367,7 @@
     var data = getSubmittalStatusDataClient(rows);
     renderSubmittalDashboard(data.ms, data.pqd);
     renderBuyerChart(getFilesByBuyerDataClient(rows, !isOverall));
+    renderBuyerWorkloadChart(getBuyerWorkloadDataClient(rows));
   }
 
   function renderSubmittalDashboard(msRows, pqdRows) {
@@ -4201,6 +4491,60 @@
     });
   }
 
+  // Per-buyer workload: Main items only (same convention as every other
+  // computed stat in this app — Alt items aren't counted toward the "real"
+  // procurement scope), scored against the M/S track specifically since
+  // that's the track a buyer is actually chasing day to day. "-" (items
+  // nobody owns yet) is excluded — there's no one to show a workload for.
+  // Reuses isDueByToday(), the exact same "due" definition already driving
+  // the Planned Submission (%) stat and the overdue-cell highlighting in
+  // Full Table, so this chart never disagrees with what those show.
+  function getBuyerWorkloadDataClient(rows) {
+    var items = nonPackageItems(rows).filter(function(r) { return r[COL.MAINALT - 1] === 'M'; });
+    var byBuyer = {};
+    items.forEach(function(r) {
+      var fw = String(r[COL.FILEWITH - 1] || '').trim();
+      if (!fw || fw === FILEWITH_UNASSIGNED_VALUE) return;
+      if (!byBuyer[fw]) byBuyer[fw] = { total: 0, done: 0, overdue: 0, open: 0 };
+      var b = byBuyer[fw];
+      b.total++;
+      if (r[COL.MS_SUB - 1] === 'Yes') { b.done++; return; }
+      if (isDueByToday(r[COL.MS_PLANNED_DATE - 1])) b.overdue++; else b.open++;
+    });
+    var names = Object.keys(byBuyer).sort(function(a, b) { return byBuyer[b].total - byBuyer[a].total; });
+    return {
+      names: names,
+      done: names.map(function(n) { return byBuyer[n].done; }),
+      open: names.map(function(n) { return byBuyer[n].open; }),
+      overdue: names.map(function(n) { return byBuyer[n].overdue; }),
+      completionPct: names.map(function(n) { var b = byBuyer[n]; return b.total ? Math.round((b.done / b.total) * 100) : 0; })
+    };
+  }
+
+  function renderBuyerWorkloadChart(data) {
+    if (!data.names.length) { sdMakeChart('chartBuyerWorkload', { type: 'bar', data: { labels: [], datasets: [] } }); return; }
+    sdMakeChart('chartBuyerWorkload', {
+      type: 'bar',
+      data: {
+        labels: data.names,
+        datasets: [
+          { label: 'Done', backgroundColor: '#2E8F63', data: data.done },
+          { label: 'Open (not yet due)', backgroundColor: '#0E7C86', data: data.open },
+          { label: 'Overdue', backgroundColor: '#A23B2E', data: data.overdue }
+        ]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' },
+          tooltip: { callbacks: { afterBody: function(items) {
+            var i = items[0].dataIndex;
+            return 'Completion: ' + data.completionPct[i] + '%';
+          } } } },
+        maintainAspectRatio: false,
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+  }
+
   /* ===================== EXCEL EXPORT =====================
      Client-side equivalent of Code.gs's exportBoqAndMsToXlsx()/
      exportSubmittalStatusToXlsx(): build a throwaway spreadsheet with the Sheets
@@ -4280,8 +4624,15 @@
   }
 
   async function exportBoqAndMsToXlsxClient() {
-    var statusData = getSubmittalStatusDataClient();
-    var buyerData = getFilesByBuyerDataClient();
+    // Must match the BOQ tab actually being copied into the export below
+    // (boqSheetId / SHEET_NAME = whichever table is open in Full Table),
+    // not the shared allTablesRows cache — that cache only gets populated
+    // while "Overall" was selected on the Dashboard/MS Status views, and
+    // is simply empty otherwise, which silently produced an all-zero
+    // Material Submittal Status / Item-Buyer sheet inside the export.
+    var exportRows = lastLoadedRows.map(function(r) { return r.values; });
+    var statusData = getSubmittalStatusDataClient(exportRows);
+    var buyerData = getFilesByBuyerDataClient(exportRows, true);
     var tempSS = await sheetsCreateSpreadsheet('BOQ Export (temp) ' + Date.now());
     var tempId = tempSS.spreadsheetId;
     var defaultSheetId = tempSS.sheets[0].properties.sheetId;
@@ -4302,8 +4653,16 @@
   }
 
   async function exportSubmittalStatusToXlsxClient() {
-    var statusData = getSubmittalStatusDataClient();
-    var buyerData = getFilesByBuyerDataClient();
+    // "Export this tab" must mirror exactly what's on screen right now —
+    // whichever discipline/table loadSubmittalStatus() last resolved into
+    // msStatusCurrentRows — not the shared allTablesRows cache (see the
+    // same fix in exportBoqAndMsToXlsxClient above for why that cache is
+    // wrong/empty here).
+    var isOverallExport = currentGlobalSelection === 'overall';
+    var exportRoster = [];
+    if (isOverallExport) { try { exportRoster = await fetchAllFileWithNamesAcrossTables(); } catch (e) { console.warn('Could not load buyer roster for export: ', e); } }
+    var statusData = getSubmittalStatusDataClient(msStatusCurrentRows);
+    var buyerData = getFilesByBuyerDataClient(msStatusCurrentRows, !isOverallExport, exportRoster);
     var tempSS = await sheetsCreateSpreadsheet('Material Submittal Status Export (temp) ' + Date.now());
     var tempId = tempSS.spreadsheetId;
     var defaultSheetId = tempSS.sheets[0].properties.sheetId;
@@ -4340,6 +4699,59 @@
       alert('Export failed: ' + (e.message || e));
     } finally {
       btn.disabled = false; btn.textContent = '⬇ Export this tab to Excel';
+    }
+  }
+
+  /* ===================== PDF EXPORT (html2pdf.js via CDN) =====================
+     Deliberately does NOT screenshot the live, interactive Material
+     Submittal Status screen as-is (buttons, clickable "balance" cells, the
+     page's own chrome) — that would print exactly whatever happens to be
+     on screen and look cluttered. Instead it rebuilds a clean, print-only
+     copy of just the three computed tables (reusing the exact same table
+     elements the screen already renders, via loadSubmittalStatus(), so the
+     figures are guaranteed identical) inside #pdfReportContainer, which
+     lives off-screen purely for html2canvas to rasterize, then hands that
+     to html2pdf. */
+  async function exportStatusReportToPdf() {
+    var btn = document.getElementById('exportPdfBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparing PDF…'; }
+    try {
+      if (typeof html2pdf === 'undefined') throw new Error('PDF library failed to load (check your internet connection) — please try again.');
+      // Rebuild the status tables fresh first, so the PDF always reflects
+      // live data and whichever discipline is currently selected — not
+      // whatever was last rendered, possibly minutes ago, possibly for a
+      // different table.
+      await loadSubmittalStatus();
+
+      var projectName = document.getElementById('pbProjectName').value.trim() || 'Procurement Progress Report';
+      var projectNumber = document.getElementById('pbProjectNumber').value.trim();
+      var discipline = document.getElementById('pbDiscipline').value.trim();
+      var dateStr = todayStamp(false);
+
+      var container = document.getElementById('pdfReportContainer');
+      container.innerHTML =
+        '<div class="pdf-report">' +
+          '<h1>' + escapeHtml(projectName) + '</h1>' +
+          '<div class="pdf-meta">' +
+            (projectNumber ? ('<span>Project No: ' + escapeHtml(projectNumber) + '</span>') : '') +
+            '<span>Discipline: ' + escapeHtml(discipline) + '</span>' +
+            '<span>Date: ' + escapeHtml(dateStr) + '</span>' +
+          '</div>' +
+          '<h2>Status of PQD</h2>' + document.getElementById('pqdStatusTable').outerHTML +
+          '<h2>Status of Material Submittal</h2>' + document.getElementById('msStatusTable').outerHTML +
+          '<h2>Item / Buyer</h2>' + document.getElementById('buyerStatusTable').outerHTML +
+        '</div>';
+
+      await html2pdf().set({
+        margin: 10,
+        filename: 'Procurement_Progress_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      }).from(container).save();
+    } catch (e) {
+      alert('PDF export failed: ' + (e.message || e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🖨 Export Status Report (PDF)'; }
     }
   }
 
