@@ -7,11 +7,25 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --bg:#F2F6F6; --surface:#FFFFFF; --border:#DCE7E7; --text:#152024; --text-soft:#5F7577;
+    --accent:#0E7C86; --accent-dark:#0B6169; --accent-bg:#E2F1F2; --accent-bg-strong:#CFE8EA;
+    --heading:#0E3B40;
+    --mech:#C76B3B; --civil:#2E8F63; --elec:#B98A12;
+    --ok:#2E8F63; --ok-bg:#E6F3EC; --warn:#A23B2E; --warn-bg:#FBE8E4;
+    --priority-med:#B98A12;
+    --radius:8px; --radius-sm:6px;
+    --shadow:0 1px 2px rgba(10,30,32,.05),0 1px 4px rgba(10,30,32,.07);
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-    background: #f4f6f8;
+    font-family: var(--sans);
+    background: var(--bg);
     margin: 0;
     padding: 0;
   }
@@ -22,9 +36,10 @@
     min-height: 100vh;
   }
   .card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
     padding: 24px;
     width: 100%;
     text-align: left;
@@ -61,52 +76,55 @@
   .project-pick-row .project-pick-btn { margin-bottom: 0; flex: 1; }
   .project-pick-btn {
     display: flex; align-items: center; justify-content: space-between;
-    width: 100%; text-align: right; background: #f4f7fd; border: 1px solid #d7dce3;
-    border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; font-size: 14.5px;
-    font-weight: 600; color: #1a3d7c; cursor: pointer;
+    width: 100%; text-align: right; background: var(--accent-bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; font-size: 14.5px;
+    font-weight: 600; color: var(--heading); cursor: pointer;
   }
-  .project-pick-btn:hover { background: #e8f0fe; border-color: #1a73e8; }
-  .project-pick-arrow { color: #1a73e8; font-size: 16px; }
+  .project-pick-btn:hover { background: var(--accent-bg-strong); border-color: var(--accent); }
+  .project-pick-arrow { color: var(--accent); font-size: 16px; }
   .project-pick-icon-btn {
-    flex: none; width: 40px; border: 1px solid #d7dce3; border-radius: 8px;
-    background: #fff; cursor: pointer; font-size: 15px; color: #666;
+    flex: none; width: 40px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); cursor: pointer; font-size: 15px; color: var(--text-soft);
   }
-  .project-pick-icon-btn:hover { background: #f4f7fd; border-color: #1a73e8; color: #1a73e8; }
+  .project-pick-icon-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
   #projectPickerNewRow input {
-    padding: 10px; border: 1px solid #d7dce3; border-radius: 6px; font-size: 14px;
+    padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px;
   }
   #projectPickerNewRow button {
-    background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);
     padding: 0 16px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   #projectPickerNewRow button:disabled { opacity: .5; cursor: default; }
   h1 {
     font-size: 22px;
-    color: #1a73e8;
+    color: var(--heading);
     margin-bottom: 8px;
+    font-weight: 700;
   }
   p.subtitle {
-    color: #666;
+    color: var(--text-soft);
     margin-bottom: 28px;
     font-size: 14px;
   }
   #signinBtn {
-    background: #1a73e8;
+    background: var(--accent);
     color: #fff;
     border: none;
     padding: 12px 24px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-size: 15px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    font-weight: 600;
+    font-family: var(--sans);
   }
-  #signinBtn:hover { background: #1558b0; }
+  #signinBtn:hover { background: var(--accent-dark); }
   #status {
     margin-top: 24px;
     font-size: 14px;
-    color: #333;
+    color: var(--text);
     line-height: 1.8;
     text-align: right;
   }
@@ -114,85 +132,85 @@
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid #ccc;
-    border-top-color: #1a73e8;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     vertical-align: middle;
     margin-left: 8px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .ok { color: #1e8e3e; font-weight: 600; }
-  .err { color: #d93025; font-weight: 600; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .err { color: var(--warn); font-weight: 600; }
   a.sheetLink {
     display: inline-block;
     margin-top: 14px;
-    background: #1e8e3e;
+    background: var(--ok);
     color: #fff;
     text-decoration: none;
     padding: 10px 20px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-size: 14px;
   }
   .hidden { display: none !important; }
 
   /* ===================== App shell (after sign-in) ===================== */
-  #appScreen { direction: ltr; font-family: Arial, sans-serif; color:#222; }
-  .app-header-sticky{position:sticky;top:0;z-index:40;box-shadow:0 2px 4px rgba(0,0,0,0.08);background:#fff}
-  header.app-title{background:#1a73e8;color:#fff;padding:12px 20px;font-size:17px;font-weight:bold;
+  #appScreen { direction: ltr; font-family: var(--sans); color:var(--text); }
+  .app-header-sticky{position:sticky;top:0;z-index:40;box-shadow:var(--shadow);background:var(--surface)}
+  header.app-title{background:var(--accent);color:#fff;padding:12px 20px;font-size:17px;font-weight:700;
     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
   header.app-title a{color:#fff;font-size:12px;font-weight:normal;text-decoration:underline}
-  .subtoolbar{display:flex;align-items:center;gap:10px;background:white;padding:8px 16px;
-    border-bottom:1px solid #eee;flex-wrap:wrap}
-  #addMsg{font-size:12px;font-weight:bold;color:#1a73e8}
-  .subtoolbar button{cursor:pointer;border:1px solid #d7dce3;background:#f8f9fb;border-radius:6px;
-    padding:6px 10px;font-size:12px}
-  .subtoolbar button:hover{background:#eef3fc}
-  .subtoolbar button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
-  .subtoolbar button.primary:hover{background:#1558b0}
+  .subtoolbar{display:flex;align-items:center;gap:10px;background:var(--surface);padding:8px 16px;
+    border-bottom:1px solid var(--border);flex-wrap:wrap}
+  #addMsg{font-size:12px;font-weight:bold;color:var(--accent)}
+  .subtoolbar button{cursor:pointer;border:1px solid var(--border);background:var(--bg);border-radius:var(--radius-sm);
+    padding:6px 10px;font-size:12px;font-family:var(--sans)}
+  .subtoolbar button:hover{background:var(--accent-bg)}
+  .subtoolbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .subtoolbar button.primary:hover{background:var(--accent-dark)}
   #clipboardStatus{font-size:12px;color:#8e44ec;font-weight:600}
 
   /* ---- Project header bar ---- */
   .project-bar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
-    background:#eef3fc;border-bottom:1px solid #c9d7ef;padding:8px 16px;font-size:13px}
+    background:var(--accent-bg);border-bottom:1px solid var(--border);padding:8px 16px;font-size:13px}
   .project-bar .pb-field{display:flex;align-items:center;gap:6px}
-  .project-bar label{font-weight:600;color:#1a3d7c;white-space:nowrap}
-  .project-bar input{border:1px solid #c9d7ef;border-radius:4px;padding:4px 8px;
-    font-size:13px;background:#fff;min-width:140px}
-  .project-bar input:hover{border-color:#9fb3d6}
-  .project-bar input:focus{border-color:#1a73e8;outline:none}
-  .project-bar .pb-date{font-weight:700;color:#1a3d7c;margin-left:auto}
+  .project-bar label{font-weight:600;color:var(--heading);white-space:nowrap}
+  .project-bar input{border:1px solid var(--border);border-radius:4px;padding:4px 8px;
+    font-size:13px;background:var(--surface);min-width:140px;font-family:var(--sans)}
+  .project-bar input:hover{border-color:var(--accent)}
+  .project-bar input:focus{border-color:var(--accent);outline:none}
+  .project-bar .pb-date{font-weight:700;color:var(--heading);margin-left:auto;font-family:var(--mono);font-size:12px}
   @media (max-width:700px){.project-bar{gap:10px}.project-bar .pb-date{margin-left:0}}
 
   /* ---- Nav ---- */
-  nav.main-nav{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid #e4e8ef;flex-wrap:wrap}
+  nav.main-nav{display:flex;gap:4px;background:var(--surface);padding:0 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
   nav.main-nav button{border:none;background:transparent;padding:10px 14px;font-size:13px;font-weight:600;
-    color:#555;cursor:pointer;border-bottom:3px solid transparent}
-  nav.main-nav button:hover{color:#1a73e8}
-  nav.main-nav button.active{color:#1a73e8;border-bottom-color:#1a73e8}
+    color:var(--text-soft);cursor:pointer;border-bottom:3px solid transparent;font-family:var(--sans)}
+  nav.main-nav button:hover{color:var(--accent)}
+  nav.main-nav button.active{color:var(--accent);border-bottom-color:var(--accent)}
 
   .view{display:none;padding:16px}
   .view.active{display:block}
   #view-fulltable{padding:0}
 
   /* ---- Full Table (editable mirror of BOQ Database) ---- */
-  .table-outer{background:white;border-radius:0 0 8px 8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin:0 0 16px}
-  .table-header-wrap{overflow:hidden;border-bottom:2px solid #1a73e8;position:sticky;z-index:39;background:#fff}
+  .table-outer{background:var(--surface);border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow);margin:0 0 16px}
+  .table-header-wrap{overflow:hidden;border-bottom:2px solid var(--accent);position:sticky;z-index:39;background:var(--surface)}
   .table-body-wrap{overflow-x:hidden;overflow-y:scroll;max-height:72vh;touch-action:pan-y}
   .table-top-scroll-wrap{position:relative}
-  .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid #ddd}
+  .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid var(--border)}
   .table-top-scroll div{height:1px}
-  .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:#fff;border-bottom:1px solid #ddd;pointer-events:none;z-index:2}
-  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0}
-  #fullTableHeader th{font-size:11px;line-height:1.2;background:#1a73e8;color:white}
-  #fullTableHeader th,#fullTable td{border:1px solid #ddd;padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
-  #fullTable tbody tr:nth-child(even){background:#f9fafb}
-  #fullTable tbody tr.package-row{background:#fff3cd}
-  #fullTable tbody tr.package-row:nth-child(even){background:#ffeab3}
-  #fullTable tbody tr.package-row td.sn-cell{background:#fff3cd}
-  #fullTable tbody tr.package-row:nth-child(even) td.sn-cell{background:#ffeab3}
-  #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#4b4b4b;color:#f1f1f1}
-  #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#4b4b4b;color:#f1f1f1}
+  .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
+  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
+  #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
+  #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
+  #fullTable tbody tr:nth-child(even){background:#F7FAFA}
+  #fullTable tbody tr.package-row{background:#FBEEDD}
+  #fullTable tbody tr.package-row:nth-child(even){background:#F7E4C9}
+  #fullTable tbody tr.package-row td.sn-cell{background:#FBEEDD}
+  #fullTable tbody tr.package-row:nth-child(even) td.sn-cell{background:#F7E4C9}
+  #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#3F4A4C;color:#f1f1f1}
+  #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#3F4A4C;color:#f1f1f1}
   #fullTable tbody tr.closed-row td{color:#f1f1f1}
   /* Frozen columns: Actions, S/N, Description, Unit, Qty */
   #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
@@ -200,84 +218,84 @@
   #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
   #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
   #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:460px;z-index:7}
-  #fullTable td:nth-child(-n+5){z-index:2;background:#fff}
+  #fullTable td:nth-child(-n+5){z-index:2;background:var(--surface)}
   #headerMainRow th:nth-child(-n+5), #headerGroupRow th:nth-child(-n+5){z-index:8}
-  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(0,0,0,0.3)}
+  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(10,30,32,0.2)}
   /* Common-header banner row (PQD / Material Submittal group) above the
      per-column headers — purely a visual grouping. */
-  .group-header-cell{background:#1a73e8;border-bottom:1px solid rgba(255,255,255,0.25)}
-  .group-header-pqd, .group-header-ms{font-size:12px;font-weight:700;background:#0d47a1}
-  #fullTable tbody tr td:nth-child(-n+5){background:#fff}
-  #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#f9fafb}
-  #fullTable tbody tr.package-row td:nth-child(-n+5){background:#fff3cd}
-  #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#ffeab3}
-  #fullTable tbody tr.closed-row td:nth-child(-n+5), #fullTable tbody tr.closed-row:nth-child(even) td:nth-child(-n+5){background:#4b4b4b}
+  .group-header-cell{background:var(--accent);border-bottom:1px solid rgba(255,255,255,0.25)}
+  .group-header-pqd, .group-header-ms{font-size:12px;font-weight:700;background:var(--accent-dark)}
+  #fullTable tbody tr td:nth-child(-n+5){background:var(--surface)}
+  #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#F7FAFA}
+  #fullTable tbody tr.package-row td:nth-child(-n+5){background:#FBEEDD}
+  #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#F7E4C9}
+  #fullTable tbody tr.closed-row td:nth-child(-n+5), #fullTable tbody tr.closed-row:nth-child(even) td:nth-child(-n+5){background:#3F4A4C}
   .po-supplier-wrap{display:flex;flex-direction:column;gap:1px}
   .po-supplier-wrap input{text-align:center}
   .po-number-input{font-weight:600}
-  .po-supplier-input{font-size:10px;color:#555;border-top:1px solid #e3e3e3 !important;padding-top:3px}
+  .po-supplier-input{font-size:10px;color:var(--text-soft);border-top:1px solid var(--border) !important;padding-top:3px}
   #fullTable td.desc-cell{text-align:left;min-width:220px}
   #fullTable input, #fullTable select, #fullTable textarea{
     width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;
-    font-size:12px;padding:3px;border-radius:3px;font-family:inherit;text-align:center}
+    font-size:12px;padding:3px;border-radius:4px;font-family:inherit;text-align:center}
   #fullTable td.desc-cell input, #fullTable td.remarks-cell textarea{text-align:left}
   #fullTable td.desc-cell textarea.desc-textarea{
     display:block;width:100%;box-sizing:border-box;resize:none;overflow:hidden;
     white-space:pre-wrap;word-wrap:break-word;word-break:break-word;
     line-height:1.35;min-height:22px;vertical-align:top;text-align:left}
   #fullTable select, .modal-box select{text-align:left}
-  #fullTable input:hover, #fullTable select:hover, #fullTable textarea:hover{border-color:#bbb}
-  #fullTable input:focus, #fullTable select:focus, #fullTable textarea:focus{border-color:#1a73e8;background:#fff;outline:none}
-  #fullTable select.status-yes{background:#1e8e3e;color:#fff;font-weight:bold}
-  #fullTable select.status-no{background:#d93025;color:#fff;font-weight:bold}
-  #fullTable select.priority-h{background:#d93025;color:#fff;font-weight:bold}
-  #fullTable select.priority-m{background:#f29900;color:#fff;font-weight:bold}
-  #fullTable select.priority-l{background:#1e8e3e;color:#fff;font-weight:bold}
+  #fullTable input:hover, #fullTable select:hover, #fullTable textarea:hover{border-color:var(--text-soft)}
+  #fullTable input:focus, #fullTable select:focus, #fullTable textarea:focus{border-color:var(--accent);background:var(--surface);outline:none}
+  #fullTable select.status-yes{background:var(--ok);color:#fff;font-weight:bold}
+  #fullTable select.status-no{background:var(--warn);color:#fff;font-weight:bold}
+  #fullTable select.priority-h{background:var(--warn);color:#fff;font-weight:bold}
+  #fullTable select.priority-m{background:var(--priority-med);color:#fff;font-weight:bold}
+  #fullTable select.priority-l{background:var(--ok);color:#fff;font-weight:bold}
   #fullTable textarea{resize:vertical;min-height:30px;min-width:160px}
-  #fullTable td.sn-cell{font-weight:bold;background:#eef3fc}
-  .saved-flash{background:#d8f5dc !important}
+  #fullTable td.sn-cell{font-weight:bold;background:var(--accent-bg);font-family:var(--mono)}
+  .saved-flash{background:var(--ok-bg) !important}
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
-  #loadingMsg{padding:30px;text-align:center;color:#666}
+  #loadingMsg{padding:30px;text-align:center;color:var(--text-soft)}
 
   /* ---- Filter row (below header labels) ---- */
-  #headerFilterRow th{background:#eef3fc;padding:2px 4px;border:1px solid #ddd}
-  #headerFilterRow th.actions-header{background:#eef3fc}
-  .filter-input{width:100%;box-sizing:border-box;font-size:10.5px;padding:2px 4px;border:1px solid #c7d2e3;border-radius:3px;font-family:inherit;color:#1a3a66;background:#fff}
-  .filter-input::placeholder{color:#9aa9c2}
-  .filter-input:focus{outline:none;border-color:#1a73e8}
+  #headerFilterRow th{background:var(--accent-bg);padding:2px 4px;border:1px solid var(--border)}
+  #headerFilterRow th.actions-header{background:var(--accent-bg)}
+  .filter-input{width:100%;box-sizing:border-box;font-size:10.5px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-family:inherit;color:var(--heading);background:var(--surface)}
+  .filter-input::placeholder{color:var(--text-soft)}
+  .filter-input:focus{outline:none;border-color:var(--accent)}
 
   /* ---- Row actions column ---- */
   #fullTable td.actions-cell, #headerMainRow th.actions-header{width:50px;min-width:50px;padding:2px}
   .actions-wrap{display:flex;flex-wrap:wrap;gap:1px;justify-content:center}
-  .actions-wrap button{width:17px;height:17px;line-height:1;font-size:10px;padding:0;border:1px solid #d7dce3;
-    background:#fff;border-radius:3px;cursor:pointer}
-  .actions-wrap button:hover{background:#eef3fc}
+  .actions-wrap button{width:17px;height:17px;line-height:1;font-size:10px;padding:0;border:1px solid var(--border);
+    background:var(--surface);border-radius:4px;cursor:pointer}
+  .actions-wrap button:hover{background:var(--accent-bg)}
   .actions-wrap button:disabled{opacity:.3;cursor:default}
 
   /* ---- Remarks append-only history ---- */
   .remarks-add{display:flex;gap:4px;margin-bottom:3px}
   .remarks-add input{flex:1;font-size:11px}
-  .remarks-add button{font-size:11px;padding:2px 6px;border:1px solid #1a73e8;background:#1a73e8;color:#fff;
-    border-radius:3px;cursor:pointer;width:auto}
-  .remarks-history{white-space:pre-wrap;font-size:10.5px;line-height:1.4;color:#333;text-align:left;
-    max-height:70px;overflow-y:auto;border-top:1px dashed #ddd;padding-top:2px}
-  .remarks-history .remarks-date{color:#d32f2f;font-weight:700}
+  .remarks-add button{font-size:11px;padding:2px 6px;border:1px solid var(--accent);background:var(--accent);color:#fff;
+    border-radius:4px;cursor:pointer;width:auto}
+  .remarks-history{white-space:pre-wrap;font-size:10.5px;line-height:1.4;color:var(--text);text-align:left;
+    max-height:70px;overflow-y:auto;border-top:1px dashed var(--border);padding-top:2px}
+  .remarks-history .remarks-date{color:var(--warn);font-weight:700}
 
   /* ---- Modals ---- */
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;
+  .modal-overlay{position:fixed;inset:0;background:rgba(14,30,32,0.45);display:flex;align-items:center;
     justify-content:center;z-index:100}
-  .modal-box{background:#fff;border-radius:10px;padding:20px 22px;width:420px;max-width:92vw;
-    max-height:88vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.25)}
-  .modal-box h3{margin:0 0 14px;font-size:16px;color:#1a3d7c}
-  .modal-box label{display:block;font-size:12px;font-weight:600;color:#555;margin:10px 0 4px}
-  .modal-box input, .modal-box select{width:100%;padding:7px 8px;border:1px solid #d7dce3;border-radius:5px;font-size:13px}
+  .modal-box{background:var(--surface);border-radius:var(--radius);padding:20px 22px;width:420px;max-width:92vw;
+    max-height:88vh;overflow-y:auto;box-shadow:0 8px 30px rgba(10,30,32,0.22)}
+  .modal-box h3{margin:0 0 14px;font-size:16px;color:var(--heading)}
+  .modal-box label{display:block;font-size:12px;font-weight:600;color:var(--text-soft);margin:10px 0 4px}
+  .modal-box input, .modal-box select{width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--sans)}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-  .modal-actions button{padding:8px 16px;border-radius:6px;font-size:13px;border:1px solid #d7dce3;cursor:pointer}
-  .modal-actions .primary{background:#1a73e8;border-color:#1a73e8;color:#fff}
-  .modal-actions .secondary{background:#fff;color:#444}
+  .modal-actions button{padding:8px 16px;border-radius:var(--radius-sm);font-size:13px;border:1px solid var(--border);cursor:pointer;font-family:var(--sans)}
+  .modal-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .modal-actions .secondary{background:var(--surface);color:var(--text)}
   .radio-row{display:flex;gap:16px;font-size:13px;margin-top:4px}
-  .balance-clickable{cursor:pointer;text-decoration:underline;color:#1a73e8}
-  .balance-clickable:hover{background:#eef3fc}
+  .balance-clickable{cursor:pointer;text-decoration:underline;color:var(--accent)}
+  .balance-clickable:hover{background:var(--accent-bg)}
 
   /* ---- "File With" / "Action By" list management (gear-button modals) ---- */
   .gear-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:12px;padding:0 0 0 4px;vertical-align:middle;opacity:.85}
@@ -285,17 +303,17 @@
 
   /* ---- PQD / M-S Number dot (column unchanged — just hides the number itself) ---- */
   #fullTable td.indicator-cell{text-align:center;padding:4px 0}
-  .indicator-dot{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;color:#333}
-  .indicator-dot.filled{color:#1e8e3e}
+  .indicator-dot{background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:2px;color:var(--text-soft)}
+  .indicator-dot.filled{color:var(--ok)}
   .indicator-dot:disabled{cursor:default;opacity:.5}
   .indicator-dot:hover:not(:disabled){opacity:.75}
-  .fw-list{max-height:220px;overflow-y:auto;border:1px solid #eee;border-radius:4px;margin-top:8px}
+  .fw-list{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:8px}
   .fw-list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
-    border-bottom:1px solid #f1f1f1;font-size:13px}
+    border-bottom:1px solid var(--border);font-size:13px}
   .fw-list-item:last-child{border-bottom:none}
   .fw-list-item .fw-actions{display:flex;gap:10px;align-items:center}
-  .fw-remove{background:none;border:none;color:#d93025;cursor:pointer;font-size:14px}
-  .fw-rename{background:none;border:none;color:#1a73e8;cursor:pointer;font-size:14px}
+  .fw-remove{background:none;border:none;color:var(--warn);cursor:pointer;font-size:14px}
+  .fw-rename{background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px}
   .fw-add-row{display:flex;gap:6px;margin-top:10px}
   .fw-add-row input{flex:1}
   .fw-rename-row{display:flex;gap:6px;align-items:center;flex:1}
@@ -304,58 +322,58 @@
 
   /* ---- Material Submittal Status / PQD tables ---- */
   .ms-card-grid{display:flex;flex-direction:column;gap:18px}
-  .card h3{margin:0 0 10px;font-size:16px;color:#1a3d7c}
+  .card h3{margin:0 0 10px;font-size:16px;color:var(--heading)}
 
   /* ---- Control Panel: page header + grouped sections, single centered column ---- */
   #view-controlpanel{max-width:720px;margin:0 auto}
   .cp-header{margin-bottom:22px}
-  .cp-header h2{margin:0 0 4px;font-size:21px;color:#1a3d7c;display:flex;align-items:center;gap:8px}
-  .cp-header p{margin:0;color:#666;font-size:13.5px}
+  .cp-header h2{margin:0 0 4px;font-size:21px;color:var(--heading);display:flex;align-items:center;gap:8px}
+  .cp-header p{margin:0;color:var(--text-soft);font-size:13.5px}
   .cp-section{margin-bottom:28px}
   .cp-section:last-child{margin-bottom:0}
-  .cp-section-title{margin:0 0 12px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;
-    color:#1a73e8;font-weight:700;border-bottom:1px solid #e3e8f0;padding-bottom:7px}
+  .cp-section-title{margin:0 0 12px;font-size:12px;letter-spacing:.02em;
+    color:var(--accent);font-weight:700;border-bottom:1px solid var(--border);padding-bottom:7px}
   /* All cards, within every section, stacked in one single column. */
   .cp-section-grid{display:flex;flex-direction:column;gap:18px}
   .ms-table-wrap{overflow-x:auto}
-  table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px}
-  table.ms-table th, table.ms-table td{border:1px solid #d7dce3;padding:4px 6px;text-align:center}
-  table.ms-table thead th{background:#1a73e8;color:#fff;font-size:11px}
+  table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px;font-family:var(--sans)}
+  table.ms-table th, table.ms-table td{border:1px solid var(--border);padding:4px 6px;text-align:center}
+  table.ms-table thead th{background:var(--accent);color:#fff;font-size:11px}
   table.ms-table thead th.has-tip{text-decoration:underline dotted;cursor:help}
-  table.ms-table tbody tr:nth-child(even){background:#f7f9fc}
-  table.ms-table tr.grand-total{font-weight:700;background:#eef3fc !important}
+  table.ms-table tbody tr:nth-child(even){background:#F7FAFA}
+  table.ms-table tr.grand-total{font-weight:700;background:var(--accent-bg) !important}
   table.ms-table td.ms-label-cell{text-align:left;font-weight:600;white-space:nowrap}
-  table.ms-table td.ms-computed-cell{background:#fcfdff}
-  table.ms-table td.tw-col{background:#fff8e1}
-  table.ms-table th.tw-col{background:#fff8e1;color:#333}
+  table.ms-table td.ms-computed-cell{background:#FBFDFD;font-family:var(--mono)}
+  table.ms-table td.tw-col{background:#FBF2DC}
+  table.ms-table th.tw-col{background:#FBF2DC;color:var(--text)}
   /* Item/Buyer table: banner row grouping buyer columns under the BOQ table
      each buyer mostly works on (computed fresh from live data every render). */
-  table.ms-table th.buyer-group-header{background:#0d47a1}
+  table.ms-table th.buyer-group-header{background:var(--accent-dark)}
 
   /* ---- Submittal Dashboard ---- */
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
-  .sd-kpi{flex:1;min-width:130px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);
-    padding:14px;text-align:center;border-top:4px solid #1a73e8}
-  .sd-kpi .sd-num{font-size:26px;font-weight:700;color:#1a3d7c}
-  .sd-kpi .sd-label{font-size:11px;color:#777;margin-top:4px}
-  .sd-section-title{font-size:14px;font-weight:700;color:#1a3d7c;margin:20px 0 10px}
+  .sd-kpi{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:14px;text-align:center;border-top:3px solid var(--accent)}
+  .sd-kpi .sd-num{font-size:26px;font-weight:700;color:var(--heading);font-family:var(--mono)}
+  .sd-kpi .sd-label{font-size:11px;color:var(--text-soft);margin-top:4px}
+  .sd-section-title{font-size:14px;font-weight:700;color:var(--heading);margin:20px 0 10px}
   .chart-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px}
-  .chart-card{flex:1;min-width:260px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:12px}
+  .chart-card{flex:1;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px}
   .chart-card.wide{flex-basis:100%}
   .chart-card.tall .chart-wrap{height:300px}
-  .chart-card h4{margin:0 0 8px;font-size:13px;color:#333}
+  .chart-card h4{margin:0 0 8px;font-size:13px;color:var(--text)}
   .chart-wrap{position:relative;height:220px}
   .gauge-grid{display:flex;flex-wrap:wrap;gap:14px}
-  .gauge-card{flex:1;min-width:150px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:10px;text-align:center}
+  .gauge-card{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;text-align:center}
   .gauge-wrap{position:relative;height:100px}
-  .gauge-pct{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:19px;font-weight:bold;color:#222}
-  .gauge-label{font-size:11px;color:#777;margin-top:4px}
+  .gauge-pct{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:19px;font-weight:bold;color:var(--text);font-family:var(--mono)}
+  .gauge-label{font-size:11px;color:var(--text-soft);margin-top:4px}
   .stepper{display:flex;align-items:center;justify-content:center;gap:4px}
   .stepper .step{text-align:center}
   .stepper .circle{width:46px;height:46px;border-radius:50%;color:#fff;display:flex;align-items:center;
-    justify-content:center;font-weight:700;font-size:15px}
-  .stepper .step-label{font-size:10px;color:#777;margin-top:4px}
-  .stepper .connector{width:26px;height:2px;background:#ccc}
+    justify-content:center;font-weight:700;font-size:15px;font-family:var(--mono)}
+  .stepper .step-label{font-size:10px;color:var(--text-soft);margin-top:4px}
+  .stepper .connector{width:26px;height:2px;background:var(--border)}
 </style>
 </head>
 <body>
@@ -404,15 +422,15 @@
       <div class="pb-field"><label>Discipline:</label>
         <input type="text" id="pbDiscipline" placeholder="—" readonly title="Follows the table selected in Full Table — rename it from Control Panel"></div>
       <div class="pb-date" id="pbDate"></div>
-      <button type="button" onclick="switchProject()" id="navSwitchProject" title="Open a different project (each project's data is fully separate)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">🔁 Switch Project</button>
-      <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid #d7dce3;border-radius:5px;background:#fff;font-weight:600;font-size:13px;color:#333;cursor:pointer">⚙ Control Panel</button>
+      <button type="button" onclick="switchProject()" id="navSwitchProject" title="Open a different project (each project's data is fully separate)" style="width:auto;margin-left:6px;padding:7px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-weight:600;font-size:13px;color:var(--text);cursor:pointer;font-family:var(--sans)">🔁 Switch Project</button>
+      <button type="button" onclick="showView('controlpanel', this)" id="navControlPanel" style="width:auto;margin-left:8px;padding:7px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-weight:600;font-size:13px;color:var(--text);cursor:pointer;font-family:var(--sans)">⚙ Control Panel</button>
     </div>
     <nav class="main-nav">
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
       <label style="font-size:12.5px;color:#555;margin:0 2px 0 8px;align-self:center">Discipline:</label>
-      <select id="globalTableSelect" onchange="switchGlobalTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid #d7dce3;border-radius:5px;align-self:center"></select>
+      <select id="globalTableSelect" onchange="switchGlobalTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid var(--border);border-radius:6px;align-self:center;font-family:var(--sans)"></select>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
       <span id="addMsg"></span>
@@ -570,7 +588,7 @@
             </div>
             <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
           </div>
-          <div id="cpUsersMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+          <div id="cpUsersMsg" style="font-size:12px;color:#A23B2E;margin-top:8px"></div>
         </div>
 
         <div class="card" id="cpNoAccessCard" style="display:none">
@@ -609,7 +627,7 @@
             <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
             <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
           </div>
-          <div id="cpTablesMsg" style="font-size:12px;color:#d93025;margin-top:8px"></div>
+          <div id="cpTablesMsg" style="font-size:12px;color:#A23B2E;margin-top:8px"></div>
         </div>
 
       </div>
@@ -664,7 +682,7 @@
             <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
           </div>
           <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
-          <div id="cpBackupMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+          <div id="cpBackupMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
         </div>
 
       </div>
@@ -698,7 +716,7 @@
       <label>Main / Alt</label><select id="addMainAlt"></select>
       <label>Priority</label><select id="addPriority"></select>
     </div>
-    <div id="addMsgModal" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div id="addMsgModal" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeAddModal()">Cancel</button>
       <button class="primary" onclick="submitAddModal()">Add Item</button>
@@ -715,7 +733,7 @@
       <input type="text" id="fwNewName" placeholder="New name...">
       <button class="primary" onclick="addFileWithEntry()" style="padding:8px 12px;width:auto">Add</button>
     </div>
-    <div id="fwMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div id="fwMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeFileWithModal()">Close</button>
     </div>
@@ -730,7 +748,7 @@
       <input type="text" id="abNewName" placeholder="New value...">
       <button class="primary" onclick="addActionByEntry()" style="padding:8px 12px;width:auto">Add</button>
     </div>
-    <div id="abMsg" style="font-size:12px;color:#d93025;margin-top:6px"></div>
+    <div id="abMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeActionByModal()">Close</button>
     </div>
@@ -1841,7 +1859,7 @@
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
-      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'Name updated.'; }
+      if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Name updated.'; }
     } catch (e) {
       if (msg) msg.textContent = 'Save failed: ' + (e.message || e);
     }
@@ -1851,15 +1869,15 @@
     var input = document.getElementById('cpNewTableName');
     var msg = document.getElementById('cpTablesMsg');
     var label = input.value.trim();
-    if (!label) { msg.style.color = '#d93025'; msg.textContent = 'Enter a table name.'; return; }
-    msg.style.color = '#d93025'; msg.textContent = '';
+    if (!label) { msg.style.color = '#A23B2E'; msg.textContent = 'Enter a table name.'; return; }
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     try {
       await addBoqTable(label);
       input.value = '';
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
-      msg.style.color = '#1e8e3e';
+      msg.style.color = '#2E8F63';
       msg.textContent = 'Table added.';
     } catch (e) {
       msg.textContent = 'Add failed: ' + (e.message || e);
@@ -1875,7 +1893,7 @@
       renderTableSelect();
       renderGlobalTableSelect();
       if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
-      if (msg) { msg.style.color = '#1e8e3e'; msg.textContent = 'Deleted.'; }
+      if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Deleted.'; }
     }).catch(function(e) {
       if (msg) msg.textContent = 'Delete failed: ' + (e.message || e);
     });
@@ -1945,7 +1963,7 @@
     input.select();
     try {
       navigator.clipboard.writeText(input.value);
-      document.getElementById('cpUsersMsg').style.color = '#1e8e3e';
+      document.getElementById('cpUsersMsg').style.color = '#2E8F63';
       document.getElementById('cpUsersMsg').textContent = 'Link copied.';
     } catch (e) {
       document.execCommand('copy');
@@ -2096,13 +2114,13 @@
 
   async function updateGlobalMemberPerms(rowNum, field, checked) {
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     try {
       var colMap = { isAdmin: 7, canAccessControlPanel: 8, onHold: 10 };
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
       if (checked && field === 'onHold') {
-        msg.style.color = '#1e8e3e';
+        msg.style.color = '#2E8F63';
         msg.textContent = 'On hold — they will be blocked from signing in until this is unchecked.';
       }
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
@@ -2110,7 +2128,7 @@
 
   async function updateTableMemberPerms(rowNum, field, checked) {
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     var colMap = { canAdd: 3, canDelete: 4, canMove: 5, canChangeStatus: 6 };
     try {
       var col = colMap[field];
@@ -2121,7 +2139,7 @@
   async function addTeamMember() {
     var email = document.getElementById('cpNewUserEmail').value.trim().toLowerCase();
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
     try {
       const rows = await fetchUsersRows();
@@ -2149,7 +2167,7 @@
       await addUserRow(email, globalPerms, tablePerms, permissionId);
       document.getElementById('cpNewUserEmail').value = '';
       ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin', 'cpNewCanAccessCP'].forEach(function(id) { document.getElementById(id).checked = false; });
-      msg.style.color = '#1e8e3e';
+      msg.style.color = '#2E8F63';
       msg.textContent = 'Added — they now have access to every current table. Send them the invite link above, and fine-tune per-table permissions in the list above if needed.';
       renderTeamMembersList();
     } catch (e) {
@@ -2160,7 +2178,7 @@
   async function removeTeamMember(email, permissionId) {
     if (!confirm('Remove "' + email + '" from the team? They will lose access to this sheet.')) return;
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     try {
       const rows = await fetchUsersRows();
       var rowNums = [];
@@ -2171,7 +2189,7 @@
         await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, rowNums[i], USERS_LAST_COL, rowNums[i]), [new Array(USERS_LAST_COL).fill('')], 'RAW');
       }
       await driveUnshareFile(spreadsheetId, permissionId);
-      msg.style.color = '#1e8e3e';
+      msg.style.color = '#2E8F63';
       msg.textContent = 'Removed.';
       renderTeamMembersList();
     } catch (e) {
@@ -2293,13 +2311,13 @@
 
   async function saveBackupSettings() {
     var msg = document.getElementById('cpBackupMsg');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
     var frequency = document.getElementById('cpBackupFrequency').value;
     if (email && email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
     try {
       await saveBackupConfig(email, frequency);
-      msg.style.color = '#1e8e3e';
+      msg.style.color = '#2E8F63';
       msg.textContent = 'Saved.';
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
@@ -2307,14 +2325,14 @@
   async function sendBackupNow() {
     var msg = document.getElementById('cpBackupMsg');
     var btn = document.getElementById('cpBackupNowBtn');
-    msg.style.color = '#d93025'; msg.textContent = '';
+    msg.style.color = '#A23B2E'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address first, then Save.'; return; }
     btn.disabled = true; btn.textContent = '⏳ Sending…';
     try {
       await saveBackupConfig(email, document.getElementById('cpBackupFrequency').value);
       await sendBackupEmail(email);
-      msg.style.color = '#1e8e3e';
+      msg.style.color = '#2E8F63';
       msg.textContent = 'Backup sent to ' + email + '.';
       loadBackupSettingsUI();
     } catch (e) {
@@ -4031,7 +4049,7 @@
     var txt = document.getElementById(canvasId + 'Txt');
     if (txt) txt.textContent = pct + '%';
   }
-  var SD_PALETTE = ['#1a73e8', '#34a853', '#f4a300', '#e8453c', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
+  var SD_PALETTE = ['#0E7C86', '#2E8F63', '#f4a300', '#A23B2E', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
   async function loadSubmittalDashboard() {
     renderGlobalTableSelect();
@@ -4077,7 +4095,7 @@
     sdMakeChart('chartMsStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#34a853', '#f4a300', '#e8453c'] }] },
+        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#2E8F63', '#f4a300', '#A23B2E'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
     });
 
@@ -4086,7 +4104,7 @@
     sdMakeChart('chartPqdStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1a73e8', '#8e44ec', '#e8453c'] }] },
+        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#0E7C86', '#8e44ec', '#A23B2E'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
     });
 
@@ -4095,7 +4113,7 @@
       type: 'bar',
       data: { labels: ['Total Materials', 'RFQ', 'Quotes', 'Comp. Sheet (Final)', 'Submitted', 'Total PR', 'Total PO'],
         datasets: [{ data: [msTotal, msRfq, msQuotes, csFinal, msSubmitted, msPr, msPo],
-          backgroundColor: ['#1a73e8', '#00acc1', '#8e44ec', '#f4a300', '#34a853', '#d81b60', '#5d4037'] }] },
+          backgroundColor: ['#0E7C86', '#00acc1', '#8e44ec', '#f4a300', '#2E8F63', '#d81b60', '#5d4037'] }] },
       options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
@@ -4105,14 +4123,14 @@
     sdMakeChart('chartPqdFunnel', {
       type: 'bar',
       data: { labels: ['Estimated Total', 'Submitted'],
-        datasets: [{ data: [pqdTotal, pqdSubmitted], backgroundColor: ['#1a73e8', '#34a853'] }] },
+        datasets: [{ data: [pqdTotal, pqdSubmitted], backgroundColor: ['#0E7C86', '#2E8F63'] }] },
       options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
 
     var csInitial = sdGet(msRow, msIdx, 'Comparison Sheet', 'Initial');
     var csTarget = sdGet(msRow, msIdx, 'Comparison Sheet', 'Target Price');
-    var stepperColors = ['#00acc1', '#f4a300', '#34a853'];
+    var stepperColors = ['#00acc1', '#f4a300', '#2E8F63'];
     var stepperLabels = ['Initial', 'Target Price', 'Final'];
     var stepperVals = [csInitial, csTarget, csFinal];
     var stepperHtml = '';
@@ -4127,7 +4145,7 @@
       type: 'bar',
       data: { labels: ['Submittal', 'Approved', 'Code C&D', 'Under Approval'],
         datasets: [
-          { label: 'Material', backgroundColor: '#1a73e8', data: [
+          { label: 'Material', backgroundColor: '#0E7C86', data: [
               sdGet(msRow, msIdx, 'This Week Submittal', 'Main'),
               sdGet(msRow, msIdx, 'Approved This Week', 'Main'),
               sdGet(msRow, msIdx, 'Code C & D This Week', 'Main'),
@@ -4143,14 +4161,14 @@
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
 
-    sdMakeGauge('gaugeMsPlanned', sdGet(msRow, msIdx, 'Planned Submission (%)', ''), '#1a73e8');
-    sdMakeGauge('gaugeMsSubmitted', sdGet(msRow, msIdx, 'Submitted (%)', ''), '#34a853');
-    sdMakeGauge('gaugeMsApproved', sdGet(msRow, msIdx, 'Approved (%)', ''), '#1e8e3e');
-    sdMakeGauge('gaugeMsNotApproved', sdGet(msRow, msIdx, 'Not Approved & C/D (%)', ''), '#e8453c');
-    sdMakeGauge('gaugePqdPlanned', sdGet(pqdRow, pqdIdx, 'Planned Submission (%)', ''), '#1a73e8');
-    sdMakeGauge('gaugePqdSubmitted', sdGet(pqdRow, pqdIdx, 'Submitted (%)', ''), '#34a853');
-    sdMakeGauge('gaugePqdApproved', sdGet(pqdRow, pqdIdx, 'Approved (%)', ''), '#1e8e3e');
-    sdMakeGauge('gaugePqdNotApproved', sdGet(pqdRow, pqdIdx, 'Not Approved & C/D (%)', ''), '#e8453c');
+    sdMakeGauge('gaugeMsPlanned', sdGet(msRow, msIdx, 'Planned Submission (%)', ''), '#0E7C86');
+    sdMakeGauge('gaugeMsSubmitted', sdGet(msRow, msIdx, 'Submitted (%)', ''), '#2E8F63');
+    sdMakeGauge('gaugeMsApproved', sdGet(msRow, msIdx, 'Approved (%)', ''), '#2E8F63');
+    sdMakeGauge('gaugeMsNotApproved', sdGet(msRow, msIdx, 'Not Approved & C/D (%)', ''), '#A23B2E');
+    sdMakeGauge('gaugePqdPlanned', sdGet(pqdRow, pqdIdx, 'Planned Submission (%)', ''), '#0E7C86');
+    sdMakeGauge('gaugePqdSubmitted', sdGet(pqdRow, pqdIdx, 'Submitted (%)', ''), '#2E8F63');
+    sdMakeGauge('gaugePqdApproved', sdGet(pqdRow, pqdIdx, 'Approved (%)', ''), '#2E8F63');
+    sdMakeGauge('gaugePqdNotApproved', sdGet(pqdRow, pqdIdx, 'Not Approved & C/D (%)', ''), '#A23B2E');
   }
 
   function renderBuyerChart(buyerData) {
