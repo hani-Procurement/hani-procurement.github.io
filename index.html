@@ -249,14 +249,14 @@
      offsets into these variables, so the sticky columns always line up
      with the real column boundaries regardless of display scaling. The
      pixel defaults here only matter before that first measurement. */
-  #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:var(--stk-left-1,0px);z-index:7}
-  #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:var(--stk-left-2,50px);z-index:7}
-  #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:var(--stk-left-3,95px);z-index:7}
-  #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:var(--stk-left-4,375px);z-index:7}
-  #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:var(--stk-left-5,460px);z-index:7}
+  #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #headerFilterRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:var(--stk-left-1,0px);z-index:7}
+  #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #headerFilterRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:var(--stk-left-2,50px);z-index:7}
+  #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #headerFilterRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:var(--stk-left-3,95px);z-index:7}
+  #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #headerFilterRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:var(--stk-left-4,375px);z-index:7}
+  #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #headerFilterRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:var(--stk-left-5,460px);z-index:7}
   #fullTable td:nth-child(-n+5){z-index:2;background:var(--surface)}
-  #headerMainRow th:nth-child(-n+5), #headerGroupRow th:nth-child(-n+5){z-index:8}
-  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(10,30,32,0.2)}
+  #headerMainRow th:nth-child(-n+5), #headerGroupRow th:nth-child(-n+5), #headerFilterRow th:nth-child(-n+5){z-index:8}
+  #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #headerFilterRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(10,30,32,0.2)}
   /* Common-header banner row (PQD / Material Submittal group) above the
      per-column headers — purely a visual grouping. */
   .group-header-cell{background:var(--accent);border-bottom:1px solid rgba(255,255,255,0.25)}
