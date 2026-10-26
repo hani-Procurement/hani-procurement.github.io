@@ -4338,27 +4338,55 @@
   // Measures the actual rendered width of the 5 frozen columns (Actions,
   // S/N, Description, Unit, Qty) and writes their true cumulative left
   // offsets into the --stk-left-N CSS variables the sticky-column rules
-  // above read from. Needed because table-layout:fixed column widths are
-  // only a request — the browser rounds each column's real rendered width
-  // to the nearest device pixel, and on a display with OS scaling other
-  // than 100% those roundings don't add up to the hardcoded pixel values,
-  // producing a visible gap or overlap at the frozen-column boundary
-  // (worst at the Description/Unit boundary, since Description is the
-  // widest of the 5 and accumulates the most rounding error). Re-run
-  // after every full table rebuild and on resize, since the rounding
-  // depends on the current layout/zoom, not just the column definitions.
+  // above read from.
+  //
+  // The header (#fullTableHeader) and body (#fullTable) are two SEPARATE
+  // <table> elements, each with its own table-layout:fixed column-width
+  // calculation. Even though both colgroups are given the exact same
+  // requested pixel widths, the two tables round the fractional remainder
+  // (from display scaling, border-collapse:separate spacing, etc.)
+  // INDEPENDENTLY — in practice the Description column alone has been
+  // measured rendering ~20px wider in the body than in the header, despite
+  // both asking for 280px. Simply copying the header's own measured widths
+  // into the shared --stk-left-N offsets (the previous approach) only kept
+  // the header internally consistent with itself; the body table, with its
+  // own different actual widths, still overlapped/gapped at the sticky
+  // boundary — worst at Description/Unit (the widest column, so it
+  // accumulates the most rounding drift) but, depending on the display,
+  // visible at any of the 5 boundaries.
+  //
+  // The fix: measure the BODY table's actual rendered widths (that's what
+  // the person is actually reading/editing) and then explicitly re-set the
+  // HEADER colgroup's <col> widths to match those exact numbers. That
+  // forces both tables to render the frozen columns at identical pixel
+  // widths — not "hopefully the same because we asked for the same
+  // number", but actually, provably the same — so a single shared left
+  // offset is correct for both at once. Falls back to the header's own
+  // widths only on first paint, before any data row exists yet.
   function syncFullTableStickyLeft() {
     var headerRow = document.getElementById('headerMainRow');
     if (!headerRow) return;
     var ths = headerRow.children;
     if (ths.length < 5) return;
+    var bodyRow = document.querySelector('#fullTable tbody tr');
+    var bodyCells = bodyRow ? bodyRow.children : null;
     var w = [];
-    for (var i = 0; i < 5; i++) w.push(ths[i].getBoundingClientRect().width);
+    for (var i = 0; i < 5; i++) {
+      var fromBody = bodyCells && bodyCells[i] ? bodyCells[i].getBoundingClientRect().width : 0;
+      w.push(fromBody > 0 ? fromBody : ths[i].getBoundingClientRect().width);
+    }
+    // Force the header's own columns to the same widths so it can never
+    // drift from the body again, regardless of how each table's own
+    // fixed-layout rounding would otherwise have come out.
+    var headerColgroup = document.getElementById('headerColgroup');
+    if (headerColgroup && headerColgroup.children.length >= 5) {
+      for (var j = 0; j < 5; j++) headerColgroup.children[j].style.width = w[j] + 'px';
+    }
     var root = document.documentElement.style;
     var left = 0;
-    for (var i = 0; i < 5; i++) {
-      root.setProperty('--stk-left-' + (i + 1), left + 'px');
-      left += w[i];
+    for (var i2 = 0; i2 < 5; i2++) {
+      root.setProperty('--stk-left-' + (i2 + 1), left + 'px');
+      left += w[i2];
     }
   }
   window.syncFullTableStickyLeft = syncFullTableStickyLeft;
