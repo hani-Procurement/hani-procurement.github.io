@@ -239,12 +239,27 @@
   #fullTable tbody tr.deleted-row, #fullTable tbody tr.deleted-row:nth-child(even){background:#6B2A2A;color:#f1f1f1}
   #fullTable tbody tr.deleted-row td.sn-cell, #fullTable tbody tr.deleted-row:nth-child(even) td.sn-cell{background:#6B2A2A;color:#f1f1f1}
   #fullTable tbody tr.deleted-row td{color:#f1f1f1}
-  /* Frozen columns: Actions, S/N, Description, Unit, Qty */
-  #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
-  #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
-  #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:95px;z-index:7}
-  #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:375px;z-index:7}
-  #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:460px;z-index:7}
+  /* Frozen columns: Actions, S/N, Description, Unit, Qty.
+     The left offsets below are CSS custom properties, not hardcoded
+     pixels: on a display with OS-level scaling other than 100% (common
+     on laptops), the browser rounds each column's actual rendered width
+     down by a fraction of a pixel, and those fractions accumulate across
+     columns. A hardcoded left (e.g. 375px, assuming Description is
+     exactly 280px wide) then no longer matches Description's true
+     rendered right edge once that rounding adds up, leaving a visible
+     gap — or, conversely, letting a later non-sticky column's real
+     position creep left of where a sticky column's hardcoded offset
+     assumes, causing overlap. syncFullTableStickyLeft() (JS, after
+     every table render and on resize) measures the actual rendered
+     width of each of these 5 columns and writes the correct cumulative
+     offsets into these variables, so the sticky columns always line up
+     with the real column boundaries regardless of display scaling. The
+     pixel defaults here only matter before that first measurement. */
+  #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:var(--stk-left-1,0px);z-index:7}
+  #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:var(--stk-left-2,50px);z-index:7}
+  #headerMainRow th:nth-child(3), #headerGroupRow th:nth-child(3), #fullTable td:nth-child(3){position:sticky;left:var(--stk-left-3,95px);z-index:7}
+  #headerMainRow th:nth-child(4), #headerGroupRow th:nth-child(4), #fullTable td:nth-child(4){position:sticky;left:var(--stk-left-4,375px);z-index:7}
+  #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5), #fullTable td:nth-child(5){position:sticky;left:var(--stk-left-5,460px);z-index:7}
   #fullTable td:nth-child(-n+5){z-index:2;background:var(--surface)}
   #headerMainRow th:nth-child(-n+5), #headerGroupRow th:nth-child(-n+5){z-index:8}
   #fullTable td:nth-child(5), #headerMainRow th:nth-child(5), #headerGroupRow th:nth-child(5){box-shadow:3px 0 5px -2px rgba(10,30,32,0.2)}
@@ -2762,6 +2777,10 @@
     // for the other two it mirrors the shared selector directly.
     updateDisciplineBoxFromSelection(currentGlobalSelection);
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
+    // Re-measure the frozen-column offsets now that the view is actually
+    // visible (display:none elements report 0 width, so this must run
+    // after the view switch, not only right after the table is built).
+    if (window.syncFullTableStickyLeft) requestAnimationFrame(window.syncFullTableStickyLeft);
   }
 
   /* ===================== PROJECT HEADER BAR (Lists!E2:E4) =====================
@@ -2821,7 +2840,7 @@
     { col: COL.LLI,  label: 'LLI',                         width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.RFQ,  label: 'RFQ (Send)',                  width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.QUOT, label: 'Quotations (Received)',       width: 74,  type: 'select', opts: 'yesno' },
-    { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 70,  type: 'select', opts: 'csStatus' },
+    { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 130,  type: 'select', opts: 'csStatus' },
     // group: 'pqd'/'ms' ties these columns together under one common header
     // banner (see buildTableStructure's group row) — purely a display label,
     // doesn't change how any of them are read, written or filtered.
@@ -3024,6 +3043,7 @@
     thead.appendChild(filterRow);
     applyRowFilters();
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
+    if (window.syncFullTableStickyLeft) requestAnimationFrame(window.syncFullTableStickyLeft);
   }
 
   function applyRowFilters() {
@@ -4264,6 +4284,37 @@
     window.addEventListener('resize', syncFullTableHeaderStickyTop);
     window.syncFullTableHeaderStickyTop = syncFullTableHeaderStickyTop;
   })();
+
+  // Measures the actual rendered width of the 5 frozen columns (Actions,
+  // S/N, Description, Unit, Qty) and writes their true cumulative left
+  // offsets into the --stk-left-N CSS variables the sticky-column rules
+  // above read from. Needed because table-layout:fixed column widths are
+  // only a request — the browser rounds each column's real rendered width
+  // to the nearest device pixel, and on a display with OS scaling other
+  // than 100% those roundings don't add up to the hardcoded pixel values,
+  // producing a visible gap or overlap at the frozen-column boundary
+  // (worst at the Description/Unit boundary, since Description is the
+  // widest of the 5 and accumulates the most rounding error). Re-run
+  // after every full table rebuild and on resize, since the rounding
+  // depends on the current layout/zoom, not just the column definitions.
+  function syncFullTableStickyLeft() {
+    var headerRow = document.getElementById('headerMainRow');
+    if (!headerRow) return;
+    var ths = headerRow.children;
+    if (ths.length < 5) return;
+    var w = [];
+    for (var i = 0; i < 5; i++) w.push(ths[i].getBoundingClientRect().width);
+    var root = document.documentElement.style;
+    var left = 0;
+    for (var i = 0; i < 5; i++) {
+      root.setProperty('--stk-left-' + (i + 1), left + 'px');
+      left += w[i];
+    }
+  }
+  window.syncFullTableStickyLeft = syncFullTableStickyLeft;
+  window.addEventListener('resize', function() {
+    requestAnimationFrame(syncFullTableStickyLeft);
+  });
 
   /* ===================== MATERIAL SUBMITTAL STATUS / PQD STATUS =====================
      Fully ported client-side from Code.gs's computeTrackStats/buildMSRow/
