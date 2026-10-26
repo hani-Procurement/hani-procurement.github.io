@@ -4225,20 +4225,41 @@
     // scroll range — even though the body kept scrolling further. Matching
     // proportions instead means every element reaches its own 100% only
     // when the source is also at its own 100%, so the thumb always tracks.
-    let syncing = false;
+    //
+    // A plain re-entrancy flag ("syncing") does NOT actually prevent a
+    // feedback loop here: browsers dispatch 'scroll' asynchronously (on a
+    // later frame, never synchronously inside the code that set
+    // .scrollLeft), so the flag is already back to false again by the time
+    // the echo fires. The echo then runs syncFrom() a second time from a
+    // SLIGHTLY different source (topScroll and bodyWrap don't share the
+    // exact same max, so the two scrollLeft values this produces are
+    // rarely bit-identical even for the same ratio), which can set the
+    // other element's scrollLeft again, which echoes back again — a slow
+    // ping-pong that, during continuous dragging, shows up as the columns
+    // visibly jittering/drifting sideways instead of tracking the drag
+    // smoothly. Tracking the last value WE set on each element and
+    // ignoring a 'scroll' event that merely reports that same value (an
+    // echo of our own write, not a real user scroll) closes that loop for
+    // good, regardless of event timing.
+    var lastSyncedLeft = new Map();
     function syncFrom(source, targets) {
-      if (syncing) return;
-      syncing = true;
       var srcMax = source.scrollWidth - source.clientWidth;
       var ratio = srcMax > 0 ? source.scrollLeft / srcMax : 0;
       targets.forEach(function(el) {
         var max = el.scrollWidth - el.clientWidth;
-        el.scrollLeft = max > 0 ? Math.round(ratio * max) : 0;
+        var val = max > 0 ? Math.round(ratio * max) : 0;
+        lastSyncedLeft.set(el, val);
+        if (el.scrollLeft !== val) el.scrollLeft = val;
       });
-      syncing = false;
     }
-    bodyWrap.addEventListener('scroll', function() { syncFrom(bodyWrap, [headerWrap, topScroll]); });
-    topScroll.addEventListener('scroll', function() { syncFrom(topScroll, [headerWrap, bodyWrap]); });
+    bodyWrap.addEventListener('scroll', function() {
+      if (lastSyncedLeft.get(bodyWrap) === bodyWrap.scrollLeft) return;
+      syncFrom(bodyWrap, [headerWrap, topScroll]);
+    });
+    topScroll.addEventListener('scroll', function() {
+      if (lastSyncedLeft.get(topScroll) === topScroll.scrollLeft) return;
+      syncFrom(topScroll, [headerWrap, bodyWrap]);
+    });
 
     function measureScrollbarWidth() {
       const outer = document.createElement('div');
