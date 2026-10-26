@@ -211,11 +211,17 @@
   .table-outer{background:var(--surface);border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow);margin:0 0 16px}
   .table-header-wrap{overflow:hidden;border-bottom:2px solid var(--accent);position:sticky;z-index:39;background:var(--surface)}
   .table-body-wrap{overflow-x:hidden;overflow-y:scroll;max-height:72vh;touch-action:pan-y}
-  .table-top-scroll-wrap{position:relative}
+  .table-top-scroll-wrap{position:sticky;z-index:38;background:var(--surface)}
   .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid var(--border)}
   .table-top-scroll div{height:1px}
   .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
-  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
+  /* background matches the cell border color so any sub-pixel rounding gap
+     between adjacent cells (common on laptop displays with OS-level scaling
+     other than 100%) shows as the border color instead of a visible white
+     seam — border-collapse:separate is required for the sticky/frozen
+     columns below to work, so the gap itself can't be fully eliminated,
+     only hidden. */
+  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans);background:var(--border)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#F7FAFA}
@@ -226,6 +232,13 @@
   #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#3F4A4C;color:#f1f1f1}
   #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#3F4A4C;color:#f1f1f1}
   #fullTable tbody tr.closed-row td{color:#f1f1f1}
+  /* "Delete" Action By — same full row-lock as Closed, deliberately a
+     different (dark brick-red) color so it reads as "removed with intent"
+     at a glance, distinct from the plain slate-grey Closed row. Row stays
+     fully visible either way, same as Closed — never hidden/removed. */
+  #fullTable tbody tr.deleted-row, #fullTable tbody tr.deleted-row:nth-child(even){background:#6B2A2A;color:#f1f1f1}
+  #fullTable tbody tr.deleted-row td.sn-cell, #fullTable tbody tr.deleted-row:nth-child(even) td.sn-cell{background:#6B2A2A;color:#f1f1f1}
+  #fullTable tbody tr.deleted-row td{color:#f1f1f1}
   /* Frozen columns: Actions, S/N, Description, Unit, Qty */
   #headerMainRow th:nth-child(1), #headerGroupRow th:nth-child(1), #fullTable td:nth-child(1){position:sticky;left:0;z-index:7}
   #headerMainRow th:nth-child(2), #headerGroupRow th:nth-child(2), #fullTable td:nth-child(2){position:sticky;left:50px;z-index:7}
@@ -244,6 +257,7 @@
   #fullTable tbody tr.package-row td:nth-child(-n+5){background:#FBEEDD}
   #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#F7E4C9}
   #fullTable tbody tr.closed-row td:nth-child(-n+5), #fullTable tbody tr.closed-row:nth-child(even) td:nth-child(-n+5){background:#3F4A4C}
+  #fullTable tbody tr.deleted-row td:nth-child(-n+5), #fullTable tbody tr.deleted-row:nth-child(even) td:nth-child(-n+5){background:#6B2A2A}
   .po-supplier-wrap{display:flex;flex-direction:column;gap:1px}
   .po-supplier-wrap input{text-align:center}
   .po-number-input{font-weight:600}
@@ -273,6 +287,10 @@
      "needs attention" rather than an error state. */
   .overdue-cell{background:var(--warn-bg) !important}
   .overdue-cell input{background:transparent}
+  /* Planned Submission Date approaching (within 2 weeks, not yet overdue) —
+     a lighter orange warning tier, one step before overdue-cell's red. */
+  .due-soon-cell{background:#FDEEDD !important}
+  .due-soon-cell input{background:transparent}
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
   #loadingMsg{padding:30px;text-align:center;color:var(--text-soft)}
 
@@ -923,6 +941,14 @@
     if (currentUserPerms.isAdmin) return true;
     if (flag === 'isAdmin' || flag === 'canAccessControlPanel') return !!currentUserPerms[flag];
     var t = currentUserTablePerms[SHEET_NAME];
+    return !!(t && t[flag]);
+  }
+  // Same check as perm(), but against an arbitrary table rather than the
+  // currently active one — needed to check "can add" on a MOVE's
+  // destination table, which is never the active SHEET_NAME.
+  function permForTable(flag, sheetName) {
+    if (currentUserPerms.isAdmin) return true;
+    var t = currentUserTablePerms[sheetName];
     return !!(t && t[flag]);
   }
 
@@ -2095,7 +2121,7 @@
   async function seedListsSheet(ssId) {
     try {
       await sheetsUpdateValues(ssId, a1Range(LISTS_SHEET_NAME, 1, 2, 1, 2), [['-']]);
-      const actionByFallback = ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed'];
+      const actionByFallback = ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed','Delete'];
       await sheetsUpdateValues(ssId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 2 + actionByFallback.length - 1),
         actionByFallback.map(function(v) { return [v]; }), 'RAW');
     } catch (e) { console.warn('Seeding Lists sheet failed (non-fatal): ', e); }
@@ -2716,14 +2742,14 @@
     document.querySelectorAll('nav.main-nav button').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
     document.getElementById('fullTableToolbar').style.display = (name === 'fulltable') ? 'flex' : 'none';
+    // Rebuild the shared selector's option list for whichever view just
+    // became active — Full Table has no "Overall" entry at all (there's no
+    // single sheet that merges every table), every other view keeps it.
+    // This also resolves currentGlobalSelection away from 'overall'
+    // automatically when it's no longer a valid choice (entering Full
+    // Table while 'overall' was selected elsewhere).
+    renderGlobalTableSelect();
     if (name === 'fulltable') {
-      // Full Table has no "Overall" concept (there is no single sheet that
-      // merges every table), so resolve 'overall' down to a real table, then
-      // make sure the table actually open matches the shared selector.
-      if (currentGlobalSelection === 'overall') {
-        currentGlobalSelection = BOQ_TABLES.length ? '0' : 'overall';
-        renderGlobalTableSelect();
-      }
       if (currentGlobalSelection !== 'overall' && parseInt(currentGlobalSelection, 10) !== currentTableIndex) {
         switchBoqTable(currentGlobalSelection);
       }
@@ -2781,7 +2807,7 @@
     pqdCode: ['','A','B','C','D','W/Client'],
     csStatus: ['-','Initial','Target Price','Final & Approved'],
     names: [],      // populated from Lists!A2:A100 (File With)
-    actionBy: ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed']
+    actionBy: ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed','Delete']
   };
 
   const COLS = [
@@ -2790,16 +2816,16 @@
     { col: COL.UNIT,  label: 'Unit',                        width: 85,  type: 'select', opts: 'units' },
     { col: COL.QTY,  label: 'Estimated QTY',               width: 90,  type: 'number' },
     { col: COL.FILEWITH,  label: 'File With',                   width: 110,  type: 'select', opts: 'names' },
-    { col: COL.MAINALT,  label: 'Main OR Alt. File',            width: 50,  type: 'select', opts: 'mainAlt' },
+    { col: COL.MAINALT,  label: 'Main OR Alt. File',            width: 68,  type: 'select', opts: 'mainAlt' },
     { col: COL.PRIORITY,  label: 'Priority',                    width: 55,  type: 'select', opts: 'priority' },
-    { col: COL.LLI,  label: 'LLI',                         width: 62,  type: 'select', opts: 'yesno' },
-    { col: COL.RFQ,  label: 'RFQ (Send)',                  width: 62,  type: 'select', opts: 'yesno' },
-    { col: COL.QUOT, label: 'Quotations (Received)',       width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.LLI,  label: 'LLI',                         width: 74,  type: 'select', opts: 'yesno' },
+    { col: COL.RFQ,  label: 'RFQ (Send)',                  width: 74,  type: 'select', opts: 'yesno' },
+    { col: COL.QUOT, label: 'Quotations (Received)',       width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.CS_STATUS, label: 'Comp. Sheet Status',          width: 70,  type: 'select', opts: 'csStatus' },
     // group: 'pqd'/'ms' ties these columns together under one common header
     // banner (see buildTableStructure's group row) — purely a display label,
     // doesn't change how any of them are read, written or filtered.
-    { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 62,  type: 'select', opts: 'yesno', group: 'pqd' },
+    { col: COL.PQD_SUB, label: 'PQD Submitted',               width: 74,  type: 'select', opts: 'yesno', group: 'pqd' },
     { col: COL.PQD_SUBDATE, label: 'PQD Submitted Date',        width: 90,  type: 'readonly', group: 'pqd' },
     { col: COL.PQD_PLANNED_DATE, label: 'PQD Planned Submission Date', width: 125, type: 'date', group: 'pqd' },
     // The number itself is never shown directly in the table — only a dot
@@ -2809,14 +2835,14 @@
     { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot', group: 'pqd' },
     { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode', group: 'pqd' },
     { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly', group: 'pqd' },
-    { col: COL.MS_SUB, label: 'M/S Submitted',                width: 62,  type: 'select', opts: 'yesno', group: 'ms' },
+    { col: COL.MS_SUB, label: 'M/S Submitted',                width: 74,  type: 'select', opts: 'yesno', group: 'ms' },
     { col: COL.MS_SUBDATE, label: 'M/S Submitted Date',         width: 90,  type: 'readonly', group: 'ms' },
     { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date', group: 'ms' },
     { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot', group: 'ms' },
     { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code', group: 'ms' },
     { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly', group: 'ms' },
-    { col: COL.PR, label: 'PR',                          width: 55,  type: 'select', opts: 'yesno' },
-    { col: COL.PO1, label: 'PO (Issued)',                 width: 62,  type: 'select', opts: 'yesno' },
+    { col: COL.PR, label: 'PR',                          width: 74,  type: 'select', opts: 'yesno' },
+    { col: COL.PO1, label: 'PO (Issued)',                 width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.PO2, label: 'PO Number / Supplier Name',   width: 130, type: 'posupplier' },
     { col: COL.REMARKS, label: 'REMARKS',                     width: 240, type: 'remarks' },
     { col: COL.ACTIONBY, label: 'Action By',                 width: 100, type: 'select', opts: 'actionBy' },
@@ -2836,7 +2862,8 @@
       const abRaw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
       const ab = abRaw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
       if (ab.length) {
-        if (ab.indexOf('Closed') === -1) ab.push('Closed');
+        if (ab.indexOf(ACTIONBY_CLOSED_VALUE) === -1) ab.push(ACTIONBY_CLOSED_VALUE);
+        if (ab.indexOf(ACTIONBY_DELETE_VALUE) === -1) ab.push(ACTIONBY_DELETE_VALUE);
         OPTION_LISTS.actionBy = ab;
       }
     } catch (e) { console.warn('Could not load Action By list: ', e); }
@@ -2860,6 +2887,11 @@
     try { localStorage.setItem(FILTER_PREFS_KEY, JSON.stringify(filterValues)); } catch (e) { /* non-fatal */ }
   }
   var filterValues = loadFilterPrefs();
+  // Sentinel stored in filterValues for a select-column filter set to the
+  // "(Blank)" option (an actual empty-string data value, e.g. PQD/M.S.
+  // Status before any code is set) — distinct from "" itself, which means
+  // "All" / no filter on that column and is never stored.
+  var FILTER_BLANK_SENTINEL = '\u0000__blank__\u0000';
 
   function clearAllFilters() {
     filterValues = {};
@@ -2946,23 +2978,52 @@
       headerMainRow.appendChild(th);
 
       var fth = document.createElement('th');
-      var finput = document.createElement('input');
-      finput.type = 'text';
-      finput.className = 'filter-input';
-      finput.placeholder = '🔍';
-      finput.value = filterValues[colDef.col] || '';
-      finput.oninput = function() {
-        var v = finput.value.trim().toLowerCase();
-        if (v) filterValues[colDef.col] = v; else delete filterValues[colDef.col];
-        saveFilterPrefs();
-        applyRowFilters();
-      };
-      fth.appendChild(finput);
+      // Select-type columns (fixed option lists: Yes/No, Main/Alt, Comp.
+      // Sheet Status, Action By, Unit, File With, etc.) get a dropdown of
+      // their real option list instead of a free-text box, so filtering is
+      // pick-one rather than type-and-hope. Description, numbers, dates,
+      // the PQD/M/S number dots, and read-only date-stamp columns keep the
+      // original substring text search — they have no fixed option list.
+      if (colDef.type === 'select') {
+        var fselect = document.createElement('select');
+        fselect.className = 'filter-input filter-select';
+        var allOpt = document.createElement('option');
+        allOpt.value = ''; allOpt.textContent = '— All —';
+        fselect.appendChild(allOpt);
+        (OPTION_LISTS[colDef.opts] || []).forEach(function(optVal) {
+          var o = document.createElement('option');
+          o.value = (optVal === '') ? FILTER_BLANK_SENTINEL : optVal;
+          o.textContent = (optVal === '') ? '(Blank)' : optVal;
+          fselect.appendChild(o);
+        });
+        fselect.value = filterValues[colDef.col] || '';
+        fselect.onchange = function() {
+          var v = fselect.value.trim().toLowerCase();
+          if (v) filterValues[colDef.col] = v; else delete filterValues[colDef.col];
+          saveFilterPrefs();
+          applyRowFilters();
+        };
+        fth.appendChild(fselect);
+      } else {
+        var finput = document.createElement('input');
+        finput.type = 'text';
+        finput.className = 'filter-input';
+        finput.placeholder = '🔍';
+        finput.value = filterValues[colDef.col] || '';
+        finput.oninput = function() {
+          var v = finput.value.trim().toLowerCase();
+          if (v) filterValues[colDef.col] = v; else delete filterValues[colDef.col];
+          saveFilterPrefs();
+          applyRowFilters();
+        };
+        fth.appendChild(finput);
+      }
       filterRow.appendChild(fth);
     });
 
     thead.appendChild(filterRow);
     applyRowFilters();
+    if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
   }
 
   function applyRowFilters() {
@@ -2979,7 +3040,16 @@
         for (var i = 0; i < activeCols.length; i++) {
           var col = parseInt(activeCols[i], 10);
           var val = String(rowObj.values[col - 1] == null ? '' : rowObj.values[col - 1]).toLowerCase();
-          if (val.indexOf(filterValues[col]) === -1) { visible = false; break; }
+          var want = filterValues[col];
+          // Dropdown (select-type) filters pick one exact value, so match
+          // exactly rather than by substring — the blank sentinel means
+          // "cell is empty", never "contains nothing" (which would match
+          // every row). Text filters keep the original substring search.
+          var colDef = COLS.find(function(c) { return c.col === col; });
+          var matches = (colDef && colDef.type === 'select')
+            ? (want === FILTER_BLANK_SENTINEL ? val === '' : val === want)
+            : (val.indexOf(want) !== -1);
+          if (!matches) { visible = false; break; }
         }
       }
       tr.style.display = visible ? '' : 'none';
@@ -2992,8 +3062,8 @@
   // Used both to render the Full Table and, fresh, by every row-management
   // action below, so add/move/paste positions are never computed from a
   // possibly-stale in-memory cache.
-  async function fetchFilledRows() {
-    const raw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
+  async function fetchFilledRowsForSheet(sheetName) {
+    const raw = await sheetsGetValues(spreadsheetId, a1Range(sheetName, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
     const rows = [];
     raw.forEach(function(r, i) {
       var values = r.slice();
@@ -3004,6 +3074,7 @@
     });
     return rows;
   }
+  async function fetchFilledRows() { return fetchFilledRowsForSheet(SHEET_NAME); }
 
   async function loadFullTable() {
     document.getElementById('loadingMsg').classList.remove('hidden');
@@ -3099,8 +3170,17 @@
       tr.setAttribute('data-row', r.row);
       const isPackage = r.values[COL.ROWTYPE - 1] === 'Package';
       if (isPackage) tr.classList.add('package-row');
-      const isClosed = r.values[COL.ACTIONBY - 1] === 'Closed';
-      if (isClosed) tr.classList.add('closed-row');
+      // "Closed" and "Delete" both fully lock the row (read-only everywhere
+      // except Action By itself, same as before) — isClosed keeps its name
+      // since that's what every downstream read-only check already keys
+      // off, but now means "locked", not literally "Closed". Delete gets
+      // its own CSS class so it's visually distinct (a deliberate "closed
+      // with intent" color, not the plain Closed grey) while the row stays
+      // fully visible either way — never hidden or removed from the table.
+      const actionByVal = r.values[COL.ACTIONBY - 1];
+      const isClosed = actionByVal === ACTIONBY_CLOSED_VALUE || actionByVal === ACTIONBY_DELETE_VALUE;
+      if (actionByVal === ACTIONBY_CLOSED_VALUE) tr.classList.add('closed-row');
+      else if (actionByVal === ACTIONBY_DELETE_VALUE) tr.classList.add('deleted-row');
 
       tr.appendChild(buildActionsCell(r.row, index, rows.length));
       COLS.forEach(function(colDef) {
@@ -3129,9 +3209,10 @@
     return '=IF(OR(TRIM($B' + row + ')="",$' + pkgCol + row + '="Package"),"",SUMPRODUCT((TRIM($B$' +
       FIRST_DATA_ROW + ':$B' + row + ')<>"")*($' + pkgCol + '$' + FIRST_DATA_ROW + ':$' + pkgCol + row + '<>"Package")))';
   }
-  async function setSnFormula(row) {
-    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.SN, row, COL.SN, row), [[snFormulaFor(row)]], 'USER_ENTERED');
+  async function setSnFormulaInSheet(sheetName, row) {
+    await sheetsUpdateValues(spreadsheetId, a1Range(sheetName, COL.SN, row, COL.SN, row), [[snFormulaFor(row)]], 'USER_ENTERED');
   }
+  async function setSnFormula(row) { return setSnFormulaInSheet(SHEET_NAME, row); }
 
   // Same capitalization rule as Code.gs's autoCapitalizeDescription(): only a
   // fully-lowercase word gets its first letter capitalized — any word with an
@@ -3173,25 +3254,33 @@
   // `rowValues` (27 B..AB values) is used for a paste; `newItemData` for a
   // brand-new item/package. Always re-fetches the filled-row list fresh so a
   // move (which first deletes the source row) never works off stale positions.
-  async function insertRowAtPosition(position, rowValues, newItemData) {
-    const filled = await fetchFilledRows();
+  // General form: inserts into an arbitrary table (sheetName/sheetId), not
+  // necessarily the one currently open in Full Table — used by the
+  // cross-table "move to another table" action below. insertRowAtPosition()
+  // (the original, table-implicit form every other call site already uses)
+  // is now a thin wrapper over this with the active table's own values.
+  async function insertRowAtPositionInTable(sheetName, sheetId, position, rowValues, newItemData) {
+    const filled = await fetchFilledRowsForSheet(sheetName);
     position = position ? parseInt(position, 10) : null;
     var targetRow;
     if (!position || position > filled.length) {
       targetRow = filled.length ? filled[filled.length - 1].row + 1 : FIRST_DATA_ROW;
       if (targetRow > LAST_DATA_ROW) throw new Error('No available empty row left.');
-      const cur = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, COL.DESC, targetRow, COL.DESC, targetRow));
+      const cur = await sheetsGetValues(spreadsheetId, a1Range(sheetName, COL.DESC, targetRow, COL.DESC, targetRow));
       if (cur.length && String(cur[0][0] || '').trim() !== '') {
-        await sheetsInsertRow(spreadsheetId, boqSheetId, targetRow);
+        await sheetsInsertRow(spreadsheetId, sheetId, targetRow);
       }
     } else {
       targetRow = filled[position - 1].row;
-      await sheetsInsertRow(spreadsheetId, boqSheetId, targetRow);
+      await sheetsInsertRow(spreadsheetId, sheetId, targetRow);
     }
-    await setSnFormula(targetRow);
+    await setSnFormulaInSheet(sheetName, targetRow);
     const values = rowValues || buildNewItemRowValues(newItemData, newItemData.type === 'package');
-    await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, targetRow, LAST_DATA_COL, targetRow), [values], 'RAW');
+    await sheetsUpdateValues(spreadsheetId, a1Range(sheetName, 2, targetRow, LAST_DATA_COL, targetRow), [values], 'RAW');
     return targetRow;
+  }
+  async function insertRowAtPosition(position, rowValues, newItemData) {
+    return insertRowAtPositionInTable(SHEET_NAME, boqSheetId, position, rowValues, newItemData);
   }
 
   // Centralized row-operation authorization gate. Every row-mutating entry
@@ -3266,6 +3355,103 @@
     }, 'Move item');
   }
 
+  // Moves one row from the currently active table into a DIFFERENT BOQ
+  // table (discipline) entirely — e.g. Mechanical -> Electrical. Requires
+  // canMove on the source table (checked by assertRowPerm, same as every
+  // other move/cut/paste) AND canAdd on the destination table specifically
+  // (an admin always qualifies for both). Same snapshot-before-delete +
+  // one-compensating-recovery-on-failure pattern as moveItemDir() above —
+  // the row always ends up either in the destination or back in its
+  // original source position, never silently gone.
+  function showMoveToTableModal(row) {
+    if (!assertRowPerm('canMove', 'move items')) return;
+    if (BOQ_TABLES.length < 2) { alert('There is only one table in this project — nothing to move this item to.'); return; }
+    var destChoices = BOQ_TABLES
+      .map(function(t, i) { return { idx: i, label: t.label, sheetName: t.sheetName }; })
+      .filter(function(c) { return c.idx !== currentTableIndex; })
+      .filter(function(c) { return permForTable('canAdd', c.sheetName); });
+    if (!destChoices.length) {
+      alert('You don\'t have "Add" permission on any other table in this project, so there\'s nowhere this item could be moved to — ask your Admin to enable it from the Control Panel.');
+      return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    var box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.width = '380px';
+
+    var h3 = document.createElement('h3'); h3.textContent = 'Move item to another table';
+    box.appendChild(h3);
+    var p = document.createElement('p');
+    p.style.fontSize = '13px'; p.style.margin = '6px 0 12px';
+    p.textContent = 'Removes this item from "' + (BOQ_TABLES[currentTableIndex] ? BOQ_TABLES[currentTableIndex].label : SHEET_NAME) +
+      '" and adds it to the end of the table you pick below. This cannot be undone automatically.';
+    box.appendChild(p);
+
+    var sel = document.createElement('select');
+    sel.style.width = '100%'; sel.style.marginBottom = '12px';
+    destChoices.forEach(function(c) {
+      var o = document.createElement('option'); o.value = String(c.idx); o.textContent = c.label;
+      sel.appendChild(o);
+    });
+    box.appendChild(sel);
+
+    var actions = document.createElement('div'); actions.className = 'modal-actions';
+    var cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Cancel';
+    var confirmBtn = document.createElement('button'); confirmBtn.className = 'primary'; confirmBtn.textContent = 'Move';
+    actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+    box.appendChild(actions);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    function close() { document.body.removeChild(overlay); }
+    cancelBtn.onclick = close;
+    overlay.addEventListener('click', function(ev) { if (ev.target === overlay) close(); });
+    confirmBtn.onclick = function() {
+      var destIdx = parseInt(sel.value, 10);
+      close();
+      moveItemToTable(row, destIdx);
+    };
+  }
+
+  async function moveItemToTable(row, destIdx) {
+    if (!assertRowPerm('canMove', 'move items')) return;
+    var destTable = BOQ_TABLES[destIdx];
+    if (!destTable) return;
+    if (!permForTable('canAdd', destTable.sheetName)) {
+      alert('You don\'t have "Add" permission on "' + destTable.label + '" — ask your Admin to enable it from the Control Panel.');
+      return;
+    }
+    var idx = lastLoadedRows.findIndex(function(r) { return r.row === row; });
+    if (idx === -1) return;
+    var currentPos = idx + 1;
+    var sourceSheetName = SHEET_NAME, sourceSheetId = boqSheetId;
+    var destSheetId = boqSheetIds[destIdx];
+    await withRowOpLock(async function() {
+      var values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
+      await sheetsDeleteRow(spreadsheetId, sourceSheetId, row);
+      try {
+        await insertRowAtPositionInTable(destTable.sheetName, destSheetId, null, values, null);
+        await refreshEverything();
+      } catch (e) {
+        // Destination write failed after the source delete already
+        // succeeded — same compensating recovery as moveItemDir(): put it
+        // straight back in the source table at roughly its original spot.
+        try {
+          await insertRowAtPositionInTable(sourceSheetName, sourceSheetId, currentPos, values, null);
+          await refreshEverything();
+          alert('Move to "' + destTable.label + '" failed (' + (e.message || e) + ') — the item was put back in its original table. Nothing was lost.');
+        } catch (e2) {
+          console.error('Cross-table move recovery also failed: ', e2);
+          alert('Move to "' + destTable.label + '" failed (' + (e.message || e) + '), AND the automatic recovery also failed (' + (e2.message || e2) + '). ' +
+            'The item may now be missing from both tables. Its data was: ' + JSON.stringify(values) + ' — please add it back manually or contact support before doing anything else on this project.');
+        }
+        throw e;
+      }
+    }, 'Move item to another table');
+  }
+
   // Clipboard lives only in this browser tab's memory (not on the server), so
   // it does not persist across a reload and is not shared between viewers.
   var rowClipboard = null; // { mode: 'copy'|'cut', values: [27 cols, B..AB] }
@@ -3336,8 +3522,10 @@
     cutBtn.disabled = !canMove; cutBtn.onclick = function() { cutRow(row); };
     var pasteBtn = document.createElement('button'); pasteBtn.title = 'Paste after this item'; pasteBtn.textContent = '📥';
     pasteBtn.disabled = !canMove; pasteBtn.onclick = function() { pasteRow(row); };
+    var moveTableBtn = document.createElement('button'); moveTableBtn.title = 'Move to another table'; moveTableBtn.textContent = '🔀';
+    moveTableBtn.disabled = !canMove || BOQ_TABLES.length < 2; moveTableBtn.onclick = function() { showMoveToTableModal(row); };
 
-    [upBtn, downBtn, delBtn, copyBtn, cutBtn, pasteBtn].forEach(function(b) { wrap.appendChild(b); });
+    [upBtn, downBtn, delBtn, copyBtn, cutBtn, pasteBtn, moveTableBtn].forEach(function(b) { wrap.appendChild(b); });
     td.appendChild(wrap);
     return td;
   }
@@ -3540,6 +3728,27 @@
     if (rowObj) rowObj.values[col - 1] = value;
   }
 
+  // Re-evaluates the overdue/due-soon color on a row's PQD or M/S Planned
+  // Submission Date cell right after its Submitted (Yes/No) flag changes —
+  // without this, the color would only catch up the next time the whole
+  // table re-renders, instead of disappearing (or reappearing) immediately.
+  // subCol is COL.PQD_SUB or COL.MS_SUB; isDueByToday/isDueSoon are defined
+  // further down the file but, as function declarations, are hoisted, so
+  // calling them here (textually earlier) is safe.
+  function refreshPlannedDateColor(row, subCol) {
+    var plannedCol = subCol === COL.PQD_SUB ? COL.PQD_PLANNED_DATE : COL.MS_PLANNED_DATE;
+    var cell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + plannedCol + '"]');
+    if (!cell) return;
+    cell.classList.remove('overdue-cell', 'due-soon-cell');
+    var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (!rowObj) return;
+    var isSubmitted = rowObj.values[subCol - 1] === 'Yes';
+    if (isSubmitted) return;
+    var plannedVal = rowObj.values[plannedCol - 1];
+    if (isDueByToday(plannedVal)) cell.classList.add('overdue-cell');
+    else if (isDueSoon(plannedVal)) cell.classList.add('due-soon-cell');
+  }
+
   /* Writes a single BOQ Database cell, replicating the handful of write-time
      side effects the original updateCell() in Code.gs applies: Action By ->
      also stamps Date Stamp and reloads the row set (its lock state changes);
@@ -3646,14 +3855,16 @@
         if (dateCell) dateCell.textContent = stamp;
       }
       // PQD Submitted Date: stamped with today's date the moment Submitted
-      // is set to "Yes" — not touched on any other change (including being
-      // set back to "No"), so it stays a record of when it first went out.
-      if (col === COL.PQD_SUB && value === 'Yes') {
-        const subStamp = todayStamp(false);
+      // is set to "Yes"; cleared back to blank the moment it's set to "No"
+      // — the date always reflects the current Yes/No state, never a
+      // leftover record of a past submission.
+      if (col === COL.PQD_SUB && (value === 'Yes' || value === 'No')) {
+        const subStamp = value === 'Yes' ? todayStamp(false) : '';
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_SUBDATE, row, COL.PQD_SUBDATE, row), [[subStamp]]);
         updateLocalValue(row, COL.PQD_SUBDATE, subStamp);
         const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_SUBDATE + '"]');
         if (subDateCell) subDateCell.textContent = subStamp;
+        refreshPlannedDateColor(row, COL.PQD_SUB);
       }
       if (col === COL.MS_SUB || col === COL.MS_CODE) {
         const stamp = todayStamp(false);
@@ -3662,13 +3873,14 @@
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
         if (dateCell) dateCell.textContent = stamp;
       }
-      // Same idea for Material Submittal.
-      if (col === COL.MS_SUB && value === 'Yes') {
-        const subStamp = todayStamp(false);
+      // Same idea for Material Submittal: cleared back to blank on "No".
+      if (col === COL.MS_SUB && (value === 'Yes' || value === 'No')) {
+        const subStamp = value === 'Yes' ? todayStamp(false) : '';
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_SUBDATE, row, COL.MS_SUBDATE, row), [[subStamp]]);
         updateLocalValue(row, COL.MS_SUBDATE, subStamp);
         const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_SUBDATE + '"]');
         if (subDateCell) subDateCell.textContent = subStamp;
+        refreshPlannedDateColor(row, COL.MS_SUB);
       }
       if (td) flash(td);
       if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT || col === COL.FILEWITH) {
@@ -3710,7 +3922,14 @@
     if (!isPackage && !isClosed && rowValues && (colDef.col === COL.PQD_PLANNED_DATE || colDef.col === COL.MS_PLANNED_DATE)) {
       var subCol = colDef.col === COL.PQD_PLANNED_DATE ? COL.PQD_SUB : COL.MS_SUB;
       var isSubmitted = rowValues[subCol - 1] === 'Yes';
-      if (!isSubmitted && isDueByToday(value)) td.classList.add('overdue-cell');
+      // Red once the date has arrived/passed, orange while it's within the
+      // next 2 weeks, uncolored otherwise — and none of this applies once
+      // Submitted is "Yes" (the date reverts to plain/uncolored the moment
+      // that flips, regardless of what the date itself says).
+      if (!isSubmitted) {
+        if (isDueByToday(value)) td.classList.add('overdue-cell');
+        else if (isDueSoon(value)) td.classList.add('due-soon-cell');
+      }
     }
 
     if (colDef.type === 'numdot') {
@@ -4029,8 +4248,18 @@
   (function() {
     const appHeader = document.querySelector('.app-header-sticky');
     const headerWrap = document.getElementById('tableHeaderWrap');
+    const topScrollWrap = document.querySelector('.table-top-scroll-wrap');
     if (!appHeader || !headerWrap) return;
-    function syncFullTableHeaderStickyTop() { headerWrap.style.top = appHeader.offsetHeight + 'px'; }
+    // The horizontal scrollbar strip sits directly under the column header,
+    // so it needs to stick right below it (not just under the app header) —
+    // otherwise, on a long table, it scrolls out of view with the page
+    // while the sticky column header stays, leaving no way to scroll
+    // horizontally without first scrolling all the way back up.
+    function syncFullTableHeaderStickyTop() {
+      var appH = appHeader.offsetHeight;
+      headerWrap.style.top = appH + 'px';
+      if (topScrollWrap) topScrollWrap.style.top = (appH + headerWrap.offsetHeight) + 'px';
+    }
     syncFullTableHeaderStickyTop();
     window.addEventListener('resize', syncFullTableHeaderStickyTop);
     window.syncFullTableHeaderStickyTop = syncFullTableHeaderStickyTop;
@@ -4071,6 +4300,21 @@
     var now = new Date();
     var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     return daysFromEpoch(dStr) <= daysFromEpoch(todayStr);
+  }
+  // Due within the next 14 days (strictly after today — isDueByToday()
+  // already owns "today or earlier") — the orange warning tier for a
+  // Planned Submission Date that's approaching but not yet overdue.
+  // Computed from the viewer's own device clock, same as isDueByToday(), so
+  // it re-evaluates fresh on every load/refresh without any stored flag.
+  var DUE_SOON_WINDOW_DAYS = 14;
+  function isDueSoon(dateStr) {
+    if (!dateStr) return false;
+    var dStr = String(dateStr).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var now = new Date();
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    var diff = daysFromEpoch(dStr) - daysFromEpoch(todayStr);
+    return diff > 0 && diff <= DUE_SOON_WINDOW_DAYS;
   }
 
   var MS_FIELD_LABELS = [
@@ -4309,7 +4553,12 @@
   // 'overall' reads the combined allTablesRows pool (sum of every BOQ table);
   // a numeric string reads just that one BOQ table's own rows. The list of
   // choices in every such dropdown always tracks the live BOQ_TABLES array.
-  function renderDisciplineSelect(selectId, currentVal) {
+  // includeOverall (default true): pass false to leave the "Overall (All
+  // Disciplines)" entry out entirely — used for the shared selector while
+  // Full Table is the active view, which has no "Overall" concept (there's
+  // no single real sheet merging every table) — rather than just silently
+  // redirecting away from it, the choice itself shouldn't be offered there.
+  function renderDisciplineSelect(selectId, currentVal, includeOverall) {
     var sel = document.getElementById(selectId);
     if (!sel) return currentVal;
     sel.innerHTML = '';
@@ -4318,12 +4567,16 @@
       o.value = String(i); o.textContent = t.label;
       sel.appendChild(o);
     });
-    var overallOpt = document.createElement('option');
-    overallOpt.value = 'overall'; overallOpt.textContent = 'Overall (All Disciplines)';
-    sel.appendChild(overallOpt);
+    if (includeOverall !== false) {
+      var overallOpt = document.createElement('option');
+      overallOpt.value = 'overall'; overallOpt.textContent = 'Overall (All Disciplines)';
+      sel.appendChild(overallOpt);
+    }
     // keep the previous selection if it still exists (e.g. table wasn't the one removed)
-    var stillValid = (currentVal === 'overall') || (parseInt(currentVal, 10) < BOQ_TABLES.length);
-    var resolved = stillValid ? currentVal : 'overall';
+    var stillValid = includeOverall !== false
+      ? ((currentVal === 'overall') || (parseInt(currentVal, 10) < BOQ_TABLES.length))
+      : (parseInt(currentVal, 10) < BOQ_TABLES.length);
+    var resolved = stillValid ? currentVal : (includeOverall !== false ? 'overall' : (BOQ_TABLES.length ? '0' : currentVal));
     sel.value = resolved;
     return resolved;
   }
@@ -4351,7 +4604,9 @@
   // active view; the other two views read currentGlobalSelection as-is.
   var currentGlobalSelection = '0';
   function renderGlobalTableSelect() {
-    currentGlobalSelection = renderDisciplineSelect('globalTableSelect', currentGlobalSelection);
+    var activeView = document.querySelector('.view.active');
+    var includeOverall = !activeView || activeView.id !== 'view-fulltable';
+    currentGlobalSelection = renderDisciplineSelect('globalTableSelect', currentGlobalSelection, includeOverall);
   }
   function switchGlobalTable(val) {
     if (val === currentGlobalSelection) return;
@@ -4387,7 +4642,11 @@
 
   function getFilesByBuyerDataClient(rows, restrictToUsed, rosterNames) {
     var names = restrictToUsed ? [] : (rosterNames || []).slice();
-    var items = nonPackageItems(rows);
+    // Main items only — same convention as computeTrackStats() and
+    // getBuyerWorkloadDataClient(): Alt items are reference-only and never
+    // count toward the "real" procurement scope, so this table's totals
+    // stay consistent with Material Submittal Status / PQD's totals.
+    var items = nonPackageItems(rows).filter(function(r) { return r[COL.MAINALT - 1] === 'M'; });
     var lliCounts = {}, nonLliCounts = {};
     // buyer name -> { tableIdx: itemCount } — used only to work out which
     // BOQ table each buyer mostly works on, so their column groups under
@@ -4425,14 +4684,15 @@
     });
 
     // Order columns: "-" first, then grouped by table (BOQ_TABLES order),
-    // buyers with no known table last. Array#sort is stable in all current
-    // browsers, so buyers within the same group keep their relative order.
+    // alphabetically WITHIN each discipline group, buyers with no known
+    // table last (also alphabetical among themselves).
     allNames.sort(function(a, b) {
       if (a === FILEWITH_UNASSIGNED_VALUE) return -1;
       if (b === FILEWITH_UNASSIGNED_VALUE) return 1;
       var ia = nameTableIdx[a]; if (ia === -1) ia = 999999;
       var ib = nameTableIdx[b]; if (ib === -1) ib = 999999;
-      return ia - ib;
+      if (ia !== ib) return ia - ib;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
     });
 
     var nameGroups = allNames.map(function(n) {
@@ -5312,6 +5572,12 @@
      existing, and a rename also moves the Date Stamp forward for every
      affected row, exactly like a normal Action By edit would. */
   const ACTIONBY_CLOSED_VALUE = 'Closed';
+  // "Delete" — a second row-lock value, semantically "removed with intent"
+  // rather than "finished normally": same full lock as Closed (read-only
+  // everywhere except Action By), same protection from rename/removal, same
+  // "stays visible in the table, never hidden" rule — just its own color so
+  // the two are distinguishable at a glance.
+  const ACTIONBY_DELETE_VALUE = 'Delete';
   var abRenameTarget = null;
 
   function openActionByModal() {
@@ -5329,6 +5595,7 @@
     const raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
     var names = raw.map(function(r) { return r[0]; }).filter(function(v) { return v && String(v).trim() !== ''; });
     if (names.indexOf(ACTIONBY_CLOSED_VALUE) === -1) names.push(ACTIONBY_CLOSED_VALUE);
+    if (names.indexOf(ACTIONBY_DELETE_VALUE) === -1) names.push(ACTIONBY_DELETE_VALUE);
     return names;
   }
 
@@ -5353,7 +5620,7 @@
         }
         var span = document.createElement('span'); span.textContent = val;
         var actions = document.createElement('div'); actions.className = 'fw-actions';
-        if (val !== ACTIONBY_CLOSED_VALUE) {
+        if (val !== ACTIONBY_CLOSED_VALUE && val !== ACTIONBY_DELETE_VALUE) {
           var renameBtn = document.createElement('button'); renameBtn.className = 'fw-rename';
           renameBtn.title = 'Rename — also updates every item already using this value'; renameBtn.textContent = '✎';
           renameBtn.onclick = function() { abRenameTarget = val; renderActionByList(); };
@@ -5437,6 +5704,7 @@
     document.getElementById('abMsg').textContent = '';
     try {
       if (oldName === ACTIONBY_CLOSED_VALUE) throw new Error('"Closed" cannot be renamed — the row-lock feature depends on it.');
+      if (oldName === ACTIONBY_DELETE_VALUE) throw new Error('"Delete" cannot be renamed — the row-lock feature depends on it.');
       var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
       var oldRow = -1, newExists = false;
       for (var i = 0; i < 99; i++) {
@@ -5462,6 +5730,7 @@
     document.getElementById('abMsg').textContent = '';
     try {
       if (name === ACTIONBY_CLOSED_VALUE) throw new Error('"Closed" cannot be removed — the row-lock feature depends on it.');
+      if (name === ACTIONBY_DELETE_VALUE) throw new Error('"Delete" cannot be removed — the row-lock feature depends on it.');
       var inUse = await countItemsUsingActionByClient(name);
       if (inUse > 0) throw new Error(inUse + ' item(s) still have "' + name + '" as Action By. Rename it to merge them into another value first, then remove it.');
       var raw = await sheetsGetValues(spreadsheetId, a1Range(LISTS_SHEET_NAME, 3, 2, 3, 100));
