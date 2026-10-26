@@ -215,13 +215,7 @@
   .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid var(--border)}
   .table-top-scroll div{height:1px}
   .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
-  /* background matches the cell border color so any sub-pixel rounding gap
-     between adjacent cells (common on laptop displays with OS-level scaling
-     other than 100%) shows as the border color instead of a visible white
-     seam — border-collapse:separate is required for the sticky/frozen
-     columns below to work, so the gap itself can't be fully eliminated,
-     only hidden. */
-  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans);background:var(--border)}
+  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#F7FAFA}
