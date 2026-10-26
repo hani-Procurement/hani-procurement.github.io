@@ -187,6 +187,15 @@
   .sync-indicator.sync-error{background:var(--warn-bg);color:var(--warn)}
   @media (max-width:700px){.project-bar{gap:10px}.project-bar .pb-date{margin-left:0}}
 
+  /* ---- Unified toast notifications (P2) ---- */
+  #toastStack{position:fixed;bottom:18px;right:18px;z-index:200;display:flex;flex-direction:column;gap:8px;max-width:360px}
+  .toast{padding:10px 14px;border-radius:var(--radius-sm);box-shadow:0 4px 14px rgba(10,30,32,0.22);
+    font-size:13px;font-weight:600;color:#fff;animation:toast-in .15s ease-out}
+  .toast.toast-success{background:var(--ok)}
+  .toast.toast-warning{background:var(--priority-med)}
+  .toast.toast-error{background:var(--warn)}
+  @keyframes toast-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
   /* ---- Nav ---- */
   nav.main-nav{display:flex;gap:4px;background:var(--surface);padding:0 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
   nav.main-nav button{border:none;background:transparent;padding:10px 14px;font-size:13px;font-weight:600;
@@ -394,6 +403,8 @@
 </style>
 </head>
 <body>
+
+<div id="toastStack" aria-live="polite"></div>
 
 <div id="signinScreen">
   <div class="card">
@@ -942,7 +953,7 @@
             log('');
             return;
           }
-          log('<span class="err">Sign-in error: ' + resp.error + '</span>');
+          log('<span class="err">Sign-in error: ' + escapeHtml(resp.error) + '</span>');
           return;
         }
         accessToken = resp.access_token;
@@ -1031,19 +1042,94 @@
      risk of touching that many call sites in one pass on a live app; a
      session that hits one of those right as the token expires still just
      needs a reload, same as before. */
-  async function apiFetch(url, opts, isTokenRetry) {
+  // ===== Retry / backoff for transient failures (429, retryable 5xx,
+  // network errors) =====
+  // Only GET and PUT are retried automatically — both are safe to replay
+  // for how this app actually uses them: GET never has side effects, and
+  // the only PUT this app issues (sheetsUpdateValues) always writes an
+  // absolute set of values to an absolute range, so redoing it after an
+  // uncertain response produces the exact same end state, never a
+  // duplicate. POST (sheetsBatchUpdate's insertDimension/deleteDimension/
+  // addSheet, sheetsCreateSpreadsheet, sheetsCopySheetTo) is deliberately
+  // NOT retried automatically: replaying an insert/delete/create blindly
+  // after an uncertain response ("did that actually go through, or did
+  // only the response get lost?") could duplicate a row, delete an extra
+  // one, or create a second spreadsheet — and this client has no way to
+  // check the real outcome before deciding to resend. A POST that hits a
+  // transient error still surfaces a clear error to its caller; it is
+  // simply never resent by this layer. (A call site that has verified a
+  // specific POST is safe to retry can opt in with `opts.retryable = true`.)
+  const RETRY_MAX_ATTEMPTS = 5;
+  const RETRY_BASE_DELAY_MS = 500;
+  const RETRY_MAX_DELAY_MS = 8000;
+
+  function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  function isRetryableHttpStatus(status) {
+    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  }
+
+  function methodIsSafeToAutoRetry(method, opts) {
+    if (opts && opts.retryable === true) return true;
+    if (opts && opts.retryable === false) return false;
+    var m = (method || 'GET').toUpperCase();
+    return m === 'GET' || m === 'PUT';
+  }
+
+  // Exponential backoff, capped, with jitter (50%-100% of the computed
+  // delay) so many tabs hitting a rate limit at once don't all retry in
+  // lockstep.
+  function backoffDelayMs(attempt) {
+    var exp = Math.min(RETRY_BASE_DELAY_MS * Math.pow(2, attempt), RETRY_MAX_DELAY_MS);
+    return Math.min(exp * (0.5 + Math.random() * 0.5), RETRY_MAX_DELAY_MS);
+  }
+
+  async function apiFetch(url, opts, isTokenRetry, attempt) {
     opts = opts || {};
+    attempt = attempt || 0;
+    const method = (opts.method || 'GET').toUpperCase();
     const headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, opts.headers || {});
     if (opts.body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(url, Object.assign({}, opts, { headers }));
+
+    var res;
+    try {
+      res = await fetch(url, Object.assign({}, opts, { headers }));
+    } catch (networkErr) {
+      // fetch() itself threw — a pure network failure, so we know for
+      // certain this attempt never reached the server. Safe to retry
+      // under the same idempotency rule as any other transient failure.
+      if (methodIsSafeToAutoRetry(method, opts) && attempt < RETRY_MAX_ATTEMPTS) {
+        await sleep(backoffDelayMs(attempt));
+        return apiFetch(url, opts, isTokenRetry, attempt + 1);
+      }
+      throw new Error('Network error' + (attempt > 0 ? (' (gave up after ' + attempt + ' retries)') : '') + ': ' + (networkErr.message || networkErr));
+    }
+
     if (res.status === 401 && !isTokenRetry) {
       var refreshed = await refreshAccessTokenSilently();
-      if (refreshed) return apiFetch(url, opts, true);
+      if (refreshed) return apiFetch(url, opts, true, attempt);
+      // Falls through — 401 is never itself in the retryable-status set
+      // below, so an unrefreshable auth failure surfaces immediately
+      // rather than being treated as transient.
     }
+
+    if (isRetryableHttpStatus(res.status) && methodIsSafeToAutoRetry(method, opts) && attempt < RETRY_MAX_ATTEMPTS) {
+      var retryAfterHeader = (res.headers && res.headers.get) ? res.headers.get('Retry-After') : null;
+      var delay = retryAfterHeader ? (parseFloat(retryAfterHeader) * 1000) : NaN;
+      if (!isFinite(delay) || delay <= 0) delay = backoffDelayMs(attempt);
+      delay = Math.min(delay, RETRY_MAX_DELAY_MS);
+      await sleep(delay);
+      return apiFetch(url, opts, isTokenRetry, attempt + 1);
+    }
+
     let data = {};
     try { data = await res.json(); } catch (e) { /* no body */ }
     if (!res.ok || data.error) {
-      throw new Error((data.error && data.error.message) || (res.status + ' ' + res.statusText));
+      var errMsg = (data.error && data.error.message) || (res.status + ' ' + res.statusText);
+      if (isRetryableHttpStatus(res.status) && attempt >= RETRY_MAX_ATTEMPTS) {
+        errMsg += ' (still failing after ' + attempt + ' retries)';
+      }
+      throw new Error(errMsg);
     }
     return data;
   }
@@ -1131,10 +1217,11 @@
   /* ===================== Sign-in -> find/create spreadsheet (unchanged flow) ===================== */
   async function fetchSignedInEmail() {
     try {
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
-      const data = await res.json();
+      // Routed through apiFetch so a transient 429/5xx/network blip here
+      // gets the same retry/backoff as every Sheets/Drive call, instead of
+      // immediately failing closed on identity (which is exactly the check
+      // that must not be skipped — see proceedAfterSpreadsheetChosen()).
+      const data = await apiFetch('https://www.googleapis.com/oauth2/v3/userinfo');
       return (data && data.email) ? String(data.email).toLowerCase() : null;
     } catch (e) { console.warn('Could not fetch signed-in email: ', e); return null; }
   }
@@ -1162,7 +1249,7 @@
       showProjectPicker(projects);
     } catch (err) {
       console.error(err);
-      appendLog('<span class="err">Error: ' + (err.message || err) + '</span>');
+      appendLog('<span class="err">Error: ' + escapeHtml(err.message || err) + '</span>');
     }
   }
 
@@ -1180,11 +1267,7 @@
     const q = encodeURIComponent(
       `(name = '${SHEET_TITLE}' or name contains '${SHEET_TITLE} — ') and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
     );
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&orderBy=name`,
-      { headers: { Authorization: 'Bearer ' + accessToken } }
-    );
-    const data = await res.json();
+    const data = await apiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&orderBy=name`);
     return (data.files || []).map(function(f) {
       var prefix = SHEET_TITLE + ' — ';
       var label = (f.name === SHEET_TITLE) ? 'Project 1' : (f.name.indexOf(prefix) === 0 ? f.name.slice(prefix.length) : f.name);
@@ -1199,32 +1282,41 @@
     renderProjectPickerList(projects);
   }
 
+  // Built entirely with DOM APIs, never innerHTML — a project's label comes
+  // straight from its Google Drive file name, which anyone who can rename a
+  // Drive file controls, not something this app validated on the way in.
+  // textContent keeps it inert as plain text no matter what characters it
+  // contains; only fixed, trusted markup (the buttons/classes themselves)
+  // is template-literal HTML.
   function renderProjectPickerList(projects) {
     var list = document.getElementById('projectPickerList');
+    list.innerHTML = '';
     if (!projects.length) {
-      list.innerHTML = '<p style="color:#888;font-size:13.5px;margin:0 0 4px">No projects available for your account yet. Create your first one below.</p>';
+      var emptyP = document.createElement('p');
+      emptyP.style.color = '#888'; emptyP.style.fontSize = '13.5px'; emptyP.style.margin = '0 0 4px';
+      emptyP.textContent = 'No projects available for your account yet. Create your first one below.';
+      list.appendChild(emptyP);
     } else {
-      list.innerHTML = projects.map(function(p) {
-        return '<div class="project-pick-row">' +
-          '<button type="button" class="project-pick-btn" data-id="' + p.id + '">' +
-            '<span class="project-pick-name">' + p.label + '</span>' +
-            '<span class="project-pick-arrow">↗</span></button>' +
-          '<button type="button" class="project-pick-icon-btn" data-action="rename" data-id="' + p.id + '" title="Rename">✎</button>' +
-          '<button type="button" class="project-pick-icon-btn" data-action="delete" data-id="' + p.id + '" title="Move to Trash">🗑</button>' +
-          '</div>';
-      }).join('');
-      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-btn'), function(btn) {
-        btn.onclick = function() { pickProject(btn.getAttribute('data-id')); };
-      });
-      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-icon-btn[data-action="rename"]'), function(btn) {
-        var id = btn.getAttribute('data-id');
-        var p = projects.find(function(x) { return x.id === id; });
-        btn.onclick = function() { renameProjectFile(id, p ? p.label : ''); };
-      });
-      Array.prototype.forEach.call(list.querySelectorAll('.project-pick-icon-btn[data-action="delete"]'), function(btn) {
-        var id = btn.getAttribute('data-id');
-        var p = projects.find(function(x) { return x.id === id; });
-        btn.onclick = function() { deleteProjectFile(id, p ? p.label : ''); };
+      projects.forEach(function(p) {
+        var row = document.createElement('div'); row.className = 'project-pick-row';
+
+        var pickBtn = document.createElement('button');
+        pickBtn.type = 'button'; pickBtn.className = 'project-pick-btn';
+        var nameSpan = document.createElement('span'); nameSpan.className = 'project-pick-name'; nameSpan.textContent = p.label;
+        var arrowSpan = document.createElement('span'); arrowSpan.className = 'project-pick-arrow'; arrowSpan.textContent = '↗';
+        pickBtn.appendChild(nameSpan); pickBtn.appendChild(arrowSpan);
+        pickBtn.onclick = function() { pickProject(p.id); };
+
+        var renameBtn = document.createElement('button');
+        renameBtn.type = 'button'; renameBtn.className = 'project-pick-icon-btn'; renameBtn.title = 'Rename'; renameBtn.textContent = '✎';
+        renameBtn.onclick = function() { renameProjectFile(p.id, p.label); };
+
+        var deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button'; deleteBtn.className = 'project-pick-icon-btn'; deleteBtn.title = 'Move to Trash'; deleteBtn.textContent = '🗑';
+        deleteBtn.onclick = function() { deleteProjectFile(p.id, p.label); };
+
+        row.appendChild(pickBtn); row.appendChild(renameBtn); row.appendChild(deleteBtn);
+        list.appendChild(row);
       });
     }
     var statusEl2 = document.getElementById('projectPickerStatus');
@@ -1252,7 +1344,7 @@
       renderProjectPickerList(projects);
     } catch (e) {
       console.error(e);
-      statusEl2.innerHTML = '<span class="err">Could not rename: ' + (e.message || e) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Could not rename: ' + escapeHtml(e.message || e) + '</span>';
     }
   }
 
@@ -1271,7 +1363,7 @@
       renderProjectPickerList(projects);
     } catch (e) {
       console.error(e);
-      statusEl2.innerHTML = '<span class="err">Could not delete: ' + (e.message || e) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Could not delete: ' + escapeHtml(e.message || e) + '</span>';
     }
   }
 
@@ -1283,7 +1375,7 @@
       await proceedAfterSpreadsheetChosen();
     } catch (err) {
       console.error(err);
-      statusEl2.innerHTML = '<span class="err">Error: ' + (err.message || err) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Error: ' + escapeHtml(err.message || err) + '</span>';
     }
   }
 
@@ -1304,7 +1396,7 @@
       await proceedAfterSpreadsheetChosen();
     } catch (err) {
       console.error(err);
-      statusEl2.innerHTML = '<span class="err">Error: ' + (err.message || err) + '</span>';
+      statusEl2.innerHTML = '<span class="err">Error: ' + escapeHtml(err.message || err) + '</span>';
       btn.disabled = false;
     }
   }
@@ -1314,21 +1406,94 @@
   // is fully up to date (idempotent — safe even right after createNewSheet()
   // already set everything up), load this account's permissions on it, then
   // either show the "not added" message or enter the app.
+  // Shows a fail-closed message in whichever screen is currently visible
+  // (project picker or sign-in) and leaves the app un-entered. Used for every
+  // case where identity or permission verification could not be completed —
+  // never for the normal "not added yet" case, which has its own message.
+  function showAuthFailure(msg) {
+    var statusEl2 = document.getElementById('projectPickerStatus');
+    if (statusEl2 && !document.getElementById('projectPickerScreen').classList.contains('hidden')) {
+      statusEl2.innerHTML = '<span class="err">' + escapeHtml(msg) + '</span>';
+    } else {
+      document.getElementById('signinScreen').classList.remove('hidden');
+      document.getElementById('projectPickerScreen').classList.add('hidden');
+      appendLog('<span class="err">' + escapeHtml(msg) + '</span>');
+    }
+  }
+
+  // ===== P0: authorization MUST be established before any schema
+  // migration or data-initialization write runs. =====
+  //
+  // Order of operations, and why:
+  //   1. Fail closed immediately if we don't have a verified identity — an
+  //      unknown identity is never treated as authorized, let alone Admin.
+  //   2. Read spreadsheet metadata (read-only) and prepare ONLY the two
+  //      sheets needed to even ask "who is this user and what can they do"
+  //      — TablesConfig (so per-table permission rows can be matched to
+  //      real table names) and Users (so permissions can be read at all).
+  //      This is the unavoidable bootstrap for a legacy spreadsheet that
+  //      predates per-table/per-user permissions and has neither sheet yet;
+  //      it writes nothing about BOQ items, Lists, File roths, or backups.
+  //      A brand-new project created via "+ New Project" never reaches this
+  //      function in an unauthorized state — createNewSheet() already wrote
+  //      its Users sheet and made the creator Admin as part of one explicit,
+  //      authorized creation flow before proceedAfterSpreadsheetChosen() is
+  //      even called.
+  //   3. Load this account's permissions from the (now-readable) Users
+  //      sheet. loadCurrentUserPerms() itself never grants Admin on a
+  //      missing email or a failed read — see its own comments.
+  //   4. Only if currentUserPerms.allowed is true do we run the full
+  //      ensureBoqSheetReady() — the step that can create/alter BOQ table
+  //      headers, seed Lists/File With data, and ensure backup config.
+  // Any failure along the way (metadata unreachable, Users sheet unreadable,
+  // permission load throws) stops here and fails closed — it is never
+  // interpreted as "no restrictions apply."
   async function proceedAfterSpreadsheetChosen() {
-    await ensureBoqSheetReady();
-    await loadCurrentUserPerms();
+    if (!currentUserEmail) {
+      showAuthFailure('Could not verify your Google account email, so access cannot be confirmed. Please sign out and sign in again.');
+      return;
+    }
+
+    var meta;
+    try {
+      meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
+      await ensureTablesConfigSheet(meta);
+      await ensureUsersSheet(meta);
+    } catch (e) {
+      console.error(e);
+      showAuthFailure('Could not verify this project or your permissions on it (' + (e.message || e) + '). Nothing was changed. Please try again.');
+      return;
+    }
+
+    try {
+      await loadCurrentUserPerms();
+    } catch (e) {
+      console.error(e);
+      showAuthFailure('Could not verify your permissions on this project (' + (e.message || e) + '). Nothing was changed. Please try again.');
+      return;
+    }
+
     if (!currentUserPerms.allowed) {
       var msg = currentUserPerms.onHold
         ? ('Your account (' + (currentUserEmail || '?') + ') is currently On Hold by the Admin. Contact your Admin to be reactivated.')
         : ('Your account (' + (currentUserEmail || '?') + ') has not been added to this project. Ask your Admin to add you from the Control Panel, then send you the invite link.');
-      var statusEl2 = document.getElementById('projectPickerStatus');
-      if (statusEl2 && !document.getElementById('projectPickerScreen').classList.contains('hidden')) {
-        statusEl2.innerHTML = '<span class="err">' + msg + '</span>';
-      } else {
-        document.getElementById('signinScreen').classList.remove('hidden');
-        document.getElementById('projectPickerScreen').classList.add('hidden');
-        appendLog('<span class="err">' + msg + '</span>');
-      }
+      showAuthFailure(msg);
+      return;
+    }
+
+    // Authorization confirmed — now it's safe to create/upgrade BOQ table
+    // headers, seed Lists/File With data, and ensure backup config.
+    // Deliberately re-fetches metadata fresh here rather than reusing the
+    // `meta` read above: if TablesConfig and/or Users had to be CREATED
+    // during the authorization step just above (a legacy spreadsheet that
+    // had neither yet), the earlier `meta` object is now stale and no
+    // longer lists them — passing it in would make ensureTablesConfigSheet/
+    // ensureUsersSheet try to create them a second time and fail.
+    try {
+      await ensureBoqSheetReady();
+    } catch (e) {
+      console.error(e);
+      showAuthFailure('Signed in and authorized, but could not finish preparing this project (' + (e.message || e) + '). Please try again.');
       return;
     }
     enterApp();
@@ -1445,8 +1610,8 @@
      all in place too. Older sheets (made before multi-table / multi-user
      support shipped) get upgraded lazily here, the first time anyone opens
      them after the update. */
-  async function ensureBoqSheetReady() {
-    const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
+  async function ensureBoqSheetReady(metaArg) {
+    const meta = metaArg || await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(sheetId,title))');
     await ensureTablesConfigSheet(meta);
     await ensureAllBoqTablesReady(meta);
     const listsSheet = (meta.sheets || []).find(function(s) { return s.properties.title === LISTS_SHEET_NAME; });
@@ -1591,6 +1756,7 @@
   }
 
   async function addBoqTable(label) {
+    if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can add a new table.');
     const sheetName = nextBoqSheetName();
     const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: sheetName } } }]);
     const newSheetId = res.replies[0].addSheet.properties.sheetId;
@@ -1622,6 +1788,7 @@
   }
 
   async function renameBoqTable(idx, newLabel) {
+    if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can rename a table.');
     const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
     const row = 2 + idx;
     await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 2, row, 2, row), [[newLabel]], 'RAW');
@@ -1631,6 +1798,14 @@
   // Deletes the underlying Sheets tab (and therefore every item in it) —
   // irreversible, which is why addTeamMember()'s caller confirms first.
   async function removeBoqTable(idx) {
+    if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can delete a table.');
+    // Checked here too, not just by the Control Panel hiding the delete
+    // button when only one table is left — this app has no designed,
+    // tested "zero tables" state (switchGlobalTable/switchBoqTable/
+    // updateDisciplineBoxFromCurrentTable all assume BOQ_TABLES[0] exists),
+    // so letting the last table be deleted would leave SHEET_NAME/
+    // boqSheetId pointing at a sheet that no longer exists.
+    if (BOQ_TABLES.length <= 1) throw new Error('Cannot delete the last remaining table — at least one table must always exist.');
     const tbl = BOQ_TABLES[idx];
     await sheetsBatchUpdate(spreadsheetId, [{ deleteSheet: { sheetId: boqSheetIds[idx] } }]);
 
@@ -1773,9 +1948,10 @@
 
   async function loadCurrentUserPerms() {
     if (!currentUserEmail) {
-      // Could not read the signed-in email (userinfo call failed) — fail
-      // open as Admin rather than locking the whole app out.
-      currentUserPerms = { isAdmin: true, canAccessControlPanel: true, allowed: true };
+      // Could not read the signed-in email (userinfo call failed) — this
+      // must NEVER be treated as administrator access or as any access at
+      // all. An unknown identity fails closed, full stop.
+      currentUserPerms = { isAdmin: false, canAccessControlPanel: false, allowed: false };
       currentUserTablePerms = {};
       return;
     }
@@ -1809,6 +1985,14 @@
     if (!rows.length) {
       // Nobody registered yet on this team sheet (first open after an
       // upgrade, or a race on a brand-new one) — this person becomes Admin.
+      // Known limitation: there is no backend to arbitrate this atomically,
+      // so if two people open a completely empty Users sheet at the exact
+      // same moment, both can read rows.length === 0 and both end up Admin.
+      // This is not an authorization bypass (nobody is granted access they
+      // weren't both legitimately first to claim) and existing admins can
+      // always demote a duplicate from the Control Panel afterward; a fully
+      // race-proof single-admin guarantee would require a server-enforced
+      // lock this client-side architecture doesn't have.
       await addUserRow(currentUserEmail, { isAdmin: true, canAccessControlPanel: true },
         { canAdd: true, canDelete: true, canMove: true, canChangeStatus: true }, null);
       currentUserPerms = { isAdmin: true, canAccessControlPanel: true, allowed: true };
@@ -2013,6 +2197,7 @@
       renderTableSelect();
       renderGlobalTableSelect();
       if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Name updated.'; }
+      showToast('success', 'Table renamed.');
     } catch (e) {
       if (msg) msg.textContent = 'Save failed: ' + (e.message || e);
     }
@@ -2032,6 +2217,7 @@
       renderGlobalTableSelect();
       msg.style.color = '#2E8F63';
       msg.textContent = 'Table added.';
+      showToast('success', 'Table "' + label + '" added.');
     } catch (e) {
       msg.textContent = 'Add failed: ' + (e.message || e);
     }
@@ -2047,6 +2233,7 @@
       renderGlobalTableSelect();
       if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
       if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Deleted.'; }
+      showToast('success', 'Table "' + t.label + '" deleted.');
     }).catch(function(e) {
       if (msg) msg.textContent = 'Delete failed: ' + (e.message || e);
     });
@@ -2265,7 +2452,22 @@
     }
   }
 
+  // Centralized admin-only gate for every team/table-management write below
+  // — checked again here, not just by the fact that the Control Panel's
+  // team/tables sections are only ever rendered for an Admin (see
+  // showView()'s controlpanel branch). A denied call here produces NO write
+  // request, consistent with every other centralized permission check in
+  // this file.
+  function assertIsAdmin(label) {
+    if (!currentUserPerms.isAdmin) {
+      alert('Only an Admin can ' + label + '.');
+      return false;
+    }
+    return true;
+  }
+
   async function updateGlobalMemberPerms(rowNum, field, checked) {
+    if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#A23B2E'; msg.textContent = '';
     try {
@@ -2280,6 +2482,7 @@
   }
 
   async function updateTableMemberPerms(rowNum, field, checked) {
+    if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#A23B2E'; msg.textContent = '';
     var colMap = { canAdd: 3, canDelete: 4, canMove: 5, canChangeStatus: 6 };
@@ -2290,6 +2493,7 @@
   }
 
   async function addTeamMember() {
+    if (!assertIsAdmin('add team members')) return;
     var email = document.getElementById('cpNewUserEmail').value.trim().toLowerCase();
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#A23B2E'; msg.textContent = '';
@@ -2322,6 +2526,7 @@
       ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin', 'cpNewCanAccessCP'].forEach(function(id) { document.getElementById(id).checked = false; });
       msg.style.color = '#2E8F63';
       msg.textContent = 'Added — they now have access to every current table. Send them the invite link above, and fine-tune per-table permissions in the list above if needed.';
+      showToast('success', email + ' added to the team.');
       renderTeamMembersList();
     } catch (e) {
       msg.textContent = e.message || String(e);
@@ -2329,6 +2534,7 @@
   }
 
   async function removeTeamMember(email, permissionId) {
+    if (!assertIsAdmin('remove team members')) return;
     if (!confirm('Remove "' + email + '" from the team? They will lose access to this sheet.')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#A23B2E'; msg.textContent = '';
@@ -2344,6 +2550,7 @@
       await driveUnshareFile(spreadsheetId, permissionId);
       msg.style.color = '#2E8F63';
       msg.textContent = 'Removed.';
+      showToast('success', email + ' removed from the team.');
       renderTeamMembersList();
     } catch (e) {
       msg.textContent = 'Remove failed: ' + (e.message || e);
@@ -2463,6 +2670,7 @@
   }
 
   async function saveBackupSettings() {
+    if (!assertIsAdmin('change backup settings')) return;
     var msg = document.getElementById('cpBackupMsg');
     msg.style.color = '#A23B2E'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
@@ -2476,6 +2684,7 @@
   }
 
   async function sendBackupNow() {
+    if (!assertIsAdmin('send a backup')) return;
     var msg = document.getElementById('cpBackupMsg');
     var btn = document.getElementById('cpBackupNowBtn');
     msg.style.color = '#A23B2E'; msg.textContent = '';
@@ -2487,8 +2696,11 @@
       await sendBackupEmail(email);
       msg.style.color = '#2E8F63';
       msg.textContent = 'Backup sent to ' + email + '.';
+      showToast('success', 'Backup sent to ' + email + '.');
       loadBackupSettingsUI();
     } catch (e) {
+      // The inline cpBackupMsg text above is the one notification for this
+      // failure — no toast, to avoid showing the same failure twice.
       msg.textContent = 'Send failed: ' + (e.message || e) + ' — if this is the first backup, you may need to sign out and sign in again to grant the Gmail-send permission.';
     } finally {
       btn.disabled = false; btn.textContent = '📤 Send Backup Now';
@@ -2848,14 +3060,20 @@
   // of them can never run concurrently and race on the same fetchFilledRows()
   // snapshot — the other half of the S/N fix above.
   var rowOpBusy = false;
-  async function withRowOpLock(fn) {
+  async function withRowOpLock(fn, opLabel) {
     if (rowOpBusy) { alert('Please wait for the current change to finish before making another.'); return; }
     rowOpBusy = true;
     setSyncStatus('saving');
     try {
       await fn();
       setSyncStatus('saved');
+      if (opLabel) showToast('success', opLabel + ' succeeded.');
     } catch (e) {
+      // No toast here on purpose: every caller below already shows its own
+      // specific alert() for this failure (Delete failed/Move failed/...),
+      // so a generic toast on top would be exactly the duplicate
+      // notification for one failure the P2 brief says to avoid. The sync
+      // indicator badge still turns red either way.
       setSyncStatus('error', e.message || String(e));
       throw e;
     } finally {
@@ -2976,39 +3194,76 @@
     return targetRow;
   }
 
+  // Centralized row-operation authorization gate. Every row-mutating entry
+  // point below calls this FIRST, before issuing any Sheets API write —
+  // deliberately redundant with the disabled/hidden buttons in
+  // buildActionsCell()/openAddModal(), because those only stop someone using
+  // the rendered UI normally. They do not stop a call made directly (browser
+  // console, a stale reference to the function, a modified copy of the
+  // page), so the real write path needs its own check, not just the button.
+  function assertRowPerm(flag, label) {
+    if (!perm(flag)) {
+      alert('You do not have permission to ' + label + ' in this table — ask your Admin to enable it from the Control Panel.');
+      return false;
+    }
+    return true;
+  }
+
   async function addNewItemClient(data) {
+    if (!assertRowPerm('canAdd', 'add items')) return;
     await withRowOpLock(async function() {
       await insertRowAtPosition(data.position, null, data);
       await refreshEverything();
-    });
+    }, 'Add item');
   }
 
   async function deleteItem(row) {
+    if (!assertRowPerm('canDelete', 'delete items')) return;
     if (!confirm('Delete this item? This cannot be undone.')) return;
     await withRowOpLock(async function() {
       try {
         await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
         await refreshEverything();
       } catch (e) { alert('Delete failed: ' + (e.message || e)); throw e; }
-    });
+    }, 'Delete item');
   }
 
   // Moves one row up/down by a single position, computed from its current
   // ordinal position in the currently loaded table.
   async function moveItemDir(row, direction) {
+    if (!assertRowPerm('canMove', 'move items')) return;
     const idx = lastLoadedRows.findIndex(function(r) { return r.row === row; });
     if (idx === -1) return;
     const currentPos = idx + 1;
     const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
     if (newPos < 1 || newPos > lastLoadedRows.length) return;
     await withRowOpLock(async function() {
+      // Full snapshot of the row BEFORE anything is deleted — this is what
+      // a move actually risks losing (delete succeeds, the re-insert at the
+      // new position then fails) and what a compensating recovery below
+      // re-inserts from if that happens.
+      const values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
+      await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
       try {
-        const values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
-        await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
         await insertRowAtPosition(newPos, values, null);
         await refreshEverything();
-      } catch (e) { alert('Move failed: ' + (e.message || e)); throw e; }
-    });
+      } catch (e) {
+        // The row is gone from its original spot and the re-insert failed —
+        // attempt one compensating recovery (re-insert the SAME captured
+        // values back at roughly the same position) rather than silently
+        // leaving the item missing.
+        try {
+          await insertRowAtPosition(currentPos, values, null);
+          await refreshEverything();
+          alert('Move failed (' + (e.message || e) + ') — the item was put back in its original position. Nothing was lost.');
+        } catch (e2) {
+          console.error('Move recovery also failed: ', e2);
+          alert('Move failed (' + (e.message || e) + '), AND the automatic recovery also failed (' + (e2.message || e2) + '). ' +
+            'The item may now be missing from the table. Its data was: ' + JSON.stringify(values) + ' — please add it back manually or contact support before doing anything else on this table.');
+        }
+        throw e;
+      }
+    }, 'Move item');
   }
 
   // Clipboard lives only in this browser tab's memory (not on the server), so
@@ -3029,6 +3284,7 @@
   }
 
   async function cutRow(row) {
+    if (!assertRowPerm('canMove', 'cut/move items')) return;
     var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
     if (!rowObj) return;
     if (!confirm('Cut this item? It will be removed from the list until you paste it somewhere.')) return;
@@ -3040,10 +3296,11 @@
         updateClipboardStatus();
         await refreshEverything();
       } catch (e) { alert('Cut failed: ' + (e.message || e)); throw e; }
-    });
+    }, 'Cut item');
   }
 
   async function pasteRow(targetRow) {
+    if (!assertRowPerm('canMove', 'paste items')) return;
     if (!rowClipboard) { alert('Nothing copied or cut yet — use 📋 or ✂ on an item first.'); return; }
     var idx = lastLoadedRows.findIndex(function(r) { return r.row === targetRow; });
     if (idx === -1) return;
@@ -3055,7 +3312,7 @@
         updateClipboardStatus();
         await refreshEverything();
       } catch (e) { alert('Paste failed: ' + (e.message || e)); throw e; }
-    });
+    }, 'Paste item');
   }
 
   function buildActionsCell(row, index, total) {
@@ -3174,8 +3431,20 @@
     }
   }
 
+  // Escapes a value for safe placement in BOTH an HTML text node and inside
+  // a double- or single-quoted HTML attribute value. This is the one
+  // function every innerHTML template below uses to encode untrusted data
+  // (project names, filenames, cell values, API error messages, etc.) —
+  // deliberately broader than a text-only escaper (it also encodes quotes)
+  // so the same function is safe wherever it's used, rather than requiring
+  // every call site to know which context it's in.
   function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Renders the append-only remarks history as HTML: each entry's leading
@@ -3240,6 +3509,32 @@
     }
   }
 
+  // ===== P2: Unified toast notifications =====
+  // One consistent success/warning/error popup mechanism, stacked bottom
+  // right, used for the operations that are NOT already covered by the
+  // always-visible sync indicator above: row add/move/delete/copy/cut/
+  // paste (summary toast on completion — withRowOpLock() fires this, see
+  // below), Excel import/export, project/table management, and backups.
+  // Every call site below fires a toast ONLY after an operation has
+  // actually settled (resolved or rejected) — never optimistically before
+  // the request completes — and each site fires at most one toast per
+  // outcome, so a single failure never produces more than one popup.
+  // Permission denials deliberately keep using alert() instead of a toast:
+  // alert() is synchronous and unmissable, which is what a blocked action
+  // needs, and firing a toast in addition would be exactly the duplicate
+  // notification for the same event this mechanism is meant to avoid.
+  function showToast(type, message, durationMs) {
+    var stack = document.getElementById('toastStack');
+    if (!stack) { if (type === 'error') console.error(message); return; }
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'));
+    el.textContent = message;
+    stack.appendChild(el);
+    setTimeout(function() {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, durationMs || (type === 'error' ? 6000 : 3500));
+  }
+
   function updateLocalValue(row, col, value) {
     const rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
     if (rowObj) rowObj.values[col - 1] = value;
@@ -3270,7 +3565,21 @@
     try {
       liveRaw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row));
     } catch (e) {
-      return true; // couldn't check (offline/transient) — fall through to the normal save, which will surface any real error itself
+      // Could not verify whether someone else changed this cell — this must
+      // NOT silently fall through to an ordinary overwrite (that would be
+      // exactly the unverified blind write this check exists to prevent).
+      // Ask explicitly instead: proceeding here is a conscious, informed
+      // choice by this user, not a default.
+      var proceedUnverified = confirm(
+        'Could not check whether this cell was changed by someone else (' + (e.message || e) + ').\n\n' +
+        'Press OK to save your change anyway WITHOUT that check (it could overwrite a teammate\'s edit unnoticed), ' +
+        'or press Cancel to discard your change and reload the table instead.'
+      );
+      if (!proceedUnverified) {
+        loadFullTable();
+        return false;
+      }
+      return true;
     }
     var live = (liveRaw[0] && liveRaw[0][0] != null) ? String(liveRaw[0][0]) : '';
     if (live === expected) return true; // no conflict — this is the overwhelmingly common case
@@ -3288,11 +3597,37 @@
     return true;
   }
 
+  // Centralized authorization gate, checked again right here — not just at
+  // the point the <select> was built as disabled/enabled — because a cell's
+  // edit path can be reached directly (saveCell() called from console, a
+  // stale rendered row, etc.) without ever going through buildCell()'s own
+  // disabled-state logic. This does not add any security this client-side
+  // app doesn't already lack against someone with direct Google Sheets
+  // Editor access (see the note on perm()); it only makes sure OUR OWN code
+  // can never issue the write request in the first place for a column this
+  // account isn't permitted to change, regardless of which UI path got here.
+  function assertCanSaveCell(col) {
+    if (STATUS_SELECT_COLS.indexOf(col) !== -1 && !perm('canChangeStatus')) {
+      throw new Error('You do not have permission to change this status/date field.');
+    }
+  }
+
   async function saveCell(row, col, value, td) {
+    // Tracks whether the PRIMARY cell write below actually completed, so
+    // the catch block can tell the difference between "nothing was saved"
+    // and "the main value saved, but a follow-on date-stamp write failed" —
+    // reporting the former as a plain failure and the latter as a partial
+    // completion is the whole point; otherwise an alert that just says
+    // "Save failed" after the primary write already succeeded would leave
+    // the user believing nothing happened when the cell they edited already
+    // changed on the sheet.
+    var primaryWriteDone = false;
     try {
+      assertCanSaveCell(col);
       setSyncStatus('saving');
       if (!(await checkCellConflictBeforeSave(row, col, value))) { setSyncStatus(null); return; }
       await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row), [[value]]);
+      primaryWriteDone = true;
       updateLocalValue(row, col, value);
 
       if (col === COL.ACTIONBY) {
@@ -3342,7 +3677,19 @@
       setSyncStatus('saved');
     } catch (e) {
       setSyncStatus('error', e.message || String(e));
-      alert('Save failed: ' + (e.message || e));
+      if (primaryWriteDone) {
+        // The cell itself DID save; only a follow-on write (a date stamp,
+        // or the ACTIONBY->DATESTAMP/refreshEverything() pair) failed. Make
+        // that distinction explicit instead of a flat "Save failed" that
+        // would contradict what the user sees on screen, then refresh so
+        // the screen reflects the sheet's real, now-possibly-inconsistent
+        // state rather than whatever was rendered before this edit.
+        alert('Your change was saved, but a related update afterward failed: ' + (e.message || e) +
+          '. Please check this row (and press ⟳ Refresh) before relying on it.');
+        refreshEverything().catch(function(e2) { console.error('Could not refresh after a partial save failure: ', e2); });
+      } else {
+        alert('Save failed — nothing was changed: ' + (e.message || e));
+      }
     }
   }
 
@@ -4255,10 +4602,14 @@
       if (!g) { groupsHtml += '<th class="buyer-group-header"></th>'; i++; continue; }
       var span = 0, j = i;
       while (j < data.names.length && data.nameGroups[j] === g) { span++; j++; }
-      groupsHtml += '<th class="buyer-group-header" colspan="' + span + '">' + g + '</th>';
+      // g (table label) is admin-set but still arbitrary text — escaped like
+      // every other value here, none of which is trusted to be safe markup:
+      // buyer names in particular are free-text the "File With" gear modal
+      // lets any permitted team member type.
+      groupsHtml += '<th class="buyer-group-header" colspan="' + span + '">' + escapeHtml(g) + '</th>';
       i = j;
     }
-    var namesHtml = data.names.map(function(n) { return '<th>' + n + '</th>'; }).join('');
+    var namesHtml = data.names.map(function(n) { return '<th>' + escapeHtml(n) + '</th>'; }).join('');
     head.innerHTML =
       '<tr><th rowspan="2">Type</th>' + groupsHtml + '<th rowspan="2">TOTAL</th></tr>' +
       '<tr>' + namesHtml + '</tr>';
@@ -4266,9 +4617,9 @@
     data.rows.forEach(function(r) {
       var isTotal = r.label === 'TOTAL';
       bodyHtml += '<tr' + (isTotal ? ' class="grand-total"' : '') + '>' +
-        '<td class="ms-label-cell">' + r.label + '</td>' +
-        r.counts.map(function(c) { return '<td>' + c + '</td>'; }).join('') +
-        '<td><b>' + r.rowTotal + '</b></td></tr>';
+        '<td class="ms-label-cell">' + escapeHtml(r.label) + '</td>' +
+        r.counts.map(function(c) { return '<td>' + escapeHtml(c) + '</td>'; }).join('') +
+        '<td><b>' + escapeHtml(r.rowTotal) + '</b></td></tr>';
     });
     body.innerHTML = bodyHtml || '<tr><td class="ms-label-cell">No data</td></tr>';
   }
@@ -4682,7 +5033,10 @@
     try {
       var result = await exportBoqAndMsToXlsxClient();
       downloadXlsxResult(result);
+      showToast('success', 'Export ready — check your downloads.');
     } catch (e) {
+      // alert() below is the one notification for this failure — no toast,
+      // to avoid showing the same failure twice (see withRowOpLock's note).
       alert('Export failed: ' + (e.message || e));
     } finally {
       btn.disabled = false; btn.textContent = '⬇ Export BOQ & M/S to Excel';
@@ -4695,6 +5049,7 @@
     try {
       var result = await exportSubmittalStatusToXlsxClient();
       downloadXlsxResult(result);
+      showToast('success', 'Export ready — check your downloads.');
     } catch (e) {
       alert('Export failed: ' + (e.message || e));
     } finally {
@@ -4748,6 +5103,7 @@
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
       }).from(container).save();
+      showToast('success', 'PDF ready — check your downloads.');
     } catch (e) {
       alert('PDF export failed: ' + (e.message || e));
     } finally {
@@ -4857,6 +5213,7 @@
   }
 
   async function addFileWithEntry() {
+    if (!assertIsAdmin('manage the File With list')) return;
     var name = document.getElementById('fwNewName').value.trim();
     if (!name) return;
     document.getElementById('fwMsg').textContent = '';
@@ -4891,6 +5248,7 @@
   }
 
   async function renameFileWithEntry(oldName, newName) {
+    if (!assertIsAdmin('manage the File With list')) return;
     if (!newName || newName === oldName) { fwRenameTarget = null; renderFileWithList(); return; }
     document.getElementById('fwMsg').textContent = '';
     try {
@@ -4923,6 +5281,7 @@
   }
 
   async function removeFileWithEntry(name) {
+    if (!assertIsAdmin('manage the File With list')) return;
     if (!confirm('Remove "' + name + '" from this table\'s list? Any item in this table still set to this name will be reset to "-" so it can be reassigned later.')) return;
     document.getElementById('fwMsg').textContent = '';
     try {
@@ -5022,6 +5381,7 @@
   }
 
   async function addActionByEntry() {
+    if (!assertIsAdmin('manage the Action By list')) return;
     var name = document.getElementById('abNewName').value.trim();
     if (!name) return;
     document.getElementById('abMsg').textContent = '';
@@ -5072,6 +5432,7 @@
   }
 
   async function renameActionByEntry(oldName, newName) {
+    if (!assertIsAdmin('manage the Action By list')) return;
     if (!newName || newName === oldName) { abRenameTarget = null; renderActionByList(); return; }
     document.getElementById('abMsg').textContent = '';
     try {
@@ -5096,6 +5457,7 @@
   }
 
   async function removeActionByEntry(name) {
+    if (!assertIsAdmin('manage the Action By list')) return;
     if (!confirm('Remove "' + name + '" from the list? Removal is blocked while any item still uses this value — rename it first to move those items to another value.')) return;
     document.getElementById('abMsg').textContent = '';
     try {
@@ -5116,58 +5478,360 @@
   }
 
   // ---- Import from Excel ----------------------------------------------
-  // Reads an .xlsx/.xls file with SheetJS and writes it into BOQ Database,
-  // starting at FIRST_DATA_ROW (row 3), assuming the same 28-column layout
-  // this app exports (col A = S/N formula, left alone; cols B..AB = data).
-  // This matches the round-trip use case: export, edit offline, import back.
+  // Reads an .xlsx/.xls file with SheetJS and writes it into the current
+  // BOQ table, starting at FIRST_DATA_ROW (row 3), assuming the same
+  // 28/30-column layout this app exports (col A = S/N formula, left alone;
+  // cols B..AB = data). This matches the round-trip use case: export, edit
+  // offline, import back.
+  //
+  // Protected columns (PQD/Material Submittal statuses and their dates,
+  // Comp. Sheet status, PR/PO, Action By) are never overwritten by an
+  // import from a user without canChangeStatus — for an existing row, the
+  // CURRENT value on the sheet is kept instead of whatever the file has;
+  // for a brand-new row (beyond the table's current data), only the same
+  // blank/authorized defaults buildNewItemRowValues() already uses for a
+  // manually-added item are applied, never a value read from the file.
+  const IMPORT_PROTECTED_COLS = [
+    COL.CS_STATUS,
+    COL.PQD_SUB, COL.PQD_SUBDATE, COL.PQD_PLANNED_DATE, COL.PQD_NUM, COL.PQD_CODE, COL.PQD_DATE,
+    COL.MS_SUB, COL.MS_SUBDATE, COL.MS_PLANNED_DATE, COL.MS_NUM, COL.MS_CODE, COL.MS_DATE,
+    COL.PR, COL.PO1, COL.PO2, COL.ACTIONBY, COL.DATESTAMP
+  ];
+  // Same "authorized default" each protected column gets on a brand-new
+  // manually-added row (buildNewItemRowValues()) — used so an import's
+  // brand-new rows get these defaults too, instead of the file's raw value,
+  // when the importer lacks canChangeStatus.
+  function importProtectedDefault(col) {
+    if (col === COL.CS_STATUS) return '-';
+    if (NO_DEFAULT_COLS.indexOf(col) !== -1) return 'No';
+    return '';
+  }
+
   (function wireImportInput() {
     var input = document.getElementById('importFileInput');
     if (!input) return;
     input.addEventListener('change', async function (e) {
       var file = e.target.files && e.target.files[0];
+      e.target.value = ''; // reset immediately so the same file can be re-picked later, whatever happens below
       if (!file) return;
-      if (!perm('canAdd')) { alert('You don\'t have permission to import/add items.'); e.target.value = ''; return; }
-      var btn = document.getElementById('importXlsxBtn');
+      if (!perm('canAdd')) { alert('You don\'t have permission to import/add items.'); return; }
       try {
-        var buf = await file.arrayBuffer();
-        var wb = XLSX.read(buf, { type: 'array' });
-        var ws = wb.Sheets[wb.SheetNames[0]];
-        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-        // Rows 1-2 of our own export are the two header rows; skip them the
-        // same way this app's own sheet layout always does.
-        var dataRows = rows.slice(2);
-        if (!dataRows.length) { alert('No data rows found in that file (expected the same layout this app exports).'); return; }
-        if (dataRows.length > (LAST_DATA_ROW - FIRST_DATA_ROW + 1)) {
-          dataRows = dataRows.slice(0, LAST_DATA_ROW - FIRST_DATA_ROW + 1);
-        }
-        if (!confirm('This will overwrite BOQ Database rows ' + FIRST_DATA_ROW + '-' + (FIRST_DATA_ROW + dataRows.length - 1) + ' (' + dataRows.length + ' rows) with the data from "' + file.name + '". Continue?')) {
-          return;
-        }
-        if (btn) { btn.disabled = true; btn.textContent = '⏳ Importing…'; }
-        var values = dataRows.map(function (r) {
-          var arr = [];
-          for (var c = 2; c <= LAST_DATA_COL; c++) {
-            var cellVal = r[c - 1];
-            arr.push(cellVal == null ? '' : cellVal);
-          }
-          return arr;
-        });
-        var endRow = FIRST_DATA_ROW + values.length - 1;
-        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, FIRST_DATA_ROW, LAST_DATA_COL, endRow), values, 'RAW');
-        for (var row = FIRST_DATA_ROW; row <= endRow; row++) {
-          await setSnFormula(row);
-        }
-        await refreshEverything();
-        var msg = document.getElementById('addMsg');
-        if (msg) msg.textContent = 'Import complete: ' + values.length + ' rows written.';
+        await runGuidedImport(file);
       } catch (err) {
+        console.error(err);
         alert('Import failed: ' + (err.message || err));
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '⬆ Import from Excel'; }
-        e.target.value = '';
       }
     });
   })();
+
+  // Parses the file and builds a plain analysis object — no Google API
+  // calls, no writes. Safe to run purely to show a preview.
+  function buildImportAnalysis(rows, file, sheetName) {
+    var headerRow2 = rows[1] || [];
+    var headerMismatches = [];
+    for (var i = 0; i < BOQ_HEADER_ROW2.length; i++) {
+      var found = (headerRow2[i + 1] != null) ? String(headerRow2[i + 1]).trim() : '';
+      var expected = BOQ_HEADER_ROW2[i];
+      if (found !== expected) headerMismatches.push({ expected: expected, found: found || '(missing)' });
+    }
+    var dataSrc = rows.slice(2);
+    var dataRows = dataSrc.map(function (r) {
+      var arr = [];
+      for (var c = 2; c <= LAST_DATA_COL; c++) {
+        var v = r[c - 1];
+        arr.push(v == null ? '' : v);
+      }
+      return arr;
+    });
+    return {
+      fileName: file.name,
+      sheetName: sheetName,
+      headerMismatches: headerMismatches,
+      dataRows: dataRows
+    };
+  }
+
+  // Orchestrates: parse -> analyze against the LIVE current table -> show
+  // preview -> (only on explicit confirm) write -> verify -> refresh.
+  // Cancelling at the preview, or any validation failure before it, leaves
+  // Google Sheets completely unchanged.
+  async function runGuidedImport(file) {
+    var buf = await file.arrayBuffer();
+    var wb = XLSX.read(buf, { type: 'array' });
+    var firstSheetName = wb.SheetNames[0];
+    var ws = wb.Sheets[firstSheetName];
+    var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+    var analysis = buildImportAnalysis(rows, file, firstSheetName);
+
+    if (!analysis.dataRows.length) {
+      alert('No data rows found in "' + file.name + '" (expected the same two-header-row layout this app exports). Nothing was changed.');
+      return;
+    }
+
+    var capacity = LAST_DATA_ROW - FIRST_DATA_ROW + 1;
+    if (analysis.dataRows.length > capacity) {
+      alert('This file has ' + analysis.dataRows.length + ' data rows, more than the ' + capacity +
+        ' this table currently supports (rows ' + FIRST_DATA_ROW + '-' + LAST_DATA_ROW + '). ' +
+        'Import was NOT started and nothing was changed — split the file into smaller imports.');
+      return;
+    }
+
+    // One consistent read of the table's current full data range, used for
+    // both the preview counts AND the eventual write, so what the admin
+    // sees in the preview is exactly what gets merged/written afterward.
+    var existingRaw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 2, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW));
+    var existingFilledCount = 0;
+    for (var i = existingRaw.length - 1; i >= 0; i--) {
+      if (existingRaw[i] && String(existingRaw[i][COL.DESC - 2] || '').trim() !== '') { existingFilledCount = i + 1; break; }
+    }
+
+    var canChangeStatus = perm('canChangeStatus');
+    var protectedFieldChanges = 0;
+    for (var r = 0; r < analysis.dataRows.length && r < existingFilledCount; r++) {
+      var existingRow = existingRaw[r] || [];
+      IMPORT_PROTECTED_COLS.forEach(function (col) {
+        var existingVal = existingRow[col - 2] != null ? String(existingRow[col - 2]) : '';
+        var importVal = analysis.dataRows[r][col - 2] != null ? String(analysis.dataRows[r][col - 2]) : '';
+        if (!canChangeStatus && existingVal !== importVal) protectedFieldChanges++;
+      });
+    }
+
+    var trailingRowCount = Math.max(0, existingFilledCount - analysis.dataRows.length);
+
+    var decision = await showImportPreviewModal({
+      analysis: analysis,
+      existingFilledCount: existingFilledCount,
+      overwriteCount: Math.min(analysis.dataRows.length, existingFilledCount),
+      newRowCount: Math.max(0, analysis.dataRows.length - existingFilledCount),
+      trailingRowCount: trailingRowCount,
+      canChangeStatus: canChangeStatus,
+      protectedFieldChanges: protectedFieldChanges
+    });
+    if (!decision || !decision.confirmed) return; // Cancel (or closed) — nothing was ever written
+
+    await performImportWrite(analysis, existingRaw, existingFilledCount, canChangeStatus, decision.clearTrailingRows);
+  }
+
+  // Builds and shows the preview modal via DOM APIs only (file name, header
+  // text, and every other value coming from the untrusted file go through
+  // textContent, never innerHTML) and resolves a Promise with the admin's
+  // decision once they click Confirm Import or Cancel (or close the modal,
+  // treated the same as Cancel).
+  function showImportPreviewModal(info) {
+    return new Promise(function (resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      var box = document.createElement('div');
+      box.className = 'modal-box';
+      box.style.width = '520px';
+
+      var h3 = document.createElement('h3'); h3.textContent = 'Import Preview — review before writing anything';
+      box.appendChild(h3);
+
+      function addRow(label, value, warn) {
+        var p = document.createElement('p');
+        p.style.margin = '6px 0'; p.style.fontSize = '13px';
+        if (warn) p.style.color = 'var(--warn)';
+        var b = document.createElement('b'); b.textContent = label + ': ';
+        p.appendChild(b);
+        p.appendChild(document.createTextNode(String(value)));
+        box.appendChild(p);
+      }
+
+      addRow('File', info.analysis.fileName);
+      addRow('Detected sheet', info.analysis.sheetName + ' (data rows beyond the first two header rows)');
+      addRow('Target table', SHEET_NAME);
+      addRow('Data rows in file', info.analysis.dataRows.length);
+      addRow('Existing rows that will be overwritten', info.overwriteCount, info.overwriteCount > 0);
+      addRow('New rows that will be created', info.newRowCount);
+      addRow('Existing trailing rows beyond this file\'s data', info.trailingRowCount, info.trailingRowCount > 0);
+
+      if (info.analysis.headerMismatches.length) {
+        var hm = document.createElement('div');
+        hm.style.margin = '10px 0'; hm.style.fontSize = '12.5px'; hm.style.color = 'var(--warn)';
+        var hmTitle = document.createElement('b');
+        hmTitle.textContent = 'Column header mismatches (' + info.analysis.headerMismatches.length + ') — the file may not be this app\'s export layout:';
+        hm.appendChild(hmTitle);
+        var ul = document.createElement('ul'); ul.style.margin = '6px 0 0'; ul.style.paddingLeft = '18px';
+        info.analysis.headerMismatches.slice(0, 12).forEach(function (m) {
+          var li = document.createElement('li');
+          li.textContent = 'Expected "' + m.expected + '", found "' + m.found + '"';
+          ul.appendChild(li);
+        });
+        if (info.analysis.headerMismatches.length > 12) {
+          var more = document.createElement('li');
+          more.textContent = '…and ' + (info.analysis.headerMismatches.length - 12) + ' more';
+          ul.appendChild(more);
+        }
+        hm.appendChild(ul);
+        box.appendChild(hm);
+      } else {
+        addRow('Column headers', 'Match this app\'s export layout exactly.');
+      }
+
+      // Header mismatches mean the file's columns may not line up with this
+      // table's layout — importing it would silently scatter data into the
+      // wrong fields. Require an explicit, informed override checkbox
+      // before Confirm Import is even clickable; no mismatches, no checkbox,
+      // button starts enabled as before.
+      var headerOverrideChk = null;
+      if (info.analysis.headerMismatches.length) {
+        var hoWrap = document.createElement('div');
+        hoWrap.style.margin = '10px 0'; hoWrap.style.fontSize = '12.5px';
+        hoWrap.style.background = 'var(--warn-bg)'; hoWrap.style.padding = '8px 10px'; hoWrap.style.borderRadius = '6px';
+        var hoLabel = document.createElement('label'); hoLabel.style.display = 'flex'; hoLabel.style.gap = '6px'; hoLabel.style.alignItems = 'flex-start'; hoLabel.style.cursor = 'pointer';
+        headerOverrideChk = document.createElement('input'); headerOverrideChk.type = 'checkbox'; headerOverrideChk.style.width = 'auto'; headerOverrideChk.style.marginTop = '2px';
+        hoLabel.appendChild(headerOverrideChk);
+        var hoText = document.createElement('span');
+        hoText.textContent = 'I understand the column headers above don\'t match this table\'s layout, and the file\'s columns will still be mapped in the same left-to-right order — I want to import anyway.';
+        hoLabel.appendChild(hoText);
+        hoWrap.appendChild(hoLabel);
+        box.appendChild(hoWrap);
+      }
+
+      if (!info.canChangeStatus) {
+        var note = document.createElement('p');
+        note.style.margin = '10px 0'; note.style.fontSize = '12.5px'; note.style.color = 'var(--text-soft)';
+        note.textContent = 'You don\'t have the "Change Status" permission on this table, so PQD / Material Submittal statuses, their dates, Comp. Sheet status, PR/PO, and Action By are protected: ' +
+          (info.protectedFieldChanges > 0
+            ? ('this file would have changed ' + info.protectedFieldChanges + ' protected field value(s) on existing rows — those will be kept as they currently are on the sheet instead.')
+            : 'this file does not change any protected field on existing rows.');
+        box.appendChild(note);
+      } else if (info.protectedFieldChanges > 0) {
+        addRow('Protected status/date fields that will change', info.protectedFieldChanges, true);
+      }
+
+      var clearTrailingChk = null;
+      if (info.trailingRowCount > 0) {
+        var trailWrap = document.createElement('div');
+        trailWrap.style.margin = '12px 0'; trailWrap.style.fontSize = '12.5px';
+        trailWrap.style.background = 'var(--warn-bg)'; trailWrap.style.padding = '8px 10px'; trailWrap.style.borderRadius = '6px';
+        var trailLabel = document.createElement('label'); trailLabel.style.display = 'flex'; trailLabel.style.gap = '6px'; trailLabel.style.alignItems = 'flex-start'; trailLabel.style.cursor = 'pointer';
+        clearTrailingChk = document.createElement('input'); clearTrailingChk.type = 'checkbox'; clearTrailingChk.style.width = 'auto'; clearTrailingChk.style.marginTop = '2px';
+        trailLabel.appendChild(clearTrailingChk);
+        var trailText = document.createElement('span');
+        trailText.textContent = 'Also clear the ' + info.trailingRowCount + ' existing row(s) beyond this file\'s data (left unchecked, those rows are kept exactly as they are now — not cleared, not touched).';
+        trailLabel.appendChild(trailText);
+        trailWrap.appendChild(trailLabel);
+        box.appendChild(trailWrap);
+      }
+
+      var actions = document.createElement('div'); actions.className = 'modal-actions';
+      var cancelBtn = document.createElement('button'); cancelBtn.className = 'secondary'; cancelBtn.textContent = 'Cancel';
+      var confirmBtn = document.createElement('button'); confirmBtn.className = 'primary'; confirmBtn.textContent = 'Confirm Import';
+      actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+      box.appendChild(actions);
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      if (headerOverrideChk) {
+        confirmBtn.disabled = true;
+        headerOverrideChk.addEventListener('change', function () {
+          confirmBtn.disabled = !headerOverrideChk.checked;
+        });
+      }
+
+      function finish(result) {
+        document.body.removeChild(overlay);
+        resolve(result);
+      }
+      cancelBtn.onclick = function () { finish({ confirmed: false }); };
+      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) finish({ confirmed: false }); });
+      confirmBtn.onclick = function () {
+        if (confirmBtn.disabled) return;
+        finish({ confirmed: true, clearTrailingRows: !!(clearTrailingChk && clearTrailingChk.checked) });
+      };
+    });
+  }
+
+  // Writes exactly what the preview described — merging in protected
+  // existing values for a canChangeStatus-less admin on existing rows — then
+  // re-sets S/N formulas, optionally clears confirmed trailing rows (values
+  // only; column A's self-healing S/N formula is left alone), verifies the
+  // written range by reading it back, and refreshes the UI either way so
+  // what's on screen always matches the sheet's real current state.
+  async function performImportWrite(analysis, existingRaw, existingFilledCount, canChangeStatus, clearTrailingRows) {
+    var btn = document.getElementById('importXlsxBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Importing…'; }
+    setSyncStatus('saving');
+    var endRow = FIRST_DATA_ROW + analysis.dataRows.length - 1;
+    try {
+      var values = analysis.dataRows.map(function (importRow, i) {
+        if (canChangeStatus) return importRow.slice();
+        var merged = importRow.slice();
+        if (i < existingFilledCount) {
+          // Existing row: keep the CURRENT sheet value for every protected
+          // column, never whatever the file has.
+          var existingRow = existingRaw[i] || [];
+          IMPORT_PROTECTED_COLS.forEach(function (col) {
+            merged[col - 2] = existingRow[col - 2] != null ? existingRow[col - 2] : '';
+          });
+        } else {
+          // Brand-new row (beyond the table's current data): a user without
+          // canChangeStatus must not be able to smuggle PQD/M.S. statuses,
+          // PR/PO, or Action By through an import either — apply the same
+          // blank/authorized defaults a manually-added item gets, never the
+          // file's raw value.
+          IMPORT_PROTECTED_COLS.forEach(function (col) {
+            merged[col - 2] = importProtectedDefault(col);
+          });
+        }
+        return merged;
+      });
+
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, FIRST_DATA_ROW, LAST_DATA_COL, endRow), values, 'RAW');
+      for (var row = FIRST_DATA_ROW; row <= endRow; row++) {
+        await setSnFormula(row);
+      }
+
+      if (clearTrailingRows && existingFilledCount > analysis.dataRows.length) {
+        var clearStart = endRow + 1;
+        var clearEnd = FIRST_DATA_ROW + existingFilledCount - 1;
+        var width = LAST_DATA_COL - 1; // columns B..AB only — never touch column A's S/N formula
+        var blank = [];
+        for (var cr = clearStart; cr <= clearEnd; cr++) blank.push(new Array(width).fill(''));
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, 2, clearStart, LAST_DATA_COL, clearEnd), blank, 'RAW');
+      }
+
+      // Verify: re-read the FULL range we just wrote (every column, not just
+      // Description) and compare it cell-by-cell against what we intended
+      // to write, so a silent partial write or a Sheets-side transform
+      // doesn't get reported as success.
+      var verify = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, 2, FIRST_DATA_ROW, LAST_DATA_COL, endRow));
+      var verifiedOk = verify.length === values.length && values.every(function (row, ri) {
+        var vRow = verify[ri] || [];
+        return row.every(function (cell, ci) {
+          var want = cell == null ? '' : String(cell);
+          var got = vRow[ci] == null ? '' : String(vRow[ci]);
+          return want === got;
+        });
+      });
+
+      await refreshEverything();
+      setSyncStatus('saved');
+      var msg = document.getElementById('addMsg');
+      if (msg) {
+        msg.textContent = verifiedOk
+          ? ('Import complete: ' + values.length + ' rows written' + (clearTrailingRows ? ', trailing rows cleared.' : '.'))
+          : ('Import wrote ' + values.length + ' rows, but the table did not read back the expected row count — please review it before continuing.');
+      }
+      showToast(verifiedOk ? 'success' : 'warning', verifiedOk
+        ? ('Import complete: ' + values.length + ' rows written.')
+        : ('Import wrote ' + values.length + ' rows but could not be verified — please review.'));
+    } catch (e) {
+      console.error(e);
+      setSyncStatus('error', e.message || String(e));
+      // Whatever partially wrote before the failure is real — refresh so
+      // the screen shows the actual current state rather than a stale
+      // pre-import view, instead of leaving the admin to guess.
+      try { await refreshEverything(); } catch (e2) { /* best effort */ }
+      alert('Import failed partway through: ' + (e.message || e) + '. The table has been refreshed to show its current real state — please review it (and re-run the import if needed) before continuing.');
+      throw e;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '⬆ Import from Excel'; }
+    }
+  }
 </script>
 
 </body>
