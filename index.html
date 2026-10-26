@@ -2781,6 +2781,11 @@
     // visible (display:none elements report 0 width, so this must run
     // after the view switch, not only right after the table is built).
     if (window.syncFullTableStickyLeft) requestAnimationFrame(window.syncFullTableStickyLeft);
+    // Same reason: the horizontal scroll strip's inner spacer is sized from
+    // #fullTable's actual scrollWidth, which is 0 while this view is
+    // display:none — re-measure now that it's visible, or the strip stays
+    // permanently un-scrollable (width:0) as if it had vanished.
+    if (window.syncTopScrollWidth) requestAnimationFrame(window.syncTopScrollWidth);
   }
 
   /* ===================== PROJECT HEADER BAR (Lists!E2:E4) =====================
@@ -3044,6 +3049,7 @@
     applyRowFilters();
     if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
     if (window.syncFullTableStickyLeft) requestAnimationFrame(window.syncFullTableStickyLeft);
+    if (window.syncTopScrollWidth) requestAnimationFrame(window.syncTopScrollWidth);
   }
 
   function applyRowFilters() {
