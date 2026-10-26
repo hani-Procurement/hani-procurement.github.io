@@ -215,7 +215,21 @@
   .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid var(--border)}
   .table-top-scroll div{height:1px}
   .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
-  #fullTableHeader, #fullTable{min-width:2600px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
+  /* min-width MUST equal the true sum of every column's declared width
+     (50px Actions + the 29 COLS widths below = 2842px as of this writing).
+     table-layout:fixed does not expand a table to fit columns wider than
+     its own specified width — when the declared total exceeds this number,
+     Chrome silently shrinks every column to fit, and because the header
+     table (#fullTableHeader) and body table (#fullTable) are two separate
+     <table> elements, each one shrinks by its own slightly different ratio
+     (the header's wrapper reserves a few extra pixels to line up with the
+     body's vertical scrollbar), so the same nominal column ends up a
+     different number of real pixels wide in the header vs. the body. That
+     was the actual cause of the recurring sticky-column gap/overlap
+     reports — not sub-pixel rounding, a real multi-pixel shrink mismatch.
+     If a column width above is ever added/changed, this number must be
+     updated to match (Actions 50px + sum of every width in COLS). */
+  #fullTableHeader, #fullTable{min-width:2842px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#F7FAFA}
@@ -4340,29 +4354,21 @@
   // offsets into the --stk-left-N CSS variables the sticky-column rules
   // above read from.
   //
-  // The header (#fullTableHeader) and body (#fullTable) are two SEPARATE
-  // <table> elements, each with its own table-layout:fixed column-width
-  // calculation. Even though both colgroups are given the exact same
-  // requested pixel widths, the two tables round the fractional remainder
-  // (from display scaling, border-collapse:separate spacing, etc.)
-  // INDEPENDENTLY — in practice the Description column alone has been
-  // measured rendering ~20px wider in the body than in the header, despite
-  // both asking for 280px. Simply copying the header's own measured widths
-  // into the shared --stk-left-N offsets (the previous approach) only kept
-  // the header internally consistent with itself; the body table, with its
-  // own different actual widths, still overlapped/gapped at the sticky
-  // boundary — worst at Description/Unit (the widest column, so it
-  // accumulates the most rounding drift) but, depending on the display,
-  // visible at any of the 5 boundaries.
-  //
-  // The fix: measure the BODY table's actual rendered widths (that's what
-  // the person is actually reading/editing) and then explicitly re-set the
-  // HEADER colgroup's <col> widths to match those exact numbers. That
-  // forces both tables to render the frozen columns at identical pixel
-  // widths — not "hopefully the same because we asked for the same
-  // number", but actually, provably the same — so a single shared left
-  // offset is correct for both at once. Falls back to the header's own
-  // widths only on first paint, before any data row exists yet.
+  // The real bug that caused these 5 columns to render at different pixel
+  // widths in the header (#fullTableHeader) vs. the body (#fullTable) has
+  // been fixed at the source: the tables' min-width now equals the true
+  // sum of every declared column width, so table-layout:fixed no longer
+  // needs to shrink either table's columns to fit (see the comment on the
+  // #fullTableHeader, #fullTable CSS rule). With that fixed, both tables
+  // render these 5 columns at their plain declared widths and should
+  // already agree pixel-for-pixel. This function is kept only as a safety
+  // net for the sub-pixel rounding a browser can still introduce when a
+  // display is at a non-100% OS zoom — it reads the BODY row's real
+  // widths (never writes to any <col>, since forcibly resizing one
+  // table's columns after the fact was tried and made Chrome re-run its
+  // own column-width redistribution across the OTHER 24 columns, making
+  // things worse) and falls back to the header's own widths only before
+  // any data row exists yet (e.g. an empty table).
   function syncFullTableStickyLeft() {
     var headerRow = document.getElementById('headerMainRow');
     if (!headerRow) return;
@@ -4374,13 +4380,6 @@
     for (var i = 0; i < 5; i++) {
       var fromBody = bodyCells && bodyCells[i] ? bodyCells[i].getBoundingClientRect().width : 0;
       w.push(fromBody > 0 ? fromBody : ths[i].getBoundingClientRect().width);
-    }
-    // Force the header's own columns to the same widths so it can never
-    // drift from the body again, regardless of how each table's own
-    // fixed-layout rounding would otherwise have come out.
-    var headerColgroup = document.getElementById('headerColgroup');
-    if (headerColgroup && headerColgroup.children.length >= 5) {
-      for (var j = 0; j < 5; j++) headerColgroup.children[j].style.width = w[j] + 'px';
     }
     var root = document.documentElement.style;
     var left = 0;
