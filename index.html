@@ -3890,7 +3890,11 @@
       // toggled, which left it showing "today" on rows where the actual
       // status (PQD Status column) had never been touched at all.
       if (col === COL.PQD_CODE) {
-        const stamp = todayStamp(false);
+        // Status Date mirrors Status itself, the same way Submitted Date
+        // mirrors Submitted: a real code (A/B/C/D/W-Client) stamps today's
+        // date, and setting it back to "-" (blank) clears the date rather
+        // than leaving a stale one behind.
+        const stamp = value ? todayStamp(false) : '';
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_DATE, row, COL.PQD_DATE, row), [[stamp]]);
         updateLocalValue(row, COL.PQD_DATE, stamp);
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_DATE + '"]');
@@ -3911,7 +3915,8 @@
       // Same for M/S Status Date — tracks the M/S Status (code), not the
       // Submitted flag.
       if (col === COL.MS_CODE) {
-        const stamp = todayStamp(false);
+        // Same rule as PQD Status Date above.
+        const stamp = value ? todayStamp(false) : '';
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_DATE, row, COL.MS_DATE, row), [[stamp]]);
         updateLocalValue(row, COL.MS_DATE, stamp);
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
