@@ -3867,7 +3867,11 @@
         await refreshEverything(); // row lock state changed -> re-render the whole row set
         return;
       }
-      if (col === COL.PQD_SUB || col === COL.PQD_CODE) {
+      // PQD Status Date tracks the PQD Status (code) itself, not the
+      // Submitted flag — it used to also re-stamp whenever Submitted was
+      // toggled, which left it showing "today" on rows where the actual
+      // status (PQD Status column) had never been touched at all.
+      if (col === COL.PQD_CODE) {
         const stamp = todayStamp(false);
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_DATE, row, COL.PQD_DATE, row), [[stamp]]);
         updateLocalValue(row, COL.PQD_DATE, stamp);
@@ -3886,7 +3890,9 @@
         if (subDateCell) subDateCell.textContent = subStamp;
         refreshPlannedDateColor(row, COL.PQD_SUB);
       }
-      if (col === COL.MS_SUB || col === COL.MS_CODE) {
+      // Same for M/S Status Date — tracks the M/S Status (code), not the
+      // Submitted flag.
+      if (col === COL.MS_CODE) {
         const stamp = todayStamp(false);
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_DATE, row, COL.MS_DATE, row), [[stamp]]);
         updateLocalValue(row, COL.MS_DATE, stamp);
@@ -4330,10 +4336,39 @@
     var p = dateStr.split('-').map(Number);
     return Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000);
   }
+  // Planned/Status dates typed through this app's own <input type="date">
+  // always come back as strict ISO "YYYY-MM-DD". But a date that was
+  // already sitting in the spreadsheet before this app touched it (entered
+  // directly in Google Sheets, or brought in by Excel import) is read back
+  // from the Sheets API as whatever FORMATTED_VALUE that cell's own number
+  // format produces — commonly "M/D/YYYY" (Sheets' usual default), not ISO.
+  // The three "is this date due" checks below used to require strict ISO
+  // and silently returned false (no color, no week match — no error either)
+  // for anything else, so a row with a genuinely overdue date just never
+  // got highlighted if its date happened to come from one of those older
+  // sources. Normalizing first means every row is judged the same way
+  // regardless of which format its date happens to be stored in.
+  function normalizeDateToISO(dateStr) {
+    if (!dateStr) return null;
+    var s = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // "M/D/YYYY" or "MM/DD/YYYY" — Google Sheets' common default date format.
+    var mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) {
+      var mm = mdy[1].padStart(2, '0'), dd = mdy[2].padStart(2, '0');
+      return mdy[3] + '-' + mm + '-' + dd;
+    }
+    // Last resort: anything else JS's own Date parser can make sense of
+    // (e.g. an ISO date with a time component, or "D-MMM-YYYY").
+    var parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.getFullYear() + '-' + String(parsed.getMonth() + 1).padStart(2, '0') + '-' + String(parsed.getDate()).padStart(2, '0');
+    }
+    return null;
+  }
   function isThisWeek(dateStr) {
-    if (!dateStr) return false;
-    var dStr = String(dateStr).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var dStr = normalizeDateToISO(dateStr);
+    if (!dStr) return false;
     var now = new Date();
     var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     var dow = now.getDay(); // Sun=0..Sat=6
@@ -4345,9 +4380,8 @@
     return dDays >= weekStartDays && dDays <= weekEndDays;
   }
   function isDueByToday(dateStr) {
-    if (!dateStr) return false;
-    var dStr = String(dateStr).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var dStr = normalizeDateToISO(dateStr);
+    if (!dStr) return false;
     var now = new Date();
     var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     return daysFromEpoch(dStr) <= daysFromEpoch(todayStr);
@@ -4359,9 +4393,8 @@
   // it re-evaluates fresh on every load/refresh without any stored flag.
   var DUE_SOON_WINDOW_DAYS = 14;
   function isDueSoon(dateStr) {
-    if (!dateStr) return false;
-    var dStr = String(dateStr).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return false;
+    var dStr = normalizeDateToISO(dateStr);
+    if (!dStr) return false;
     var now = new Date();
     var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     var diff = daysFromEpoch(dStr) - daysFromEpoch(todayStr);
