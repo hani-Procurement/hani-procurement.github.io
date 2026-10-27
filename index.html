@@ -12,16 +12,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* Pipeline & Flow — gunmetal ground, flow-teal accent, valve-red for
-       anything that needs attention, amber for the middle ground. */
-    --bg:#EBF0F2; --surface:#FFFFFF; --border:#C7D4D9; --text:#1F2B33; --text-soft:#5C6E76;
-    --accent:#1C8C8C; --accent-dark:#146666; --accent-bg:#DFF0EF; --accent-bg-strong:#C3E4E2;
-    --heading:#1A2B4C;
-    --mech:#C8403A; --civil:#3D7A52; --elec:#E8A33D;
-    --ok:#2F7A52; --ok-bg:#E3F1E8; --warn:#C8403A; --warn-bg:#FBE6E3;
+    color-scheme: dark;
+    /* Pipeline & Flow — the real thing this time: a dark gunmetal/indigo
+       ground (not just the accent colors on a light page), flow-teal
+       accent, valve-red for anything that needs attention, amber for the
+       middle ground. Every dual-purpose token (used both as a filled
+       background WITH white text, and as a plain text color on the dark
+       ground) is picked bright enough to read on #1A2B4C/#223A54. */
+    --bg:#1A2B4C; --surface:#223A54; --border:#2C4A68; --text:#DCE3E6; --text-soft:#8FA3AD;
+    --accent:#1C8C8C; --accent-dark:#146666; --accent-bg:#1F4D4D; --accent-bg-strong:#2A6363;
+    --heading:#EAF2F2;
+    --mech:#E2574F; --civil:#4C9268; --elec:#E8A33D;
+    --ok:#3FA06C; --ok-bg:#1E3B2C; --warn:#E05C50; --warn-bg:#3A2320;
     --priority-med:#E8A33D;
     --radius:10px; --radius-sm:8px;
-    --shadow:0 1px 2px rgba(26,43,76,.06),0 1px 4px rgba(26,43,76,.08);
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 2px 10px rgba(0,0,0,.3);
     --sans:'Sora',system-ui,-apple-system,sans-serif;
     --mono:'Roboto Mono',ui-monospace,monospace;
   }
@@ -196,7 +201,7 @@
   .project-bar input:focus{border-color:var(--accent);outline:none}
   .project-bar .pb-date{font-weight:700;color:var(--heading);margin-left:auto;font-family:var(--mono);font-size:12px}
   .sync-indicator{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .sync-indicator.sync-saving{background:var(--accent-bg);color:var(--accent-dark)}
+  .sync-indicator.sync-saving{background:var(--accent-bg);color:var(--accent)}
   .sync-indicator.sync-saved{background:var(--ok-bg);color:var(--ok)}
   .sync-indicator.sync-error{background:var(--warn-bg);color:var(--warn)}
   @media (max-width:700px){.project-bar{gap:10px}.project-bar .pb-date{margin-left:0}}
@@ -246,13 +251,13 @@
   #fullTableHeader, #fullTable{min-width:2990px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
-  #fullTable tbody tr:nth-child(even){background:#F7FAFA}
-  #fullTable tbody tr.package-row{background:#FBEEDD}
-  #fullTable tbody tr.package-row:nth-child(even){background:#F7E4C9}
-  #fullTable tbody tr.package-row td.sn-cell{background:#FBEEDD}
-  #fullTable tbody tr.package-row:nth-child(even) td.sn-cell{background:#F7E4C9}
-  #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#3F4A4C;color:#f1f1f1}
-  #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#3F4A4C;color:#f1f1f1}
+  #fullTable tbody tr:nth-child(even){background:#263F5C}
+  #fullTable tbody tr.package-row{background:#473A1E}
+  #fullTable tbody tr.package-row:nth-child(even){background:#3D331C}
+  #fullTable tbody tr.package-row td.sn-cell{background:#473A1E}
+  #fullTable tbody tr.package-row:nth-child(even) td.sn-cell{background:#3D331C}
+  #fullTable tbody tr.closed-row, #fullTable tbody tr.closed-row:nth-child(even){background:#3A3F42;color:#f1f1f1}
+  #fullTable tbody tr.closed-row td.sn-cell, #fullTable tbody tr.closed-row:nth-child(even) td.sn-cell{background:#3A3F42;color:#f1f1f1}
   #fullTable tbody tr.closed-row td{color:#f1f1f1}
   /* "Delete" Action By — same full row-lock as Closed, deliberately a
      different (dark brick-red) color so it reads as "removed with intent"
@@ -315,9 +320,9 @@
   .group-header-cell{background:var(--accent);border-bottom:1px solid rgba(255,255,255,0.25)}
   .group-header-pqd, .group-header-ms, .group-header-sample{font-size:12px;font-weight:700;background:var(--accent-dark)}
   #fullTable tbody tr td:nth-child(-n+5){background:var(--surface)}
-  #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#F7FAFA}
-  #fullTable tbody tr.package-row td:nth-child(-n+5){background:#FBEEDD}
-  #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#F7E4C9}
+  #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#263F5C}
+  #fullTable tbody tr.package-row td:nth-child(-n+5){background:#473A1E}
+  #fullTable tbody tr.package-row:nth-child(even) td:nth-child(-n+5){background:#3D331C}
   #fullTable tbody tr.closed-row td:nth-child(-n+5), #fullTable tbody tr.closed-row:nth-child(even) td:nth-child(-n+5){background:#3F4A4C}
   #fullTable tbody tr.deleted-row td:nth-child(-n+5), #fullTable tbody tr.deleted-row:nth-child(even) td:nth-child(-n+5){background:#6B2A2A}
   .po-supplier-wrap{display:flex;flex-direction:column;gap:1px}
@@ -356,7 +361,7 @@
      right now, and clears itself the moment a real status is chosen
      (saveCell's PQD_CODE/MS_CODE branch removes this class). */
   @keyframes needs-status-pulse{0%,100%{box-shadow:0 0 0 2px #f5c518}50%{box-shadow:0 0 0 2px #f5c518, 0 0 6px 2px rgba(245,197,24,0.7)}}
-  select.needs-status-highlight{background:#FFF7D6 !important;animation:needs-status-pulse 1.2s ease-in-out 3}
+  select.needs-status-highlight{background:#FFF7D6 !important;color:#2B2410 !important;animation:needs-status-pulse 1.2s ease-in-out 3}
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
   #loadingMsg{padding:30px;text-align:center;color:var(--text-soft)}
 
@@ -450,12 +455,12 @@
   table.ms-table th, table.ms-table td{border:1px solid var(--border);padding:4px 6px;text-align:center}
   table.ms-table thead th{background:var(--accent);color:#fff;font-size:11px}
   table.ms-table thead th.has-tip{text-decoration:underline dotted;cursor:help}
-  table.ms-table tbody tr:nth-child(even){background:#F7FAFA}
+  table.ms-table tbody tr:nth-child(even){background:#263F5C}
   table.ms-table tr.grand-total{font-weight:700;background:var(--accent-bg) !important}
   table.ms-table td.ms-label-cell{text-align:left;font-weight:600;white-space:nowrap}
-  table.ms-table td.ms-computed-cell{background:#FBFDFD;font-family:var(--mono)}
-  table.ms-table td.tw-col{background:#FBF2DC}
-  table.ms-table th.tw-col{background:#FBF2DC;color:var(--text)}
+  table.ms-table td.ms-computed-cell{background:#1D3349;font-family:var(--mono)}
+  table.ms-table td.tw-col{background:#473A1E}
+  table.ms-table th.tw-col{background:#473A1E;color:var(--text)}
   /* Item/Buyer table: banner row grouping buyer columns under the BOQ table
      each buyer mostly works on (computed fresh from live data every render). */
   table.ms-table th.buyer-group-header{background:var(--accent-dark)}
@@ -500,7 +505,7 @@
       Sign in with Google
     </button>
 
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-top:12px;justify-content:center;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-soft);margin-top:12px;justify-content:center;cursor:pointer">
       <input type="checkbox" id="keepSignedInChk" checked style="width:auto;margin:0"> Keep me signed in on this browser
     </label>
 
@@ -517,7 +522,7 @@
       <input type="text" id="newProjectNameInput" placeholder="New project name" style="flex:1">
       <button type="button" id="createProjectBtn" style="width:auto">+ Create New Project</button>
     </div>
-    <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:#333"></div>
+    <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:var(--text)"></div>
   </div>
 </div>
 
@@ -542,7 +547,7 @@
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
-      <label style="font-size:12.5px;color:#555;margin:0 2px 0 8px;align-self:center">Discipline:</label>
+      <label style="font-size:12.5px;color:var(--text-soft);margin:0 2px 0 8px;align-self:center">Discipline:</label>
       <select id="globalTableSelect" onchange="switchGlobalTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid var(--border);border-radius:6px;align-self:center;font-family:var(--sans)"></select>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
@@ -701,13 +706,13 @@
 
         <div class="card" id="cpUsersCard">
           <h3>Team members &amp; permissions</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Control exactly who can add items, delete items, reorder/move items, or change status
             fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
             view everything and edit the regular fields.
           </p>
           <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
             <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
             <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
               <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
@@ -724,12 +729,12 @@
 
         <div class="card" id="cpNoAccessCard" style="display:none">
           <h3>Team members &amp; permissions</h3>
-          <p style="font-size:13px;color:#666">Only an Admin can manage team members. Ask your admin to make changes here.</p>
+          <p style="font-size:13px;color:var(--text-soft)">Only an Admin can manage team members. Ask your admin to make changes here.</p>
         </div>
 
         <div class="card" id="cpInviteCard">
           <h3>Invite link</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 8px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 8px">
             Send this link to a teammate <b>after</b> adding them above. It opens this same team sheet
             directly — without it, their sign-in would try to create a separate sheet of their own.
           </p>
@@ -748,13 +753,13 @@
 
         <div class="card" id="cpTablesCard">
           <h3>Tables</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Add, rename, or remove the BOQ tables shown in Full Table. Each table is fully
             independent (its own items, and its own "File With" buyer list), and its name also
             appears as the Discipline when that table is selected.
           </p>
           <div class="fw-list" id="cpTablesList" style="max-height:none"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
             <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
           </div>
@@ -775,8 +780,8 @@
             <button type="button" onclick="document.getElementById('importFileInput').click()" id="importXlsxBtn">⬆ Import from Excel</button>
             <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
           </div>
-          <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+          <div id="cpImportExportMsg" style="font-size:12px;color:var(--text-soft);margin-top:6px"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
           </div>
         </div>
@@ -790,7 +795,7 @@
 
         <div class="card" id="cpBackupCard">
           <h3>Auto Backup</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Mails a full backup of the entire spreadsheet (every table, Material Submittal Status,
             and team settings) as an Excel file to the address below, sent through your own Google
             account. "Send Backup Now" sends one immediately. The periodic schedule is checked each
@@ -812,7 +817,7 @@
             <button type="button" class="primary" onclick="saveBackupSettings()" style="width:auto;padding:8px 14px">💾 Save</button>
             <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
           </div>
-          <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
+          <div id="cpBackupLast" style="font-size:12px;color:var(--text-soft);margin-top:8px"></div>
           <div id="cpBackupMsg" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
         </div>
 
@@ -858,7 +863,7 @@
 <div class="modal-overlay" id="fileWithModalOverlay" style="display:none;">
   <div class="modal-box">
     <h3>Manage "File With" List</h3>
-    <div id="fwTableLabel" style="font-size:12px;color:#888;margin:-8px 0 10px"></div>
+    <div id="fwTableLabel" style="font-size:12px;color:var(--text-soft);margin:-8px 0 10px"></div>
     <div class="fw-list" id="fwList"></div>
     <div class="fw-add-row">
       <input type="text" id="fwNewName" placeholder="New name...">
@@ -1404,7 +1409,7 @@
     list.innerHTML = '';
     if (!projects.length) {
       var emptyP = document.createElement('p');
-      emptyP.style.color = '#888'; emptyP.style.fontSize = '13.5px'; emptyP.style.margin = '0 0 4px';
+      emptyP.style.color = 'var(--text-soft)'; emptyP.style.fontSize = '13.5px'; emptyP.style.margin = '0 0 4px';
       emptyP.textContent = 'No projects available for your account yet. Create your first one below.';
       list.appendChild(emptyP);
     } else {
@@ -2625,7 +2630,7 @@
           row.className = 'fw-list-item'; row.style.flexWrap = 'wrap';
           var emailSpan = document.createElement('span');
           emailSpan.textContent = email; emailSpan.style.flex = '1 0 100%';
-          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = '#555';
+          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = 'var(--text-soft)';
           row.appendChild(emailSpan);
           var checksWrap = document.createElement('div');
           checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
@@ -2643,7 +2648,7 @@
         });
         if (!any) {
           var none = document.createElement('div'); none.className = 'fw-list-item';
-          none.style.color = '#999'; none.style.fontSize = '12px';
+          none.style.color = 'var(--text-soft)'; none.style.fontSize = '12px';
           none.textContent = 'No members with access to this table yet.';
           list.appendChild(none);
         }
@@ -5324,7 +5329,7 @@
   function renderItemsPopupTable(listEl, items, columns, emptyMessage) {
     listEl.innerHTML = '';
     if (!items.length) {
-      var none = document.createElement('p'); none.style.color = '#888'; none.textContent = emptyMessage;
+      var none = document.createElement('p'); none.style.color = 'var(--text-soft)'; none.textContent = emptyMessage;
       listEl.appendChild(none); return;
     }
     var table = document.createElement('table');
@@ -5332,7 +5337,7 @@
     var head = document.createElement('tr');
     ['#'].concat(columns.map(function(c) { return c.header; })).forEach(function(h) {
       var th = document.createElement('th'); th.textContent = h;
-      th.style.cssText = 'text-align:left;padding:4px 6px;color:#777;border-bottom:1px solid #ddd';
+      th.style.cssText = 'text-align:left;padding:4px 6px;color:var(--text-soft);border-bottom:1px solid var(--border)';
       head.appendChild(th);
     });
     table.appendChild(head);
@@ -5341,7 +5346,7 @@
       [i + 1].concat(columns.map(function(c) { return it[c.key]; })).forEach(function(val) {
         var td = document.createElement('td');
         td.textContent = (val === null || typeof val === 'undefined') ? '' : val;
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         tr.appendChild(td);
       });
       table.appendChild(tr);
@@ -5387,6 +5392,11 @@
   function sdMakeChart(canvasId, config) {
     var canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
+    // Chart.js defaults to dark-grey legend/tick text, invisible on the
+    // Pipeline & Flow dark cards — set once, retroactively covers every
+    // chart made through this one factory function.
+    Chart.defaults.color = '#B9CAD1';
+    Chart.defaults.borderColor = '#2C4A68';
     if (SD_CHARTS[canvasId]) SD_CHARTS[canvasId].destroy();
     SD_CHARTS[canvasId] = new Chart(canvas.getContext('2d'), config);
   }
@@ -5394,7 +5404,7 @@
     pct = Math.max(0, Math.min(100, Math.round(pct || 0)));
     sdMakeChart(canvasId, {
       type: 'doughnut',
-      data: { datasets: [{ data: [pct, 100 - pct], backgroundColor: [color, '#e8eaf0'], borderWidth: 0 }] },
+      data: { datasets: [{ data: [pct, 100 - pct], backgroundColor: [color, '#223A54'], borderWidth: 0 }] },
       options: { rotation: -90, circumference: 180, cutout: '72%',
         plugins: { legend: { display: false }, tooltip: { enabled: false } },
         maintainAspectRatio: false, animation: { duration: 400 } }
@@ -5491,7 +5501,7 @@
     if (!items.length) {
       var tr = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 4; td.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td.colSpan = 4; td.style.cssText = 'padding:10px;color:var(--text-soft);text-align:center';
       td.textContent = 'No overdue items — everything is on schedule.';
       tr.appendChild(td); body.appendChild(tr);
       return;
@@ -5501,7 +5511,7 @@
       [it.desc, it.track, it.discipline, it.plannedDate].forEach(function(v) {
         var td = document.createElement('td');
         td.textContent = v || '';
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         tr.appendChild(td);
       });
       tr.style.background = 'var(--warn-bg)';
@@ -5546,7 +5556,7 @@
     if (!data.names.length) {
       var tr0 = document.createElement('tr');
       var td0 = document.createElement('td');
-      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:var(--text-soft);text-align:center';
       td0.textContent = 'No buyer assignments yet.';
       tr0.appendChild(td0); body.appendChild(tr0);
       return;
@@ -5557,7 +5567,7 @@
       [name, total, data.done[i], data.open[i], data.overdue[i], data.completionPct[i] + '%'].forEach(function(v, colI) {
         var td = document.createElement('td');
         td.textContent = v;
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         if (colI === 4 && data.overdue[i] > 0) td.style.color = '#C8403A';
         tr.appendChild(td);
       });
@@ -6117,7 +6127,7 @@
           actions.appendChild(renameBtn); actions.appendChild(removeBtn);
         } else {
           var lockSpan = document.createElement('span');
-          lockSpan.style.fontSize = '11px'; lockSpan.style.color = '#888';
+          lockSpan.style.fontSize = '11px'; lockSpan.style.color = 'var(--text-soft)';
           lockSpan.textContent = 'protected';
           actions.appendChild(lockSpan);
         }
