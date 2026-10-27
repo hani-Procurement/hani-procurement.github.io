@@ -500,7 +500,7 @@
       Sign in with Google
     </button>
 
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-top:12px;justify-content:center;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-soft);margin-top:12px;justify-content:center;cursor:pointer">
       <input type="checkbox" id="keepSignedInChk" checked style="width:auto;margin:0"> Keep me signed in on this browser
     </label>
 
@@ -517,7 +517,7 @@
       <input type="text" id="newProjectNameInput" placeholder="New project name" style="flex:1">
       <button type="button" id="createProjectBtn" style="width:auto">+ Create New Project</button>
     </div>
-    <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:#333"></div>
+    <div id="projectPickerStatus" style="margin-top:14px;font-size:13.5px;color:var(--text)"></div>
   </div>
 </div>
 
@@ -542,7 +542,7 @@
       <button class="active" onclick="showView('subdash', this)">Submittal Dashboard</button>
       <button onclick="showView('msstatus', this)">Material Submittal Status</button>
       <button onclick="showView('fulltable', this)">Full Table</button>
-      <label style="font-size:12.5px;color:#555;margin:0 2px 0 8px;align-self:center">Discipline:</label>
+      <label style="font-size:12.5px;color:var(--text-soft);margin:0 2px 0 8px;align-self:center">Discipline:</label>
       <select id="globalTableSelect" onchange="switchGlobalTable(this.value)" style="width:auto;padding:5px 7px;border:1px solid var(--border);border-radius:6px;align-self:center;font-family:var(--sans)"></select>
     </nav>
     <div class="subtoolbar" id="fullTableToolbar" style="display:none">
@@ -701,13 +701,13 @@
 
         <div class="card" id="cpUsersCard">
           <h3>Team members &amp; permissions</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Control exactly who can add items, delete items, reorder/move items, or change status
             fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
             view everything and edit the regular fields.
           </p>
           <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
             <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
             <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
               <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
@@ -724,12 +724,12 @@
 
         <div class="card" id="cpNoAccessCard" style="display:none">
           <h3>Team members &amp; permissions</h3>
-          <p style="font-size:13px;color:#666">Only an Admin can manage team members. Ask your admin to make changes here.</p>
+          <p style="font-size:13px;color:var(--text-soft)">Only an Admin can manage team members. Ask your admin to make changes here.</p>
         </div>
 
         <div class="card" id="cpInviteCard">
           <h3>Invite link</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 8px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 8px">
             Send this link to a teammate <b>after</b> adding them above. It opens this same team sheet
             directly — without it, their sign-in would try to create a separate sheet of their own.
           </p>
@@ -748,13 +748,13 @@
 
         <div class="card" id="cpTablesCard">
           <h3>Tables</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Add, rename, or remove the BOQ tables shown in Full Table. Each table is fully
             independent (its own items, and its own "File With" buyer list), and its name also
             appears as the Discipline when that table is selected.
           </p>
           <div class="fw-list" id="cpTablesList" style="max-height:none"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
             <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
           </div>
@@ -775,8 +775,8 @@
             <button type="button" onclick="document.getElementById('importFileInput').click()" id="importXlsxBtn">⬆ Import from Excel</button>
             <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
           </div>
-          <div id="cpImportExportMsg" style="font-size:12px;color:#666;margin-top:6px"></div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+          <div id="cpImportExportMsg" style="font-size:12px;color:var(--text-soft);margin-top:6px"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <a id="openSheetLink" href="#" target="_blank">Open the Google Sheet ↗</a>
           </div>
         </div>
@@ -790,7 +790,7 @@
 
         <div class="card" id="cpBackupCard">
           <h3>Auto Backup</h3>
-          <p style="font-size:12.5px;color:#555;margin:0 0 10px">
+          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
             Mails a full backup of the entire spreadsheet (every table, Material Submittal Status,
             and team settings) as an Excel file to the address below, sent through your own Google
             account. "Send Backup Now" sends one immediately. The periodic schedule is checked each
@@ -812,7 +812,7 @@
             <button type="button" class="primary" onclick="saveBackupSettings()" style="width:auto;padding:8px 14px">💾 Save</button>
             <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
           </div>
-          <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
+          <div id="cpBackupLast" style="font-size:12px;color:var(--text-soft);margin-top:8px"></div>
           <div id="cpBackupMsg" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
         </div>
 
@@ -858,7 +858,7 @@
 <div class="modal-overlay" id="fileWithModalOverlay" style="display:none;">
   <div class="modal-box">
     <h3>Manage "File With" List</h3>
-    <div id="fwTableLabel" style="font-size:12px;color:#888;margin:-8px 0 10px"></div>
+    <div id="fwTableLabel" style="font-size:12px;color:var(--text-soft);margin:-8px 0 10px"></div>
     <div class="fw-list" id="fwList"></div>
     <div class="fw-add-row">
       <input type="text" id="fwNewName" placeholder="New name...">
@@ -1404,7 +1404,7 @@
     list.innerHTML = '';
     if (!projects.length) {
       var emptyP = document.createElement('p');
-      emptyP.style.color = '#888'; emptyP.style.fontSize = '13.5px'; emptyP.style.margin = '0 0 4px';
+      emptyP.style.color = 'var(--text-soft)'; emptyP.style.fontSize = '13.5px'; emptyP.style.margin = '0 0 4px';
       emptyP.textContent = 'No projects available for your account yet. Create your first one below.';
       list.appendChild(emptyP);
     } else {
@@ -2625,7 +2625,7 @@
           row.className = 'fw-list-item'; row.style.flexWrap = 'wrap';
           var emailSpan = document.createElement('span');
           emailSpan.textContent = email; emailSpan.style.flex = '1 0 100%';
-          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = '#555';
+          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = 'var(--text-soft)';
           row.appendChild(emailSpan);
           var checksWrap = document.createElement('div');
           checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
@@ -2643,7 +2643,7 @@
         });
         if (!any) {
           var none = document.createElement('div'); none.className = 'fw-list-item';
-          none.style.color = '#999'; none.style.fontSize = '12px';
+          none.style.color = 'var(--text-soft)'; none.style.fontSize = '12px';
           none.textContent = 'No members with access to this table yet.';
           list.appendChild(none);
         }
@@ -4753,6 +4753,7 @@
     'Code C & D This Week - Main', 'Code C & D This Week - Alt',
     'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
     'Under Approval This Week - Main', 'Under Approval This Week - Alt',
+    'Submitted - Awaiting Status',
     'Total PR', 'Total PO',
     'Balance Submittal to be Prepared', 'Submittal Under Process By Proc.', 'No Design Action By Site',
     'Planned Submission (%)', 'Submitted (%)', 'Approved (%)', 'Not Approved & C/D (%)',
@@ -4768,6 +4769,7 @@
     'Code C & D This Week - Main', 'Code C & D This Week - Alt',
     'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
     'Under Approval This Week - Main', 'Under Approval This Week - Alt',
+    'Submitted - Awaiting Status',
     'Balance PQD to be Prepared', 'PQD Under Process By Proc.', 'No Design Action By Site',
     'Planned Submission (%)', 'Submitted (%)', 'Approved (%)', 'Not Approved & C/D (%)',
     'Received from Client - A', 'Received from Client - B', 'Received from Client - C', 'Received from Client - D'
@@ -4785,6 +4787,7 @@
     { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
     { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
     { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
+    { label: 'Submitted\nAwaiting Status', subs: [''] },
     { label: 'Total PR', subs: [''] },
     { label: 'Total PO', subs: [''] },
     { label: 'Balance Submittal\nto be Prepared', subs: [''] },
@@ -4810,6 +4813,7 @@
     { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
     { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
     { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
+    { label: 'Submitted\nAwaiting Status', subs: [''] },
     { label: 'Balance PQD\nto be Prepared', subs: [''] },
     { label: 'PQD Under\nProcess By Proc.', subs: [''] },
     { label: 'No Design Action\nBy Site', subs: [''] },
@@ -4822,6 +4826,7 @@
   var PQD_ROW_LABELS = ['PQD'];
 
   var SUBMITTAL_HEADER_TIPS = {
+    'Submitted\nAwaiting Status': 'Submitted to Client - Main − Approved - Main − Code C & D - Main − Under Approval W/Client - Main (submitted, but no PQD/M-S Status code picked yet)',
     'Planned Submission (%)': 'Main items whose Planned Submission Date has arrived (today or earlier) ÷ Total Materials as Per Sch. × 100',
     'Submitted (%)': 'Submitted to Client - Main ÷ Total Materials as Per Sch. × 100',
     'Approved (%)': 'Approved - Main ÷ Submitted to Client - Main × 100 (only out of what was actually submitted, not the total)',
@@ -4902,6 +4907,11 @@
       apprMain: s.apprMain, apprAlt: s.apprAlt, apprMainWeek: s.apprMainWeek, apprAltWeek: s.apprAltWeek,
       cdMain: s.cdMain, cdAlt: s.cdAlt, cdMainWeek: s.cdMainWeek, cdAltWeek: s.cdAltWeek,
       uaMain: s.uaMain, uaAlt: s.uaAlt, uaMainWeek: s.uaMainWeek, uaAltWeek: s.uaAltWeek,
+      // Main submittals with no PQD/M-S Status code picked yet (not A/B,
+      // not C/D, not W/Client) — submitted but still awaiting a decision.
+      // Never negative by construction (every submitted-Main row falls into
+      // exactly one of: awaiting / approved / code C-D / under approval).
+      awaitingStatus: Math.max(0, subTotal - apprTotal - cdTotal - s.uaMain),
       pr: s.pr, po: s.po, noDesignAction: s.noDesignAction,
       submittedPct: s.totalMaterials > 0 ? Math.round((subTotal / s.totalMaterials) * 100) : 0,
       approvedPct: subTotal > 0 ? Math.round((apprTotal / subTotal) * 100) : 0,
@@ -4920,6 +4930,7 @@
       stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
       stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
       stats.uaMain, stats.uaAlt, stats.uaMainWeek, stats.uaAltWeek,
+      stats.awaitingStatus,
       stats.pr, stats.po,
       balance, balance - stats.noDesignAction, stats.noDesignAction,
       stats.plannedSubmissionPct, stats.submittedPct, stats.approvedPct, stats.notApprovedPct,
@@ -4935,6 +4946,7 @@
       stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
       stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
       stats.uaMain, stats.uaAlt, stats.uaMainWeek, stats.uaAltWeek,
+      stats.awaitingStatus,
       balance, balance - stats.noDesignAction, stats.noDesignAction,
       stats.plannedSubmissionPct, stats.submittedPct, stats.approvedPct, stats.notApprovedPct,
       stats.recvA, stats.recvB, stats.recvC, stats.recvD
@@ -5324,7 +5336,7 @@
   function renderItemsPopupTable(listEl, items, columns, emptyMessage) {
     listEl.innerHTML = '';
     if (!items.length) {
-      var none = document.createElement('p'); none.style.color = '#888'; none.textContent = emptyMessage;
+      var none = document.createElement('p'); none.style.color = 'var(--text-soft)'; none.textContent = emptyMessage;
       listEl.appendChild(none); return;
     }
     var table = document.createElement('table');
@@ -5332,7 +5344,7 @@
     var head = document.createElement('tr');
     ['#'].concat(columns.map(function(c) { return c.header; })).forEach(function(h) {
       var th = document.createElement('th'); th.textContent = h;
-      th.style.cssText = 'text-align:left;padding:4px 6px;color:#777;border-bottom:1px solid #ddd';
+      th.style.cssText = 'text-align:left;padding:4px 6px;color:var(--text-soft);border-bottom:1px solid var(--border)';
       head.appendChild(th);
     });
     table.appendChild(head);
@@ -5341,7 +5353,7 @@
       [i + 1].concat(columns.map(function(c) { return it[c.key]; })).forEach(function(val) {
         var td = document.createElement('td');
         td.textContent = (val === null || typeof val === 'undefined') ? '' : val;
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         tr.appendChild(td);
       });
       table.appendChild(tr);
@@ -5491,7 +5503,7 @@
     if (!items.length) {
       var tr = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 4; td.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td.colSpan = 4; td.style.cssText = 'padding:10px;color:var(--text-soft);text-align:center';
       td.textContent = 'No overdue items — everything is on schedule.';
       tr.appendChild(td); body.appendChild(tr);
       return;
@@ -5501,7 +5513,7 @@
       [it.desc, it.track, it.discipline, it.plannedDate].forEach(function(v) {
         var td = document.createElement('td');
         td.textContent = v || '';
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         tr.appendChild(td);
       });
       tr.style.background = 'var(--warn-bg)';
@@ -5546,7 +5558,7 @@
     if (!data.names.length) {
       var tr0 = document.createElement('tr');
       var td0 = document.createElement('td');
-      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:var(--text-soft);text-align:center';
       td0.textContent = 'No buyer assignments yet.';
       tr0.appendChild(td0); body.appendChild(tr0);
       return;
@@ -5557,7 +5569,7 @@
       [name, total, data.done[i], data.open[i], data.overdue[i], data.completionPct[i] + '%'].forEach(function(v, colI) {
         var td = document.createElement('td');
         td.textContent = v;
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
         if (colI === 4 && data.overdue[i] > 0) td.style.color = '#C8403A';
         tr.appendChild(td);
       });
@@ -6117,7 +6129,7 @@
           actions.appendChild(renameBtn); actions.appendChild(removeBtn);
         } else {
           var lockSpan = document.createElement('span');
-          lockSpan.style.fontSize = '11px'; lockSpan.style.color = '#888';
+          lockSpan.style.fontSize = '11px'; lockSpan.style.color = 'var(--text-soft)';
           lockSpan.textContent = 'protected';
           actions.appendChild(lockSpan);
         }
