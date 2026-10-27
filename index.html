@@ -332,6 +332,12 @@
      a lighter orange warning tier, one step before overdue-cell's red. */
   .due-soon-cell{background:#FDEEDD !important}
   .due-soon-cell input{background:transparent}
+  /* Submitted was just set to Yes but this row's Status (A/B/C/D/W-Client)
+     is still blank — pulses to draw the eye to the cell that needs picking
+     right now, and clears itself the moment a real status is chosen
+     (saveCell's PQD_CODE/MS_CODE branch removes this class). */
+  @keyframes needs-status-pulse{0%,100%{box-shadow:0 0 0 2px #f5c518}50%{box-shadow:0 0 0 2px #f5c518, 0 0 6px 2px rgba(245,197,24,0.7)}}
+  select.needs-status-highlight{background:#FFF7D6 !important;animation:needs-status-pulse 1.2s ease-in-out 3}
   #fullTable td.remarks-cell{min-width:200px;text-align:left}
   #loadingMsg{padding:30px;text-align:center;color:var(--text-soft)}
 
@@ -547,40 +553,39 @@
       <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal">-</div><div class="sd-label">Estimated Total PQDs</div></div>
       <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted">-</div><div class="sd-label">PQD Submitted</div></div>
       <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance">-</div><div class="sd-label">PQD Balance to be Prepared</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdPqdPr">-</div><div class="sd-label">Total PR</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdPqdPo">-</div><div class="sd-label">Total PO</div></div>
     </div>
 
-    <div class="sd-section-title">📦 Material Submittal — Status &amp; Pipeline</div>
+    <div class="sd-section-title">📊 Status Breakdown</div>
     <div class="chart-grid">
-      <div class="chart-card tall wide"><h4>Material Procurement Pipeline (Main)</h4><div class="chart-wrap" style="height:300px"><canvas id="chartMsFunnel"></canvas></div></div>
       <div class="chart-card"><h4>Material Status Breakdown (Grand Total)</h4><div class="chart-wrap"><canvas id="chartMsStatus"></canvas></div></div>
-      <div class="chart-card"><h4>Comparison Sheet Progress</h4><div class="stepper" id="msCompStepper"></div></div>
-    </div>
-
-    <div class="sd-section-title">📐 PQD — Status &amp; Pipeline</div>
-    <div class="chart-grid">
-      <div class="chart-card"><h4>PQD Procurement Pipeline</h4><div class="chart-wrap"><canvas id="chartPqdFunnel"></canvas></div></div>
       <div class="chart-card"><h4>PQD Status Breakdown</h4><div class="chart-wrap"><canvas id="chartPqdStatus"></canvas></div></div>
-      <div class="chart-card"><h4>This Week Activity — Material vs PQD</h4><div class="chart-wrap"><canvas id="chartThisWeek"></canvas></div></div>
     </div>
 
-    <div class="sd-section-title">📊 Progress Percentages</div>
-    <div class="gauge-grid">
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsPlanned"></canvas><div class="gauge-pct" id="gaugeMsPlannedTxt">-</div></div><div class="gauge-label">Material — Planned Submission %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsSubmitted"></canvas><div class="gauge-pct" id="gaugeMsSubmittedTxt">-</div></div><div class="gauge-label">Material — Submitted %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsApproved"></canvas><div class="gauge-pct" id="gaugeMsApprovedTxt">-</div></div><div class="gauge-label">Material — Approved %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugeMsNotApproved"></canvas><div class="gauge-pct" id="gaugeMsNotApprovedTxt">-</div></div><div class="gauge-label">Material — Not Approved &amp; C/D %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdPlanned"></canvas><div class="gauge-pct" id="gaugePqdPlannedTxt">-</div></div><div class="gauge-label">PQD — Planned Submission %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdSubmitted"></canvas><div class="gauge-pct" id="gaugePqdSubmittedTxt">-</div></div><div class="gauge-label">PQD — Submitted %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdApproved"></canvas><div class="gauge-pct" id="gaugePqdApprovedTxt">-</div></div><div class="gauge-label">PQD — Approved %</div></div>
-      <div class="gauge-card"><div class="gauge-wrap"><canvas id="gaugePqdNotApproved"></canvas><div class="gauge-pct" id="gaugePqdNotApprovedTxt">-</div></div><div class="gauge-label">PQD — Not Approved &amp; C/D %</div></div>
+    <!-- Main items (either track) whose Planned Submission Date has arrived
+         (today or earlier — same isDueByToday() definition already driving
+         the red overdue-cell highlight in Full Table) and that are still
+         not Submitted. Sorted oldest-date-first so the most overdue item is
+         always at the top. -->
+    <div class="sd-section-title">⚠️ Overdue Items — Planned Date passed, not yet Submitted (<span id="sdOverdueCount">0</span>)</div>
+    <div class="card">
+      <div class="ms-table-wrap">
+        <table class="ms-table" id="sdOverdueTable">
+          <thead><tr><th>Description</th><th>Track</th><th>Discipline</th><th>Planned Date</th></tr></thead>
+          <tbody id="sdOverdueBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="sd-section-title">👤 Items by Buyer (File With)</div>
-    <div class="chart-grid">
-      <div class="chart-card wide"><h4>Items by Buyer — Totals</h4><div class="chart-wrap"><canvas id="chartBuyer"></canvas></div></div>
-      <div class="chart-card wide"><h4>Buyer Workload — Done / Open / Overdue (M/S, Main items)</h4><div class="chart-wrap"><canvas id="chartBuyerWorkload"></canvas></div></div>
+    <!-- Per-buyer (File With) workload for the M/S track, Main items only —
+         same numbers the old bar chart showed, as a plain table instead. -->
+    <div class="sd-section-title">👤 Buyer Workload (M/S, Main items)</div>
+    <div class="card">
+      <div class="ms-table-wrap">
+        <table class="ms-table" id="sdBuyerWorkloadTable">
+          <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
+          <tbody id="sdBuyerWorkloadBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -617,6 +622,7 @@
       <div>
         <button type="button" onclick="exportSubmittalToXlsx()" id="exportSubmittalXlsxBtn">⬇ Export this tab to Excel</button>
         <button type="button" onclick="exportStatusReportToPdf()" id="exportPdfBtn">🖨 Export Status Report (PDF)</button>
+        <button type="button" onclick="syncSubmittalStatusToLiveSheet()" id="syncSubmittalSheetBtn" title="Writes everything on this screen into a real 'Material Submittal Status' tab in your actual Google Sheet (not a temp file) — so it opens from Google Sheets directly, same as the BOQ tabs.">🔄 Sync to Google Sheet</button>
       </div>
     </div>
   </div>
@@ -3873,6 +3879,31 @@
     }
   }
 
+  // Called right after PQD Submitted / M/S Submitted is set to "Yes". A
+  // row can end up "submitted" with its Status column still blank (no
+  // one ever went back and picked A/B/C/D/W-Client) — that gap is exactly
+  // what made "Submitted - Main" not add up to Approved + Code C&D +
+  // Under Approval W/Client in the status tables. Rather than let that
+  // happen silently, flag it the moment it occurs: highlight the Status
+  // cell and tell the person to fill it in now, while they're already on
+  // this row. This is a reminder, not a hard block — the Submitted write
+  // itself already completed, since refusing to save Yes at all would
+  // leave the person unable to record "submitted" the moment they learn
+  // it, before the status is even known yet.
+  function requireStatusAfterSubmitted(row, codeCol, label) {
+    var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    var currentCode = rowObj ? String(rowObj.values[codeCol - 1] || '').trim() : '';
+    if (currentCode) return; // already has a status — nothing to enforce
+    var codeTd = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + codeCol + '"]');
+    var codeSel = codeTd ? codeTd.querySelector('select') : null;
+    if (codeSel) codeSel.classList.add('needs-status-highlight');
+    alert('تم ضبط Submitted = Yes — الرجاء اختيار "' + label + '" الآن لهذا البند (الخلية المميزة بالأصفر) حتى يكتمل تسجيله.');
+    if (codeSel) {
+      codeSel.focus();
+      try { codeSel.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); } catch (e) {}
+    }
+  }
+
   async function saveCell(row, col, value, td) {
     // Tracks whether the PRIMARY cell write below actually completed, so
     // the catch block can tell the difference between "nothing was saved"
@@ -3913,6 +3944,10 @@
         updateLocalValue(row, COL.PQD_DATE, stamp);
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_DATE + '"]');
         if (dateCell) dateCell.textContent = stamp;
+        // A real code was just picked, so this row is no longer "submitted
+        // but still waiting on a status" — clear the reminder highlight
+        // that may have been left on this cell by the PQD_SUB block below.
+        if (td) td.querySelector('select') && td.querySelector('select').classList.remove('needs-status-highlight');
       }
       // PQD Submitted Date: stamped with today's date the moment Submitted
       // is set to "Yes"; cleared back to blank the moment it's set to "No"
@@ -3925,6 +3960,7 @@
         const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_SUBDATE + '"]');
         if (subDateCell) subDateCell.textContent = subStamp;
         refreshPlannedDateColor(row, COL.PQD_SUB);
+        requireStatusAfterSubmitted(row, COL.PQD_CODE, 'PQD Status');
       }
       // Same for M/S Status Date — tracks the M/S Status (code), not the
       // Submitted flag.
@@ -3935,6 +3971,7 @@
         updateLocalValue(row, COL.MS_DATE, stamp);
         const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
         if (dateCell) dateCell.textContent = stamp;
+        if (td) td.querySelector('select') && td.querySelector('select').classList.remove('needs-status-highlight');
       }
       // Same idea for Material Submittal: cleared back to blank on "No".
       if (col === COL.MS_SUB && (value === 'Yes' || value === 'No')) {
@@ -3944,6 +3981,7 @@
         const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_SUBDATE + '"]');
         if (subDateCell) subDateCell.textContent = subStamp;
         refreshPlannedDateColor(row, COL.MS_SUB);
+        requireStatusAfterSubmitted(row, COL.MS_CODE, 'M/S Status');
       }
       if (td) flash(td);
       if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT || col === COL.FILEWITH) {
@@ -4616,10 +4654,18 @@
       }
     });
     var subTotal = s.subMain, apprTotal = s.apprMain, cdTotal = s.cdMain;
+    // The displayed "Submitted to Client - TOTAL" column is Main + Alt (a
+    // plain count of everything submitted, Alt items included) — kept
+    // separate from subTotal (Main only), which stays the base for every
+    // percentage below and for "Balance Submittal to be Prepared", since
+    // Alt items are reference-only line items that Hani confirmed should
+    // stay out of every calculation and percentage, not just out of the
+    // display total.
+    var subMainPlusAlt = s.subMain + s.subAlt;
     return {
       totalMaterials: s.totalMaterials, rfq: s.rfq, quotes: s.quotes,
       csInitial: s.csInitial, csTarget: s.csTarget, csFinal: s.csFinal,
-      subMain: s.subMain, subAlt: s.subAlt, subTotal: subTotal,
+      subMain: s.subMain, subAlt: s.subAlt, subTotal: subTotal, subMainPlusAlt: subMainPlusAlt,
       subMainWeek: s.subMainWeek, subAltWeek: s.subAltWeek,
       apprMain: s.apprMain, apprAlt: s.apprAlt, apprMainWeek: s.apprMainWeek, apprAltWeek: s.apprAltWeek,
       cdMain: s.cdMain, cdAlt: s.cdAlt, cdMainWeek: s.cdMainWeek, cdAltWeek: s.cdAltWeek,
@@ -4637,7 +4683,7 @@
     var balance = stats.totalMaterials - stats.subTotal;
     return [
       stats.totalMaterials, stats.rfq, stats.quotes, stats.csInitial, stats.csTarget, stats.csFinal,
-      stats.subMain, stats.subAlt, stats.subTotal,
+      stats.subMain, stats.subAlt, stats.subMainPlusAlt,
       stats.subMainWeek, stats.subAltWeek,
       stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
       stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
@@ -4652,7 +4698,7 @@
     var balance = stats.totalMaterials - stats.subTotal;
     return [
       stats.totalMaterials,
-      stats.subMain, stats.subAlt, stats.subTotal,
+      stats.subMain, stats.subAlt, stats.subMainPlusAlt,
       stats.subMainWeek, stats.subAltWeek,
       stats.apprMain, stats.apprAlt, stats.apprMainWeek, stats.apprAltWeek,
       stats.cdMain, stats.cdAlt, stats.cdMainWeek, stats.cdAltWeek,
@@ -5129,11 +5175,10 @@
   async function loadSubmittalDashboard() {
     renderGlobalTableSelect();
     var rows = await fetchRowsForSelection(currentGlobalSelection);
-    var isOverall = currentGlobalSelection === 'overall';
     var data = getSubmittalStatusDataClient(rows);
     renderSubmittalDashboard(data.ms, data.pqd);
-    renderBuyerChart(getFilesByBuyerDataClient(rows, !isOverall));
-    renderBuyerWorkloadChart(getBuyerWorkloadDataClient(rows));
+    renderOverdueAlerts(getOverdueItemsClient(rows));
+    renderBuyerWorkloadTable(getBuyerWorkloadDataClient(rows));
   }
 
   function renderSubmittalDashboard(msRows, pqdRows) {
@@ -5163,8 +5208,6 @@
     document.getElementById('sdPqdTotal').textContent = pqdTotal;
     document.getElementById('sdPqdSubmitted').textContent = pqdSubmitted;
     document.getElementById('sdPqdBalance').textContent = pqdBalance;
-    document.getElementById('sdPqdPr').textContent = sdGet(pqdRow, pqdIdx, 'Total PR', '') || 0;
-    document.getElementById('sdPqdPo').textContent = sdGet(pqdRow, pqdIdx, 'Total PO', '') || 0;
 
     var msUnderProcess = sdGet(msRow, msIdx, 'Submittal Under\nProcess By Proc.', '');
     var msNoDesign = sdGet(msRow, msIdx, 'No Design Action\nBy Site', '');
@@ -5183,77 +5226,54 @@
         datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#0E7C86', '#8e44ec', '#A23B2E'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
     });
-
-    var csFinal = sdGet(msRow, msIdx, 'Comparison Sheet', 'Final');
-    sdMakeChart('chartMsFunnel', {
-      type: 'bar',
-      data: { labels: ['Total Materials', 'RFQ', 'Quotes', 'Comp. Sheet (Final)', 'Submitted', 'Total PR', 'Total PO'],
-        datasets: [{ data: [msTotal, msRfq, msQuotes, csFinal, msSubmitted, msPr, msPo],
-          backgroundColor: ['#0E7C86', '#00acc1', '#8e44ec', '#f4a300', '#2E8F63', '#d81b60', '#5d4037'] }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
-
-    var pqdPr = sdGet(pqdRow, pqdIdx, 'Total PR', '') || 0;
-    var pqdPo = sdGet(pqdRow, pqdIdx, 'Total PO', '') || 0;
-    sdMakeChart('chartPqdFunnel', {
-      type: 'bar',
-      data: { labels: ['Estimated Total', 'Submitted'],
-        datasets: [{ data: [pqdTotal, pqdSubmitted], backgroundColor: ['#0E7C86', '#2E8F63'] }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
-
-    var csInitial = sdGet(msRow, msIdx, 'Comparison Sheet', 'Initial');
-    var csTarget = sdGet(msRow, msIdx, 'Comparison Sheet', 'Target Price');
-    var stepperColors = ['#00acc1', '#f4a300', '#2E8F63'];
-    var stepperLabels = ['Initial', 'Target Price', 'Final'];
-    var stepperVals = [csInitial, csTarget, csFinal];
-    var stepperHtml = '';
-    stepperVals.forEach(function(v, i) {
-      stepperHtml += '<div class="step"><div class="circle" style="background:' + stepperColors[i] + '">' + v + '</div>' +
-        '<div class="step-label">' + stepperLabels[i] + '</div></div>';
-      if (i < stepperVals.length - 1) stepperHtml += '<div class="connector"></div>';
-    });
-    document.getElementById('msCompStepper').innerHTML = stepperHtml;
-
-    sdMakeChart('chartThisWeek', {
-      type: 'bar',
-      data: { labels: ['Submittal', 'Approved', 'Code C&D', 'Under Approval'],
-        datasets: [
-          { label: 'Material', backgroundColor: '#0E7C86', data: [
-              sdGet(msRow, msIdx, 'This Week Submittal', 'Main'),
-              sdGet(msRow, msIdx, 'Approved This Week', 'Main'),
-              sdGet(msRow, msIdx, 'Code C & D This Week', 'Main'),
-              sdGet(msRow, msIdx, 'Under Approval This Week', 'Main')
-            ] },
-          { label: 'PQD', backgroundColor: '#f4a300', data: [
-              sdGet(pqdRow, pqdIdx, 'This Week Submittal', 'Main'),
-              sdGet(pqdRow, pqdIdx, 'Approved This Week', 'Main'),
-              sdGet(pqdRow, pqdIdx, 'Code C & D This Week', 'Main'),
-              sdGet(pqdRow, pqdIdx, 'Under Approval This Week', 'Main')
-            ] }
-        ] },
-      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
-
-    sdMakeGauge('gaugeMsPlanned', sdGet(msRow, msIdx, 'Planned Submission (%)', ''), '#0E7C86');
-    sdMakeGauge('gaugeMsSubmitted', sdGet(msRow, msIdx, 'Submitted (%)', ''), '#2E8F63');
-    sdMakeGauge('gaugeMsApproved', sdGet(msRow, msIdx, 'Approved (%)', ''), '#2E8F63');
-    sdMakeGauge('gaugeMsNotApproved', sdGet(msRow, msIdx, 'Not Approved & C/D (%)', ''), '#A23B2E');
-    sdMakeGauge('gaugePqdPlanned', sdGet(pqdRow, pqdIdx, 'Planned Submission (%)', ''), '#0E7C86');
-    sdMakeGauge('gaugePqdSubmitted', sdGet(pqdRow, pqdIdx, 'Submitted (%)', ''), '#2E8F63');
-    sdMakeGauge('gaugePqdApproved', sdGet(pqdRow, pqdIdx, 'Approved (%)', ''), '#2E8F63');
-    sdMakeGauge('gaugePqdNotApproved', sdGet(pqdRow, pqdIdx, 'Not Approved & C/D (%)', ''), '#A23B2E');
   }
 
-  function renderBuyerChart(buyerData) {
-    var totals = buyerData.rows.find(function(r) { return r.label === 'TOTAL'; });
-    if (!totals) return;
-    sdMakeChart('chartBuyer', {
-      type: 'bar',
-      data: { labels: buyerData.names, datasets: [{ data: totals.counts, backgroundColor: SD_PALETTE }] },
-      options: { plugins: { legend: { display: false } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  // Main items (either track) whose Planned Submission Date has arrived
+  // (today or earlier) and that are still not Submitted — the exact same
+  // isDueByToday() test already driving the red "overdue-cell" highlight on
+  // Full Table, surfaced here as one combined, sorted list (oldest/most
+  // overdue date first) instead of needing to scroll every BOQ table to
+  // spot them cell by cell.
+  function getOverdueItemsClient(rows) {
+    var items = nonPackageItems(rows).filter(function(r) { return r[COL.MAINALT - 1] === 'M'; });
+    var out = [];
+    items.forEach(function(r) {
+      var disc = (r.__tbl !== undefined && BOQ_TABLES[r.__tbl]) ? BOQ_TABLES[r.__tbl].label : '';
+      if (r[COL.MS_SUB - 1] !== 'Yes' && isDueByToday(r[COL.MS_PLANNED_DATE - 1])) {
+        out.push({ desc: r[COL.DESC - 1], track: 'M/S', discipline: disc, plannedDate: normalizeDateToISO(r[COL.MS_PLANNED_DATE - 1]) });
+      }
+      if (r[COL.PQD_SUB - 1] !== 'Yes' && isDueByToday(r[COL.PQD_PLANNED_DATE - 1])) {
+        out.push({ desc: r[COL.DESC - 1], track: 'PQD', discipline: disc, plannedDate: normalizeDateToISO(r[COL.PQD_PLANNED_DATE - 1]) });
+      }
+    });
+    out.sort(function(a, b) { return (a.plannedDate || '') < (b.plannedDate || '') ? -1 : ((a.plannedDate || '') > (b.plannedDate || '') ? 1 : 0); });
+    return out;
+  }
+
+  function renderOverdueAlerts(items) {
+    var countEl = document.getElementById('sdOverdueCount');
+    var body = document.getElementById('sdOverdueBody');
+    if (!body) return;
+    if (countEl) countEl.textContent = items.length;
+    body.innerHTML = '';
+    if (!items.length) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 4; td.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td.textContent = 'No overdue items — everything is on schedule.';
+      tr.appendChild(td); body.appendChild(tr);
+      return;
+    }
+    items.forEach(function(it) {
+      var tr = document.createElement('tr');
+      [it.desc, it.track, it.discipline, it.plannedDate].forEach(function(v) {
+        var td = document.createElement('td');
+        td.textContent = v || '';
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        tr.appendChild(td);
+      });
+      tr.style.background = 'var(--warn-bg)';
+      body.appendChild(tr);
     });
   }
 
@@ -5287,27 +5307,29 @@
     };
   }
 
-  function renderBuyerWorkloadChart(data) {
-    if (!data.names.length) { sdMakeChart('chartBuyerWorkload', { type: 'bar', data: { labels: [], datasets: [] } }); return; }
-    sdMakeChart('chartBuyerWorkload', {
-      type: 'bar',
-      data: {
-        labels: data.names,
-        datasets: [
-          { label: 'Done', backgroundColor: '#2E8F63', data: data.done },
-          { label: 'Open (not yet due)', backgroundColor: '#0E7C86', data: data.open },
-          { label: 'Overdue', backgroundColor: '#A23B2E', data: data.overdue }
-        ]
-      },
-      options: {
-        plugins: { legend: { position: 'bottom' },
-          tooltip: { callbacks: { afterBody: function(items) {
-            var i = items[0].dataIndex;
-            return 'Completion: ' + data.completionPct[i] + '%';
-          } } } },
-        maintainAspectRatio: false,
-        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } }
-      }
+  function renderBuyerWorkloadTable(data) {
+    var body = document.getElementById('sdBuyerWorkloadBody');
+    if (!body) return;
+    body.innerHTML = '';
+    if (!data.names.length) {
+      var tr0 = document.createElement('tr');
+      var td0 = document.createElement('td');
+      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:#888;text-align:center';
+      td0.textContent = 'No buyer assignments yet.';
+      tr0.appendChild(td0); body.appendChild(tr0);
+      return;
+    }
+    data.names.forEach(function(name, i) {
+      var total = data.done[i] + data.open[i] + data.overdue[i];
+      var tr = document.createElement('tr');
+      [name, total, data.done[i], data.open[i], data.overdue[i], data.completionPct[i] + '%'].forEach(function(v, colI) {
+        var td = document.createElement('td');
+        td.textContent = v;
+        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
+        if (colI === 4 && data.overdue[i] > 0) td.style.color = '#A23B2E';
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
     });
   }
 
@@ -5387,6 +5409,56 @@
       sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, buyerHeadRow + 1 + i, 2 + r.counts.length, buyerHeadRow + 1 + i),
         [[r.label].concat(r.counts).concat([r.rowTotal])], 'RAW');
     });
+  }
+
+  // ===== Sync STATUS OF MATERIAL SUBMITTAL / STATUS OF PQD to a REAL tab
+  // in the live spreadsheet (not a temp export file) =====
+  // The MS/PQD/Buyer tables on screen are a pure computed view — recalculated
+  // fresh from the BOQ data every time this view loads, never written back
+  // anywhere. That's normally a feature (the numbers can never go stale or
+  // conflict with a BOQ edit), but it also meant there was no "Material
+  // Submittal Status" tab visible when opening the spreadsheet itself in
+  // Google Sheets, unlike the BOQ tabs. This reuses the exact same
+  // writeSubmittalSheetHeadersRemote/writeSubmittalStatusDataForExportRemote
+  // functions the Excel export already uses — the only difference is the
+  // destination spreadsheet: the live one (spreadsheetId) instead of a
+  // throwaway temp copy — on demand, via the Sync button, not automatically
+  // on every load (that would mean dozens of extra Sheets API writes every
+  // single time anyone opens this view).
+  async function ensureSubmittalSheetLive() {
+    var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === SUBMITTAL_SHEET_NAME; });
+    if (!sheet) {
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: SUBMITTAL_SHEET_NAME } } }]);
+    }
+  }
+
+  async function syncSubmittalStatusToLiveSheet() {
+    var btn = document.getElementById('syncSubmittalSheetBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing…'; }
+    try {
+      await ensureSubmittalSheetLive();
+      // Wipe a generous range first so a shrunk buyer roster (someone
+      // removed from "File With") — or any field added/removed down the
+      // line — never leaves a stale leftover cell behind from a previous
+      // sync. The actual content written below is always far smaller than
+      // this (comfortably under 40 rows / 40 columns today).
+      await sheetsBatchClearRange(SUBMITTAL_SHEET_NAME, 1, 80, 45);
+      await writeSubmittalSheetHeadersRemote(spreadsheetId);
+      var isOverallSync = currentGlobalSelection === 'overall';
+      var syncRoster = [];
+      if (isOverallSync) {
+        try { syncRoster = await fetchAllFileWithNamesAcrossTables(); } catch (e) { console.warn('Could not load buyer roster for sheet sync: ', e); }
+      }
+      var statusData = getSubmittalStatusDataClient(msStatusCurrentRows);
+      var buyerData = getFilesByBuyerDataClient(msStatusCurrentRows, !isOverallSync, syncRoster);
+      await writeSubmittalStatusDataForExportRemote(spreadsheetId, statusData, buyerData);
+      showToast('success', '"Material Submittal Status" tab updated on your Google Sheet.');
+    } catch (e) {
+      alert('Could not sync this tab to your Google Sheet: ' + (e.message || e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync to Google Sheet'; }
+    }
   }
 
   async function exportBoqAndMsToXlsxClient() {
