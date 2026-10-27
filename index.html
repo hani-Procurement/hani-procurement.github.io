@@ -247,6 +247,13 @@
   #fullTable tbody tr.deleted-row, #fullTable tbody tr.deleted-row:nth-child(even){background:#6B2A2A;color:#f1f1f1}
   #fullTable tbody tr.deleted-row td.sn-cell, #fullTable tbody tr.deleted-row:nth-child(even) td.sn-cell{background:#6B2A2A;color:#f1f1f1}
   #fullTable tbody tr.deleted-row td{color:#f1f1f1}
+  /* "Selected" row — a purely visual pick to help the person track one
+     item while they update several of its cells across a wide, scrolling
+     table. Not a data state (never saved, never affects any calculation),
+     so it deliberately overrides package/closed/deleted row colors with
+     !important while it's on, and clears the moment another row is clicked. */
+  #fullTable tbody tr.row-selected, #fullTable tbody tr.row-selected:nth-child(even){background:#FFF3B0 !important;outline:2px solid var(--accent-dark);outline-offset:-1px}
+  #fullTable tbody tr.row-selected td, #fullTable tbody tr.row-selected td.sn-cell{background:#FFF3B0 !important;color:#3a3420 !important}
   /* Frozen columns: Actions, S/N, Description, Unit, Qty.
      The left offsets below are CSS custom properties, not hardcoded
      pixels: on a display with OS-level scaling other than 100% (common
@@ -622,7 +629,7 @@
       <div>
         <button type="button" onclick="exportSubmittalToXlsx()" id="exportSubmittalXlsxBtn">⬇ Export this tab to Excel</button>
         <button type="button" onclick="exportStatusReportToPdf()" id="exportPdfBtn">🖨 Export Status Report (PDF)</button>
-        <button type="button" onclick="syncSubmittalStatusToLiveSheet()" id="syncSubmittalSheetBtn" title="Writes everything on this screen into a real 'Material Submittal Status' tab in your actual Google Sheet (not a temp file) — so it opens from Google Sheets directly, same as the BOQ tabs.">🔄 Sync to Google Sheet</button>
+        <button type="button" onclick="syncSubmittalStatusToLiveSheet()" id="syncSubmittalSheetBtn" title="Writes everything on this screen into a real tab in your actual Google Sheet (not a temp file) — named after this table (or 'Overall' when that's selected), so each table keeps its own tab and opens from Google Sheets directly, same as the BOQ tabs.">🔄 Sync to Google Sheet</button>
       </div>
     </div>
   </div>
@@ -1600,7 +1607,7 @@
         properties: { title: title || SHEET_TITLE },
         sheets: [
           { properties: { title: BOQ_TABLES[0].sheetName } },
-          { properties: { title: SUBMITTAL_SHEET_NAME } },
+          { properties: { title: BOQ_TABLES[0].sheetName + ' - Material Submittal Status' } },
           { properties: { title: LISTS_SHEET_NAME } },
           { properties: { title: USERS_SHEET_NAME } },
           { properties: { title: TABLES_CONFIG_SHEET_NAME, hidden: true } }
@@ -2916,6 +2923,21 @@
 
   var lastLoadedRows = [];
 
+  // Purely visual "which row am I editing" tracker — highlights the whole
+  // row so the person doesn't lose track of it while scrolling horizontally
+  // across a wide table. Never read/written to the Sheet, never affects any
+  // calculation; just a sheet number remembered so the highlight survives a
+  // renderFullTable() re-render (e.g. right after saving a cell).
+  var selectedFullTableRowNum = null;
+  function selectFullTableRow(rowNum, tr) {
+    selectedFullTableRowNum = rowNum;
+    var body = document.getElementById('fullTableBody');
+    if (body) {
+      body.querySelectorAll('tr.row-selected').forEach(function(el) { el.classList.remove('row-selected'); });
+    }
+    if (tr) tr.classList.add('row-selected');
+  }
+
   async function loadFormOptions() {
     try {
       // Each table's own "File With" roster — see ensureFileWithListsSheet().
@@ -3248,6 +3270,8 @@
       const isClosed = actionByVal === ACTIONBY_CLOSED_VALUE || actionByVal === ACTIONBY_DELETE_VALUE;
       if (actionByVal === ACTIONBY_CLOSED_VALUE) tr.classList.add('closed-row');
       else if (actionByVal === ACTIONBY_DELETE_VALUE) tr.classList.add('deleted-row');
+      if (r.row === selectedFullTableRowNum) tr.classList.add('row-selected');
+      tr.addEventListener('click', function() { selectFullTableRow(r.row, tr); });
 
       tr.appendChild(buildActionsCell(r.row, index, rows.length));
       COLS.forEach(function(colDef) {
@@ -5388,34 +5412,41 @@
   var MS_DATA_ROWS = [4, 5, 6], PQD_DATA_ROWS = [11];
   var MS_DISCIPLINE_LABELS = ['NON LLI', 'LLI', 'GRAND TOTAL'], PQD_DISCIPLINE_LABELS = ['PQD'];
 
-  async function writeSubmittalSheetHeadersRemote(destId) {
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, 1, 1, 1), [['STATUS OF MATERIAL SUBMITTAL']], 'RAW');
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, MS_HEADER_ROW, 2, MS_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, MS_HEADER_ROW, 2 + MS_FIELD_LABELS.length, MS_HEADER_ROW), [MS_FIELD_LABELS], 'RAW');
+  // `sheetName` defaults to the shared SUBMITTAL_SHEET_NAME (used by the
+  // throwaway temp-spreadsheet Excel-export path, where the tab name inside
+  // that one-off temp file never matters), but the live per-table sync below
+  // passes its own per-table/overall tab name instead — see
+  // submittalLiveSheetNameFor().
+  async function writeSubmittalSheetHeadersRemote(destId, sheetName) {
+    sheetName = sheetName || SUBMITTAL_SHEET_NAME;
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, 1, 1, 1), [['STATUS OF MATERIAL SUBMITTAL']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, MS_HEADER_ROW, 2, MS_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 3, MS_HEADER_ROW, 2 + MS_FIELD_LABELS.length, MS_HEADER_ROW), [MS_FIELD_LABELS], 'RAW');
     var msDiscRows = MS_DISCIPLINE_LABELS.map(function(label, i) { return [i + 1 < MS_DISCIPLINE_LABELS.length ? i + 1 : '', label]; });
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, MS_DATA_ROWS[0], 2, MS_DATA_ROWS[MS_DATA_ROWS.length - 1]), msDiscRows, 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, MS_DATA_ROWS[0], 2, MS_DATA_ROWS[MS_DATA_ROWS.length - 1]), msDiscRows, 'RAW');
 
     var pqdTitleRow = PQD_HEADER_ROW - 2;
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, pqdTitleRow, 1, pqdTitleRow), [['STATUS OF PQD']], 'RAW');
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, PQD_HEADER_ROW, 2, PQD_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, PQD_HEADER_ROW, 2 + PQD_FIELD_LABELS.length, PQD_HEADER_ROW), [PQD_FIELD_LABELS], 'RAW');
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, PQD_DATA_ROWS[0], 2, PQD_DATA_ROWS[0]), [[1, 'PQD']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, pqdTitleRow, 1, pqdTitleRow), [['STATUS OF PQD']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, PQD_HEADER_ROW, 2, PQD_HEADER_ROW), [['SR/NO.', 'DISCIPLINE']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 3, PQD_HEADER_ROW, 2 + PQD_FIELD_LABELS.length, PQD_HEADER_ROW), [PQD_FIELD_LABELS], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, PQD_DATA_ROWS[0], 2, PQD_DATA_ROWS[0]), [[1, 'PQD']], 'RAW');
   }
 
-  async function writeSubmittalStatusDataForExportRemote(destId, statusData, buyerData) {
+  async function writeSubmittalStatusDataForExportRemote(destId, statusData, buyerData, sheetName) {
+    sheetName = sheetName || SUBMITTAL_SHEET_NAME;
     for (var i = 0; i < statusData.ms.length; i++) {
-      await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, MS_DATA_ROWS[i], 2 + statusData.ms[i].length, MS_DATA_ROWS[i]), [statusData.ms[i]], 'RAW');
+      await sheetsUpdateValues(destId, a1Range(sheetName, 3, MS_DATA_ROWS[i], 2 + statusData.ms[i].length, MS_DATA_ROWS[i]), [statusData.ms[i]], 'RAW');
     }
     for (var j = 0; j < statusData.pqd.length; j++) {
-      await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 3, PQD_DATA_ROWS[j], 2 + statusData.pqd[j].length, PQD_DATA_ROWS[j]), [statusData.pqd[j]], 'RAW');
+      await sheetsUpdateValues(destId, a1Range(sheetName, 3, PQD_DATA_ROWS[j], 2 + statusData.pqd[j].length, PQD_DATA_ROWS[j]), [statusData.pqd[j]], 'RAW');
     }
     var startRow = PQD_DATA_ROWS[PQD_DATA_ROWS.length - 1] + 3;
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, startRow, 1, startRow), [['Item / Buyer']], 'RAW');
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, startRow, 1, startRow), [['Item / Buyer']], 'RAW');
     var buyerHeadRow = startRow + 1;
-    await sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, buyerHeadRow, 2 + buyerData.names.length, buyerHeadRow),
+    await sheetsUpdateValues(destId, a1Range(sheetName, 1, buyerHeadRow, 2 + buyerData.names.length, buyerHeadRow),
       [['Type'].concat(buyerData.names).concat(['TOTAL'])], 'RAW');
     buyerData.rows.forEach(function(r, i) {
-      sheetsUpdateValues(destId, a1Range(SUBMITTAL_SHEET_NAME, 1, buyerHeadRow + 1 + i, 2 + r.counts.length, buyerHeadRow + 1 + i),
+      sheetsUpdateValues(destId, a1Range(sheetName, 1, buyerHeadRow + 1 + i, 2 + r.counts.length, buyerHeadRow + 1 + i),
         [[r.label].concat(r.counts).concat([r.rowTotal])], 'RAW');
     });
   }
@@ -5434,11 +5465,25 @@
   // throwaway temp copy — on demand, via the Sync button, not automatically
   // on every load (that would mean dozens of extra Sheets API writes every
   // single time anyone opens this view).
-  async function ensureSubmittalSheetLive() {
+  // Each BOQ table gets its OWN live "Material Submittal Status" tab, named
+  // after that table's own sheet name (e.g. "BOQ Database - Material
+  // Submittal Status") so it's obvious which BOQ table a tab belongs to
+  // when browsing tabs directly in Google Sheets, and so syncing one table
+  // never overwrites another table's numbers. The combined "Overall" view
+  // gets its own separate tab ("Overall - Material Submittal Status")
+  // instead of sharing a tab with any single table.
+  function submittalLiveSheetNameFor(selection) {
+    if (selection === 'overall') return 'Overall - Material Submittal Status';
+    var idx = parseInt(selection, 10);
+    var tbl = BOQ_TABLES[isNaN(idx) ? currentTableIndex : idx];
+    return (tbl ? tbl.sheetName : SHEET_NAME) + ' - Material Submittal Status';
+  }
+
+  async function ensureSubmittalSheetLive(sheetName) {
     var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
-    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === SUBMITTAL_SHEET_NAME; });
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === sheetName; });
     if (!sheet) {
-      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: SUBMITTAL_SHEET_NAME } } }]);
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: sheetName } } }]);
     }
   }
 
@@ -5446,14 +5491,15 @@
     var btn = document.getElementById('syncSubmittalSheetBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing…'; }
     try {
-      await ensureSubmittalSheetLive();
+      var targetSheetName = submittalLiveSheetNameFor(currentGlobalSelection);
+      await ensureSubmittalSheetLive(targetSheetName);
       // Wipe a generous range first so a shrunk buyer roster (someone
       // removed from "File With") — or any field added/removed down the
       // line — never leaves a stale leftover cell behind from a previous
       // sync. The actual content written below is always far smaller than
       // this (comfortably under 40 rows / 40 columns today).
-      await sheetsBatchClearRange(SUBMITTAL_SHEET_NAME, 1, 80, 45);
-      await writeSubmittalSheetHeadersRemote(spreadsheetId);
+      await sheetsBatchClearRange(targetSheetName, 1, 80, 45);
+      await writeSubmittalSheetHeadersRemote(spreadsheetId, targetSheetName);
       var isOverallSync = currentGlobalSelection === 'overall';
       var syncRoster = [];
       if (isOverallSync) {
@@ -5461,8 +5507,8 @@
       }
       var statusData = getSubmittalStatusDataClient(msStatusCurrentRows);
       var buyerData = getFilesByBuyerDataClient(msStatusCurrentRows, !isOverallSync, syncRoster);
-      await writeSubmittalStatusDataForExportRemote(spreadsheetId, statusData, buyerData);
-      showToast('success', '"Material Submittal Status" tab updated on your Google Sheet.');
+      await writeSubmittalStatusDataForExportRemote(spreadsheetId, statusData, buyerData, targetSheetName);
+      showToast('success', '"' + targetSheetName + '" tab updated on your Google Sheet.');
     } catch (e) {
       alert('Could not sync this tab to your Google Sheet: ' + (e.message || e));
     } finally {
