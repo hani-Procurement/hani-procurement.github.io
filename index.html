@@ -216,7 +216,7 @@
   .table-top-scroll div{height:1px}
   .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
   /* min-width MUST equal the true sum of every column's declared width
-     (50px Actions + the 29 COLS widths below = 2842px as of this writing).
+     (50px Actions + the 31 COLS widths below = 2990px as of this writing).
      table-layout:fixed does not expand a table to fit columns wider than
      its own specified width — when the declared total exceeds this number,
      Chrome silently shrinks every column to fit, and because the header
@@ -229,7 +229,7 @@
      reports — not sub-pixel rounding, a real multi-pixel shrink mismatch.
      If a column width above is ever added/changed, this number must be
      updated to match (Actions 50px + sum of every width in COLS). */
-  #fullTableHeader, #fullTable{min-width:2842px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
+  #fullTableHeader, #fullTable{min-width:2990px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#F7FAFA}
@@ -292,7 +292,7 @@
   /* Common-header banner row (PQD / Material Submittal group) above the
      per-column headers — purely a visual grouping. */
   .group-header-cell{background:var(--accent);border-bottom:1px solid rgba(255,255,255,0.25)}
-  .group-header-pqd, .group-header-ms{font-size:12px;font-weight:700;background:var(--accent-dark)}
+  .group-header-pqd, .group-header-ms, .group-header-sample{font-size:12px;font-weight:700;background:var(--accent-dark)}
   #fullTable tbody tr td:nth-child(-n+5){background:var(--surface)}
   #fullTable tbody tr:nth-child(even) td:nth-child(-n+5){background:#F7FAFA}
   #fullTable tbody tr.package-row td:nth-child(-n+5){background:#FBEEDD}
@@ -937,7 +937,7 @@
   let SHEET_NAME = BOQ_TABLES[0].sheetName;
   const FIRST_DATA_ROW = 3;   // matches the original Apps Script layout (rows 1-2 = header)
   const LAST_DATA_ROW = 300;
-  const LAST_DATA_COL = 30;
+  const LAST_DATA_COL = 32;
 
   // 30-column COL map — symbolic column references only, mirroring Code.gs's
   // own COL object exactly (never a hardcoded magic number — this is the
@@ -953,17 +953,18 @@
     CS_STATUS:11,
     PQD_SUB:12, PQD_SUBDATE:13, PQD_PLANNED_DATE:14, PQD_NUM:15, PQD_CODE:16, PQD_DATE:17,
     MS_SUB:18, MS_SUBDATE:19, MS_PLANNED_DATE:20, MS_NUM:21, MS_CODE:22, MS_DATE:23,
-    PR:24, PO1:25, PO2:26,
-    REMARKS:27, ROWTYPE:28, ACTIONBY:29, DATESTAMP:30
+    SAMPLE_REQ:24, SAMPLE_APPR:25,
+    PR:26, PO1:27, PO2:28,
+    REMARKS:29, ROWTYPE:30, ACTIONBY:31, DATESTAMP:32
   };
-  const NO_DEFAULT_COLS = [COL.LLI, COL.RFQ, COL.QUOT, COL.PQD_SUB, COL.MS_SUB, COL.PR, COL.PO1];
+  const NO_DEFAULT_COLS = [COL.LLI, COL.RFQ, COL.QUOT, COL.PQD_SUB, COL.MS_SUB, COL.SAMPLE_REQ, COL.SAMPLE_APPR, COL.PR, COL.PO1];
 
   // Columns that count as "status" fields for the Control Panel's
   // "Change status" permission — everything else (description, qty, file
   // with, remarks, etc.) stays editable by anyone who can open the view.
   const STATUS_SELECT_COLS = [
     COL.CS_STATUS, COL.PQD_SUB, COL.PQD_CODE, COL.MS_SUB, COL.MS_CODE,
-    COL.ACTIONBY, COL.PR, COL.PO1
+    COL.ACTIONBY, COL.SAMPLE_REQ, COL.SAMPLE_APPR, COL.PR, COL.PO1
   ];
 
   const statusEl = document.getElementById('status');
@@ -2079,23 +2080,25 @@
     currentUserTablePerms = {};
   }
 
-  // Full 28-column BOQ Database header, exactly matching the original Code.gs COL map
-  // (SN..DATESTAMP). Row 1 only carries the two group banners (PQD Submittal /
-  // Material Submittal); every column's real label lives in row 2, directly
+  // Full 32-column BOQ Database header, exactly matching the COL map
+  // (SN..DATESTAMP). Row 1 only carries the three group banners (PQD Submittal /
+  // Material Submittal / Sample); every column's real label lives in row 2, directly
   // above FIRST_DATA_ROW (3) — same two-header-row layout the original uses.
   const BOQ_HEADER_ROW2 = [
     'S/N', 'Item description', 'Unit', 'Estimated QTY', 'File With', 'Main OR Alt. File',
     'Priority', 'LLI', 'RFQ (Send)', 'Quotations (Received)', 'Comp. Sheet Status',
     'PQD Submitted', 'PQD Submitted Date', 'PQD Planned Submission Date', 'PQD Number', 'PQD Status', 'PQD Status Date',
     'M/S Submitted', 'M/S Submitted Date', 'M/S Planned Submission Date', 'M/S Number', 'M/S Status', 'M/S Status Date',
+    'Sample Required', 'Sample Approved',
     'PR', 'PO (Issued)', 'PO Number / Supplier Name', 'REMARKS', 'Row Type', 'Action By', 'Date Stamp'
   ];
-  const BOQ_COL_WIDTHS = [45,280,85,90,110,50,55,62,62,62,70,62,90,125,90,62,90,62,90,125,90,62,90,55,62,130,240,80,100,115];
+  const BOQ_COL_WIDTHS = [45,280,85,90,110,50,55,62,62,62,70,62,90,125,90,62,90,62,90,125,90,62,90,74,74,55,62,130,240,80,100,115];
 
   async function writeBoqHeader(ssId) {
     await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, 1, 2, LAST_DATA_COL, 2), [BOQ_HEADER_ROW2]);
     await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, COL.PQD_SUB, 1, COL.PQD_SUB, 1), [['PQD Submittal']]);
     await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, COL.MS_SUB, 1, COL.MS_SUB, 1), [['Material Submittal']]);
+    await sheetsUpdateValues(ssId, a1Range(SHEET_NAME, COL.SAMPLE_REQ, 1, COL.SAMPLE_REQ, 1), [['Sample']]);
 
     const sheetId = boqSheetId;
     const requests = [
@@ -2114,6 +2117,10 @@
         } },
       { mergeCells: {
           range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.MS_SUB - 1, endColumnIndex: COL.MS_DATE },
+          mergeType: 'MERGE_ALL'
+        } },
+      { mergeCells: {
+          range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: COL.SAMPLE_REQ - 1, endColumnIndex: COL.SAMPLE_APPR },
           mergeType: 'MERGE_ALL'
         } }
     ];
@@ -2897,6 +2904,8 @@
     { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot', group: 'ms' },
     { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code', group: 'ms' },
     { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly', group: 'ms' },
+    { col: COL.SAMPLE_REQ, label: 'Sample Required',          width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
+    { col: COL.SAMPLE_APPR, label: 'Sample Approved',         width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
     { col: COL.PR, label: 'PR',                          width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.PO1, label: 'PO (Issued)',                 width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.PO2, label: 'PO Number / Supplier Name',   width: 130, type: 'posupplier' },
@@ -2980,7 +2989,7 @@
       while (j < COLS.length && COLS[j].group === g) { span++; j++; }
       th.colSpan = span;
       th.classList.add('group-header-' + g);
-      th.textContent = g === 'pqd' ? 'PQD' : 'Material Submittal (M/S)';
+      th.textContent = g === 'pqd' ? 'PQD' : (g === 'ms' ? 'Material Submittal (M/S)' : 'Sample');
       row.appendChild(th);
       i = j;
     }
@@ -5991,6 +6000,7 @@
     COL.CS_STATUS,
     COL.PQD_SUB, COL.PQD_SUBDATE, COL.PQD_PLANNED_DATE, COL.PQD_NUM, COL.PQD_CODE, COL.PQD_DATE,
     COL.MS_SUB, COL.MS_SUBDATE, COL.MS_PLANNED_DATE, COL.MS_NUM, COL.MS_CODE, COL.MS_DATE,
+    COL.SAMPLE_REQ, COL.SAMPLE_APPR,
     COL.PR, COL.PO1, COL.PO2, COL.ACTIONBY, COL.DATESTAMP
   ];
   // Same "authorized default" each protected column gets on a brand-new
