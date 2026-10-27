@@ -1870,13 +1870,38 @@
     catch (e) { console.warn('Could not create permission rows for the new table (non-fatal — an Admin can still add them manually from Control Panel if a member reports missing access): ', e); }
   }
 
+  // A BOQ table's live Sheets tab IS named after its label (see
+  // addBoqTable()), so renaming a table from the Control Panel renames the
+  // actual tab too — not just the display label — and propagates that new
+  // name everywhere else it's used as a lookup key: the Users sheet's
+  // per-table permission rows, the FileWithLists sheet's per-table roster
+  // rows, and the table's own "<label> - Material Submittal Status" tab.
   async function renameBoqTable(idx, newLabel) {
     if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can rename a table.');
-    const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
-    const row = 2 + idx;
+    const newSheetName = String(newLabel || '').trim();
+    if (!newSheetName) throw new Error('Table name cannot be blank.');
+    const oldSheetName = BOQ_TABLES[idx].sheetName;
     const oldLabel = BOQ_TABLES[idx].label;
-    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 2, row, 2, row), [[newLabel]], 'RAW');
+    if (newSheetName === oldSheetName && newLabel === oldLabel) return; // nothing changed
+
+    if (newSheetName !== oldSheetName && BOQ_TABLES.some(function(t, i) { return i !== idx && t.sheetName === newSheetName; })) {
+      throw new Error('A table named "' + newSheetName + '" already exists — pick a different name.');
+    }
+
+    if (newSheetName !== oldSheetName) {
+      await sheetsBatchUpdate(spreadsheetId, [{ updateSheetProperties: { properties: { sheetId: boqSheetIds[idx], title: newSheetName }, fields: 'title' } }]);
+    }
+
+    const row = 2 + idx;
+    await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, row, 2, row), [[newSheetName, newLabel]], 'RAW');
+    BOQ_TABLES[idx].sheetName = newSheetName;
     BOQ_TABLES[idx].label = newLabel;
+    if (idx === currentTableIndex) SHEET_NAME = newSheetName;
+
+    if (newSheetName !== oldSheetName) {
+      try { await renameSheetNameEverywhere(oldSheetName, newSheetName); }
+      catch (e) { console.warn('Could not update every Users/FileWithLists row referencing the old table name (non-fatal — check the Control Panel team list if anyone reports missing access): ', e); }
+    }
 
     // Keep this table's live "<label> - Material Submittal Status" tab (see
     // submittalLiveSheetNameFor()) attached to the SAME sheet across a
@@ -1884,6 +1909,29 @@
     // Sync creates a brand-new, empty one under the new name.
     try { await renameSubmittalSheetIfExists(oldLabel, newLabel); }
     catch (e) { console.warn('Could not rename this table\'s live Material Submittal Status tab (non-fatal — the next Sync will just create one under the new name): ', e); }
+  }
+
+  // Propagates a BOQ table's sheetName change to every other place in the
+  // live spreadsheet that stores that exact string as a lookup key: the
+  // Users sheet's per-table permission rows (column B) and the
+  // FileWithLists sheet's per-table roster rows (column A). Each matching
+  // row is rewritten in place — every other column (permission flags,
+  // buyer names) is left untouched, only the table-name cell changes.
+  async function renameSheetNameEverywhere(oldSheetName, newSheetName) {
+    const userRows = await sheetsGetValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, 2, USERS_LAST_COL, 2000));
+    for (var i = 0; i < userRows.length; i++) {
+      if (String((userRows[i] && userRows[i][1]) || '').trim() === oldSheetName) {
+        var urow = 2 + i;
+        await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 2, urow, 2, urow), [[newSheetName]], 'RAW');
+      }
+    }
+    const fwRows = await sheetsGetValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, 2, 2, FILEWITH_LISTS_MAX_ROWS));
+    for (var j = 0; j < fwRows.length; j++) {
+      if (String((fwRows[j] && fwRows[j][0]) || '').trim() === oldSheetName) {
+        var frow = 2 + j;
+        await sheetsUpdateValues(spreadsheetId, a1Range(FILEWITH_LISTS_SHEET_NAME, 1, frow, 1, frow), [[newSheetName]], 'RAW');
+      }
+    }
   }
 
   // Renames the live `<oldLabel> - Material Submittal Status` tab (if one
