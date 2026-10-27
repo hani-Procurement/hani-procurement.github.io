@@ -1827,18 +1827,20 @@
     if (!BOQ_TABLES.length) BOQ_TABLES = [{ sheetName: 'BOQ Database', label: 'Table 1' }];
   }
 
-  function nextBoqSheetName() {
-    var maxN = 1;
-    BOQ_TABLES.forEach(function(t) {
-      var m = /^BOQ Database(?: (\d+))?$/.exec(t.sheetName);
-      if (m) maxN = Math.max(maxN, m[1] ? parseInt(m[1], 10) : 1);
-    });
-    return 'BOQ Database ' + (maxN + 1);
-  }
-
   async function addBoqTable(label) {
     if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can add a new table.');
-    const sheetName = nextBoqSheetName();
+    // The live Sheets tab name IS the table's label now (so it reads the
+    // same in Google Sheets as it does in this app, and so the per-table
+    // "<label> - Material Submittal Status" tab — see
+    // submittalLiveSheetNameFor() — lines up with it). Previously this
+    // generated a generic "BOQ Database N" tab name independent of
+    // whatever label the admin actually typed, which left the Sheets tab
+    // and the app's own display name mismatched the moment they diverged.
+    const sheetName = String(label || '').trim();
+    if (!sheetName) throw new Error('Table name cannot be blank.');
+    if (BOQ_TABLES.some(function(t) { return t.sheetName === sheetName; })) {
+      throw new Error('A table named "' + sheetName + '" already exists — pick a different name.');
+    }
     const res = await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: sheetName } } }]);
     const newSheetId = res.replies[0].addSheet.properties.sheetId;
 
@@ -1910,7 +1912,20 @@
     // boqSheetId pointing at a sheet that no longer exists.
     if (BOQ_TABLES.length <= 1) throw new Error('Cannot delete the last remaining table — at least one table must always exist.');
     const tbl = BOQ_TABLES[idx];
-    await sheetsBatchUpdate(spreadsheetId, [{ deleteSheet: { sheetId: boqSheetIds[idx] } }]);
+
+    // Delete this table's own "<label> - Material Submittal Status" tab
+    // (see submittalLiveSheetNameFor()) along with it, if one was ever
+    // synced — an orphaned status tab for a table that no longer exists
+    // would just confuse anyone opening Google Sheets directly. Looked up
+    // by name right before deleting (not cached) so this is always current.
+    const deleteRequests = [{ deleteSheet: { sheetId: boqSheetIds[idx] } }];
+    try {
+      const meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
+      const submittalName = tbl.label + ' - Material Submittal Status';
+      const submittalSheet = (meta.sheets || []).find(function(s) { return s.properties.title === submittalName; });
+      if (submittalSheet) deleteRequests.push({ deleteSheet: { sheetId: submittalSheet.properties.sheetId } });
+    } catch (e) { console.warn('Could not look up this table\'s Material Submittal Status tab to delete it (non-fatal — it may be left behind): ', e); }
+    await sheetsBatchUpdate(spreadsheetId, deleteRequests);
 
     // Rewrite TablesConfig without this row (simplest correct way to keep
     // row numbers contiguous — there are only ever a handful of tables).
