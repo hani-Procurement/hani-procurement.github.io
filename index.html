@@ -1607,7 +1607,7 @@
         properties: { title: title || SHEET_TITLE },
         sheets: [
           { properties: { title: BOQ_TABLES[0].sheetName } },
-          { properties: { title: BOQ_TABLES[0].sheetName + ' - Material Submittal Status' } },
+          { properties: { title: (BOQ_TABLES[0].label || BOQ_TABLES[0].sheetName) + ' - Material Submittal Status' } },
           { properties: { title: LISTS_SHEET_NAME } },
           { properties: { title: USERS_SHEET_NAME } },
           { properties: { title: TABLES_CONFIG_SHEET_NAME, hidden: true } }
@@ -5466,17 +5466,23 @@
   // on every load (that would mean dozens of extra Sheets API writes every
   // single time anyone opens this view).
   // Each BOQ table gets its OWN live "Material Submittal Status" tab, named
-  // after that table's own sheet name (e.g. "BOQ Database - Material
-  // Submittal Status") so it's obvious which BOQ table a tab belongs to
-  // when browsing tabs directly in Google Sheets, and so syncing one table
-  // never overwrites another table's numbers. The combined "Overall" view
-  // gets its own separate tab ("Overall - Material Submittal Status")
-  // instead of sharing a tab with any single table.
+  // after that table's own discipline LABEL (e.g. "Mechanical", "Electrical",
+  // "Civil" — the same name shown in the Discipline selector/Control Panel,
+  // not the internal "BOQ Database"/"BOQ Database 2" sheet name) so it's
+  // obvious which discipline a tab belongs to when browsing tabs directly in
+  // Google Sheets, and so syncing one table never overwrites another's
+  // numbers. The combined "Overall" view gets its own separate tab
+  // ("Overall - Material Submittal Status") instead of sharing a tab with
+  // any single table. Note: if an admin later renames a discipline's label
+  // in the Control Panel, the NEXT sync creates a fresh tab under the new
+  // label name — it does not rename/move the old one, which is then left
+  // behind under its old label (same trade-off as any name-based lookup).
   function submittalLiveSheetNameFor(selection) {
     if (selection === 'overall') return 'Overall - Material Submittal Status';
     var idx = parseInt(selection, 10);
     var tbl = BOQ_TABLES[isNaN(idx) ? currentTableIndex : idx];
-    return (tbl ? tbl.sheetName : SHEET_NAME) + ' - Material Submittal Status';
+    var label = tbl ? (tbl.label || tbl.sheetName) : SHEET_NAME;
+    return label + ' - Material Submittal Status';
   }
 
   async function ensureSubmittalSheetLive(sheetName) {
