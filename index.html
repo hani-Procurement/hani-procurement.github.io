@@ -9,19 +9,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F2F6F6; --surface:#FFFFFF; --border:#DCE7E7; --text:#152024; --text-soft:#5F7577;
-    --accent:#0E7C86; --accent-dark:#0B6169; --accent-bg:#E2F1F2; --accent-bg-strong:#CFE8EA;
-    --heading:#0E3B40;
-    --mech:#C76B3B; --civil:#2E8F63; --elec:#B98A12;
-    --ok:#2E8F63; --ok-bg:#E6F3EC; --warn:#A23B2E; --warn-bg:#FBE8E4;
-    --priority-med:#B98A12;
-    --radius:8px; --radius-sm:6px;
-    --shadow:0 1px 2px rgba(10,30,32,.05),0 1px 4px rgba(10,30,32,.07);
-    --sans:'Inter',system-ui,-apple-system,sans-serif;
-    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    /* Pipeline & Flow — gunmetal ground, flow-teal accent, valve-red for
+       anything that needs attention, amber for the middle ground. */
+    --bg:#EBF0F2; --surface:#FFFFFF; --border:#C7D4D9; --text:#1F2B33; --text-soft:#5C6E76;
+    --accent:#1C8C8C; --accent-dark:#146666; --accent-bg:#DFF0EF; --accent-bg-strong:#C3E4E2;
+    --heading:#1A2B4C;
+    --mech:#C8403A; --civil:#3D7A52; --elec:#E8A33D;
+    --ok:#2F7A52; --ok-bg:#E3F1E8; --warn:#C8403A; --warn-bg:#FBE6E3;
+    --priority-med:#E8A33D;
+    --radius:10px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(26,43,76,.06),0 1px 4px rgba(26,43,76,.08);
+    --sans:'Sora',system-ui,-apple-system,sans-serif;
+    --mono:'Roboto Mono',ui-monospace,monospace;
   }
   * { box-sizing: border-box; }
   body {
@@ -717,7 +719,7 @@
             </div>
             <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
           </div>
-          <div id="cpUsersMsg" style="font-size:12px;color:#A23B2E;margin-top:8px"></div>
+          <div id="cpUsersMsg" style="font-size:12px;color:#C8403A;margin-top:8px"></div>
         </div>
 
         <div class="card" id="cpNoAccessCard" style="display:none">
@@ -756,7 +758,7 @@
             <label>New table name</label><input type="text" id="cpNewTableName" placeholder="e.g. Mechanical" style="flex:1;min-width:140px">
             <button type="button" class="primary" onclick="addTableFromControlPanel()" style="width:auto;padding:8px 14px">＋ Add table</button>
           </div>
-          <div id="cpTablesMsg" style="font-size:12px;color:#A23B2E;margin-top:8px"></div>
+          <div id="cpTablesMsg" style="font-size:12px;color:#C8403A;margin-top:8px"></div>
         </div>
 
       </div>
@@ -811,7 +813,7 @@
             <button type="button" id="cpBackupNowBtn" onclick="sendBackupNow()" style="width:auto;padding:8px 14px">📤 Send Backup Now</button>
           </div>
           <div id="cpBackupLast" style="font-size:12px;color:#666;margin-top:8px"></div>
-          <div id="cpBackupMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
+          <div id="cpBackupMsg" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
         </div>
 
       </div>
@@ -845,7 +847,7 @@
       <label>Main / Alt</label><select id="addMainAlt"></select>
       <label>Priority</label><select id="addPriority"></select>
     </div>
-    <div id="addMsgModal" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
+    <div id="addMsgModal" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeAddModal()">Cancel</button>
       <button class="primary" onclick="submitAddModal()">Add Item</button>
@@ -862,7 +864,7 @@
       <input type="text" id="fwNewName" placeholder="New name...">
       <button class="primary" onclick="addFileWithEntry()" style="padding:8px 12px;width:auto">Add</button>
     </div>
-    <div id="fwMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
+    <div id="fwMsg" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeFileWithModal()">Close</button>
     </div>
@@ -877,7 +879,7 @@
       <input type="text" id="abNewName" placeholder="New value...">
       <button class="primary" onclick="addActionByEntry()" style="padding:8px 12px;width:auto">Add</button>
     </div>
-    <div id="abMsg" style="font-size:12px;color:#A23B2E;margin-top:6px"></div>
+    <div id="abMsg" style="font-size:12px;color:#C8403A;margin-top:6px"></div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeActionByModal()">Close</button>
     </div>
@@ -2396,7 +2398,7 @@
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
-      if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Name updated.'; }
+      if (msg) { msg.style.color = '#2F7A52'; msg.textContent = 'Name updated.'; }
       showToast('success', 'Table renamed.');
     } catch (e) {
       if (msg) msg.textContent = 'Save failed: ' + (e.message || e);
@@ -2407,15 +2409,15 @@
     var input = document.getElementById('cpNewTableName');
     var msg = document.getElementById('cpTablesMsg');
     var label = input.value.trim();
-    if (!label) { msg.style.color = '#A23B2E'; msg.textContent = 'Enter a table name.'; return; }
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    if (!label) { msg.style.color = '#C8403A'; msg.textContent = 'Enter a table name.'; return; }
+    msg.style.color = '#C8403A'; msg.textContent = '';
     try {
       await addBoqTable(label);
       input.value = '';
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
-      msg.style.color = '#2E8F63';
+      msg.style.color = '#2F7A52';
       msg.textContent = 'Table added.';
       showToast('success', 'Table "' + label + '" added.');
     } catch (e) {
@@ -2432,7 +2434,7 @@
       renderTableSelect();
       renderGlobalTableSelect();
       if (document.getElementById('view-fulltable').classList.contains('active')) loadFullTable();
-      if (msg) { msg.style.color = '#2E8F63'; msg.textContent = 'Deleted.'; }
+      if (msg) { msg.style.color = '#2F7A52'; msg.textContent = 'Deleted.'; }
       showToast('success', 'Table "' + t.label + '" deleted.');
     }).catch(function(e) {
       if (msg) msg.textContent = 'Delete failed: ' + (e.message || e);
@@ -2503,7 +2505,7 @@
     input.select();
     try {
       navigator.clipboard.writeText(input.value);
-      document.getElementById('cpUsersMsg').style.color = '#2E8F63';
+      document.getElementById('cpUsersMsg').style.color = '#2F7A52';
       document.getElementById('cpUsersMsg').textContent = 'Link copied.';
     } catch (e) {
       document.execCommand('copy');
@@ -2669,13 +2671,13 @@
   async function updateGlobalMemberPerms(rowNum, field, checked) {
     if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     try {
       var colMap = { isAdmin: 7, canAccessControlPanel: 8, onHold: 10 };
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
       if (checked && field === 'onHold') {
-        msg.style.color = '#2E8F63';
+        msg.style.color = '#2F7A52';
         msg.textContent = 'On hold — they will be blocked from signing in until this is unchecked.';
       }
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
@@ -2684,7 +2686,7 @@
   async function updateTableMemberPerms(rowNum, field, checked) {
     if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     var colMap = { canAdd: 3, canDelete: 4, canMove: 5, canChangeStatus: 6 };
     try {
       var col = colMap[field];
@@ -2696,7 +2698,7 @@
     if (!assertIsAdmin('add team members')) return;
     var email = document.getElementById('cpNewUserEmail').value.trim().toLowerCase();
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
     try {
       const rows = await fetchUsersRows();
@@ -2724,7 +2726,7 @@
       await addUserRow(email, globalPerms, tablePerms, permissionId);
       document.getElementById('cpNewUserEmail').value = '';
       ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin', 'cpNewCanAccessCP'].forEach(function(id) { document.getElementById(id).checked = false; });
-      msg.style.color = '#2E8F63';
+      msg.style.color = '#2F7A52';
       msg.textContent = 'Added — they now have access to every current table. Send them the invite link above, and fine-tune per-table permissions in the list above if needed.';
       showToast('success', email + ' added to the team.');
       renderTeamMembersList();
@@ -2737,7 +2739,7 @@
     if (!assertIsAdmin('remove team members')) return;
     if (!confirm('Remove "' + email + '" from the team? They will lose access to this sheet.')) return;
     var msg = document.getElementById('cpUsersMsg');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     try {
       const rows = await fetchUsersRows();
       var rowNums = [];
@@ -2748,7 +2750,7 @@
         await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, rowNums[i], USERS_LAST_COL, rowNums[i]), [new Array(USERS_LAST_COL).fill('')], 'RAW');
       }
       await driveUnshareFile(spreadsheetId, permissionId);
-      msg.style.color = '#2E8F63';
+      msg.style.color = '#2F7A52';
       msg.textContent = 'Removed.';
       showToast('success', email + ' removed from the team.');
       renderTeamMembersList();
@@ -2872,13 +2874,13 @@
   async function saveBackupSettings() {
     if (!assertIsAdmin('change backup settings')) return;
     var msg = document.getElementById('cpBackupMsg');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
     var frequency = document.getElementById('cpBackupFrequency').value;
     if (email && email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
     try {
       await saveBackupConfig(email, frequency);
-      msg.style.color = '#2E8F63';
+      msg.style.color = '#2F7A52';
       msg.textContent = 'Saved.';
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
@@ -2887,14 +2889,14 @@
     if (!assertIsAdmin('send a backup')) return;
     var msg = document.getElementById('cpBackupMsg');
     var btn = document.getElementById('cpBackupNowBtn');
-    msg.style.color = '#A23B2E'; msg.textContent = '';
+    msg.style.color = '#C8403A'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address first, then Save.'; return; }
     btn.disabled = true; btn.textContent = '⏳ Sending…';
     try {
       await saveBackupConfig(email, document.getElementById('cpBackupFrequency').value);
       await sendBackupEmail(email);
-      msg.style.color = '#2E8F63';
+      msg.style.color = '#2F7A52';
       msg.textContent = 'Backup sent to ' + email + '.';
       showToast('success', 'Backup sent to ' + email + '.');
       loadBackupSettingsUI();
@@ -5400,7 +5402,7 @@
     var txt = document.getElementById(canvasId + 'Txt');
     if (txt) txt.textContent = pct + '%';
   }
-  var SD_PALETTE = ['#0E7C86', '#2E8F63', '#f4a300', '#A23B2E', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
+  var SD_PALETTE = ['#1C8C8C', '#2F7A52', '#E8A33D', '#C8403A', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
   async function loadSubmittalDashboard() {
     renderGlobalTableSelect();
@@ -5444,7 +5446,7 @@
     sdMakeChart('chartMsStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#2E8F63', '#f4a300', '#A23B2E'] }] },
+        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#2F7A52', '#E8A33D', '#C8403A'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
     });
 
@@ -5453,7 +5455,7 @@
     sdMakeChart('chartPqdStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#0E7C86', '#8e44ec', '#A23B2E'] }] },
+        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1C8C8C', '#8e44ec', '#C8403A'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
     });
   }
@@ -5556,7 +5558,7 @@
         var td = document.createElement('td');
         td.textContent = v;
         td.style.cssText = 'padding:4px 6px;border-bottom:1px solid #f1f1f1';
-        if (colI === 4 && data.overdue[i] > 0) td.style.color = '#A23B2E';
+        if (colI === 4 && data.overdue[i] > 0) td.style.color = '#C8403A';
         tr.appendChild(td);
       });
       body.appendChild(tr);
