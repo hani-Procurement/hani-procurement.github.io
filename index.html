@@ -492,6 +492,33 @@
   .sd-disc-card .sd-disc-name{font-size:10px;font-weight:700;color:var(--heading)}
   .sd-disc-card .sd-disc-total{font-size:17px;font-weight:700;color:var(--heading);margin-top:3px}
   .sd-disc-card .sd-disc-sub{font-size:9px;color:var(--text-soft);margin-top:2px}
+
+  /* ===== 3-section layout (mirrors the real "Material Submittal Status /
+     PQD Status" view's .ms-card-grid: STATUS OF MATERIAL SUBMITTAL / STATUS
+     OF PQD / Item-Buyer) — requested by Hani on 2026-10-27: same 3-way
+     division, donuts + bars + cards together, graphical hover response. ===== */
+  .sdx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  @media (max-width:1100px){.sdx-grid{grid-template-columns:1fr}}
+  .sdx-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+  .sdx-card:hover{transform:translateY(-4px);box-shadow:0 10px 28px rgba(26,43,76,.14);border-color:var(--accent)}
+  .sdx-card h3{margin:0;font-family:var(--sans);font-size:12px;font-weight:700;color:var(--heading);
+    text-transform:uppercase;letter-spacing:.02em;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .sdx-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+  .sdx-kpi{position:relative;overflow:hidden;background:var(--bg);border-radius:8px;padding:8px 9px;
+    border-top:3px solid var(--accent);transition:transform .15s ease, box-shadow .15s ease}
+  .sdx-kpi::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 0%, var(--accent) 0%, transparent 70%);
+    opacity:0;transition:opacity .25s ease;pointer-events:none}
+  .sdx-kpi:hover{transform:translateY(-2px) scale(1.035);box-shadow:0 6px 14px rgba(28,140,140,.18)}
+  .sdx-kpi:hover::after{opacity:.09}
+  .sdx-kpi .sdx-kpi-num{font-size:16px;font-weight:700;color:var(--heading);font-family:var(--sans)}
+  .sdx-kpi .sdx-kpi-label{font-size:8px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.02em;margin-top:1px}
+  .sdx-chart-row{display:flex;gap:10px;align-items:stretch}
+  .sdx-donut-wrap{flex:1;min-width:0;height:148px;position:relative}
+  .sdx-bar-wrap{flex:1.2;min-width:0;height:148px;position:relative}
+  .sdx-card .ms-table-wrap{max-height:190px;overflow:auto}
+
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
   .sd-kpi{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:14px;text-align:center;border-top:3px solid var(--accent)}
@@ -595,20 +622,24 @@
   </div>
 
   <!-- ===================== SUBMITTAL DASHBOARD ===================== -->
-  <!-- Layout merges design options 1 (Command Strip KPI stripe), 6 (headline
-       approval-rate numbers), 7 (by-discipline breakdown), 10 (jump-nav rail)
-       and 20 (tab switcher) — chosen together by Hani on 2026-10-27. -->
+  <!-- Layout restructured on 2026-10-27 per Hani's explicit request to mirror
+       the real "Material Submittal Status / PQD Status" view's 3-section
+       division (.ms-card-grid: STATUS OF MATERIAL SUBMITTAL / STATUS OF PQD /
+       Item-Buyer) — now 3 always-visible .sdx-card sections, each combining
+       KPI cards + a donut + a bar chart, with a graphical hover response on
+       every card. Overdue + Trends stay as a secondary tab pair below, since
+       they aren't part of that 3-way split. -->
   <div class="view active" id="view-subdash">
     <div class="sd-shell">
 
-      <!-- Rail: real tab switchers (kept in sync with the tab bar below via
-           sdShowTab()) + headline Approved(%) for each track, pulled from
-           computeTrackStats(). -->
+      <!-- Rail: jump-to-section links for the 3 always-visible cards below,
+           real tab switchers for Overdue/Trends, + headline Approved(%)
+           for each track, pulled from computeTrackStats(). -->
       <div class="sd-rail">
         <div class="sd-rail-title">Overview</div>
-        <div class="sd-rail-link active" data-rail="material" onclick="sdShowTab('material')">Material (M/S)</div>
-        <div class="sd-rail-link" data-rail="pqd" onclick="sdShowTab('pqd')">PQD</div>
-        <div class="sd-rail-link" data-rail="buyers" onclick="sdShowTab('buyers')">Buyers</div>
+        <div class="sd-rail-link active" data-rail="material" onclick="sdScrollToSection('sdxMaterial', this)">Material (M/S)</div>
+        <div class="sd-rail-link" data-rail="pqd" onclick="sdScrollToSection('sdxPqd', this)">PQD</div>
+        <div class="sd-rail-link" data-rail="buyers" onclick="sdScrollToSection('sdxBuyers', this)">Item / Buyer</div>
         <div class="sd-rail-link" data-rail="overdue" onclick="sdShowTab('overdue')">Overdue <span class="sd-rail-badge" id="sdRailOverdueBadge">0</span></div>
         <div class="sd-rail-link" data-rail="trends" onclick="sdShowTab('trends')">📈 Trends</div>
         <div class="sd-rate-box">
@@ -622,7 +653,8 @@
 
       <div class="sd-main">
 
-        <!-- Command-strip KPI row (design 1): Material + PQD side by side. -->
+        <!-- Command-strip KPI row: Material + PQD side by side (quick glance
+             before the 3 detailed sections below). -->
         <div class="sd-stripe">
           <div class="sd-stripe-group">
             <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Material Total</div></div>
@@ -639,45 +671,56 @@
           </div>
         </div>
 
-        <!-- Tabs (design 20) switching between the detail panels below. -->
+        <!-- The 3 sections, same division as Material Submittal Status /
+             PQD Status's .ms-card-grid. Each card: KPI mini-tiles (cards) +
+             a status donut + a breakdown bar chart, all three together as
+             requested, with a lift/glow on hover. -->
+        <div class="sdx-grid">
+
+          <div class="sdx-card" id="sdxMaterial">
+            <h3>Status of Material Submittal</h3>
+            <div class="sdx-kpis" id="sdxMaterialKpis"></div>
+            <div class="sdx-chart-row">
+              <div class="sdx-donut-wrap"><canvas id="chartMsStatus"></canvas></div>
+              <div class="sdx-bar-wrap"><canvas id="chartMsDiscipline"></canvas></div>
+            </div>
+          </div>
+
+          <div class="sdx-card" id="sdxPqd">
+            <h3>Status of PQD</h3>
+            <div class="sdx-kpis" id="sdxPqdKpis"></div>
+            <div class="sdx-chart-row">
+              <div class="sdx-donut-wrap"><canvas id="chartPqdStatus"></canvas></div>
+              <div class="sdx-bar-wrap"><canvas id="chartPqdDiscipline"></canvas></div>
+            </div>
+          </div>
+
+          <div class="sdx-card" id="sdxBuyers">
+            <h3>Item / Buyer</h3>
+            <div class="sdx-kpis" id="sdxBuyerKpis"></div>
+            <div class="sdx-chart-row">
+              <div class="sdx-donut-wrap"><canvas id="chartBuyerStatus"></canvas></div>
+              <div class="sdx-bar-wrap"><canvas id="chartBuyerCompletion"></canvas></div>
+            </div>
+            <div class="ms-table-wrap">
+              <table class="ms-table" id="sdBuyerWorkloadTable">
+                <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
+                <tbody id="sdBuyerWorkloadBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Secondary tabs: Overdue / Trends — not part of the 3-way split,
+             kept available one click away. -->
         <div class="sd-tabs">
-          <div class="sd-tab active" data-sdtab="material" onclick="sdShowTab('material')">Material — by Discipline</div>
-          <div class="sd-tab" data-sdtab="pqd" onclick="sdShowTab('pqd')">PQD</div>
-          <div class="sd-tab" data-sdtab="buyers" onclick="sdShowTab('buyers')">Buyers</div>
-          <div class="sd-tab" data-sdtab="overdue" onclick="sdShowTab('overdue')">Overdue <span class="sd-rail-badge" id="sdTabOverdueBadge">0</span></div>
+          <div class="sd-tab active" data-sdtab="overdue" onclick="sdShowTab('overdue')">⚠️ Overdue <span class="sd-rail-badge" id="sdTabOverdueBadge">0</span></div>
           <div class="sd-tab" data-sdtab="trends" onclick="sdShowTab('trends')">📈 Trends</div>
         </div>
 
-        <!-- Material tab: by-discipline breakdown (design 7), one card per
-             real BOQ table/discipline, computed fresh via computeTrackStats(). -->
-        <div class="sd-panel active" id="sdPanelMaterial">
-          <div id="sdMaterialSection" class="sd-disc-grid"></div>
-          <div class="chart-card" style="margin-top:14px"><h4>Material Status Breakdown (Grand Total)</h4><div class="chart-wrap"><canvas id="chartMsStatus"></canvas></div></div>
-        </div>
-
-        <!-- PQD tab -->
-        <div class="sd-panel" id="sdPanelPqd">
-          <div id="sdPqdSection" class="sd-kpi-row" style="margin-bottom:14px">
-            <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal2">-</div><div class="sd-label">Estimated Total PQDs</div></div>
-            <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted2">-</div><div class="sd-label">PQD Submitted</div></div>
-            <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance2">-</div><div class="sd-label">PQD Balance to be Prepared</div></div>
-          </div>
-          <div class="chart-card"><h4>PQD Status Breakdown</h4><div class="chart-wrap"><canvas id="chartPqdStatus"></canvas></div></div>
-        </div>
-
-        <!-- Buyers tab: unchanged table, same ids/logic as before. -->
-        <div class="sd-panel" id="sdPanelBuyers">
-          <div id="sdBuyersSection" class="sd-section-title" style="margin-top:0">👤 Buyer Workload (M/S, Main items)</div>
-          <div class="ms-table-wrap">
-            <table class="ms-table" id="sdBuyerWorkloadTable">
-              <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
-              <tbody id="sdBuyerWorkloadBody"></tbody>
-            </table>
-          </div>
-        </div>
-
         <!-- Overdue tab: unchanged table, same ids/logic as before. -->
-        <div class="sd-panel" id="sdPanelOverdue">
+        <div class="sd-panel active" id="sdPanelOverdue">
           <div id="sdOverdueSection" class="sd-section-title" style="margin-top:0">⚠️ Overdue Items — Planned Date passed, not yet Submitted (<span id="sdOverdueCount">0</span>)</div>
           <div class="ms-table-wrap">
             <table class="ms-table" id="sdOverdueTable">
@@ -5517,7 +5560,9 @@
     renderSubmittalDashboard(data.ms, data.pqd);
     renderDisciplineBreakdown(rows);
     renderOverdueAlerts(getOverdueItemsClient(rows));
-    renderBuyerWorkloadTable(getBuyerWorkloadDataClient(rows));
+    var buyerData = getBuyerWorkloadDataClient(rows);
+    renderBuyerWorkloadTable(buyerData);
+    renderBuyerSection(buyerData);
     // Comparison-over-time (Trends tab): snapshot today's numbers, then
     // redraw the trend charts from the accumulated history. Never blocks
     // or breaks the rest of the Dashboard if the sheet write fails.
@@ -5528,10 +5573,11 @@
     }).catch(function(e) { console.warn('Trend charts unavailable: ', e); });
   }
 
-  // Tabs (merged-layout option 20): show one detail panel at a time; the
-  // KPI stripe and rail above stay visible regardless of which tab is open.
+  // Secondary tabs (Overdue/Trends only — the 3 sdx-card sections above are
+  // always visible, mirroring Material Submittal Status / PQD Status's own
+  // always-visible 3-card division).
   function sdShowTab(name) {
-    ['material', 'pqd', 'buyers', 'overdue', 'trends'].forEach(function(n) {
+    ['overdue', 'trends'].forEach(function(n) {
       var panel = document.getElementById('sdPanel' + n.charAt(0).toUpperCase() + n.slice(1));
       var tab = document.querySelector('.sd-tab[data-sdtab="' + n + '"]');
       var rail = document.querySelector('.sd-rail-link[data-rail="' + n + '"]');
@@ -5539,6 +5585,15 @@
       if (tab) tab.classList.toggle('active', n === name);
       if (rail) rail.classList.toggle('active', n === name);
     });
+  }
+
+  // Rail jump-links for the 3 always-visible sections: just scroll + mark
+  // the clicked rail link active (no panel to toggle, there's nothing hidden).
+  function sdScrollToSection(sectionId, linkEl) {
+    var el = document.getElementById(sectionId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.sd-rail-link').forEach(function(l) { l.classList.remove('active'); });
+    if (linkEl) linkEl.classList.add('active');
   }
 
   function renderSubmittalDashboard(msRows, pqdRows) {
@@ -5572,11 +5627,6 @@
     document.getElementById('sdPqdAwaiting').textContent = pqdAwaiting;
     document.getElementById('sdPqdBalance').textContent = pqdBalance;
 
-    // PQD tab's own KPI row (same numbers, kept so the tab reads standalone)
-    document.getElementById('sdPqdTotal2').textContent = pqdTotal;
-    document.getElementById('sdPqdSubmitted2').textContent = pqdSubmitted;
-    document.getElementById('sdPqdBalance2').textContent = pqdBalance;
-
     // Rail headline: Approved(%) — same figure and definition as the
     // "Approved (%)" column in Material Submittal Status / PQD Status.
     document.getElementById('sdMsApprovedPct').textContent = msApprovedPct + '%';
@@ -5589,8 +5639,9 @@
     sdMakeChart('chartMsStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#2F7A52', '#E8A33D', '#C8403A'] }] },
-      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+        datasets: [{ data: [msSubmitted, msUnderProcess, msNoDesign], backgroundColor: ['#2F7A52', '#E8A33D', '#C8403A'], hoverOffset: 10 }] },
+      options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9 } } } },
+        maintainAspectRatio: false, cutout: '62%', animation: { animateScale: true } }
     });
 
     var pqdUnderProcess = sdGet(pqdRow, pqdIdx, 'PQD Under\nProcess By Proc.', '');
@@ -5598,30 +5649,103 @@
     sdMakeChart('chartPqdStatus', {
       type: 'doughnut',
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
-        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1C8C8C', '#8e44ec', '#C8403A'] }] },
-      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+        datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1C8C8C', '#8e44ec', '#C8403A'], hoverOffset: 10 }] },
+      options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9 } } } },
+        maintainAspectRatio: false, cutout: '62%', animation: { animateScale: true } }
     });
+
+    // KPI mini-tiles (cards) for the Material / PQD sdx-card sections —
+    // same numbers already in the stripe, repeated here as hoverable tiles
+    // so each 3-way section is self-contained (cards + donut + bar together).
+    sdxRenderKpis('sdxMaterialKpis', [
+      ['Total', msTotal], ['Submitted', msSubmitted], ['Approved', msApprovedMain],
+      ['Awaiting', msAwaiting], ['Balance', msBalance], ['Approved %', msApprovedPct + '%']
+    ]);
+    sdxRenderKpis('sdxPqdKpis', [
+      ['Total', pqdTotal], ['Submitted', pqdSubmitted], ['Approved', pqdApprovedMain],
+      ['Awaiting', pqdAwaiting], ['Balance', pqdBalance], ['Approved %', pqdApprovedPct + '%']
+    ]);
   }
 
-  // By-discipline breakdown (design 7): one card per real BOQ table, each a
-  // fresh computeTrackStats(MS_TRACK) run over just that table's Main items
-  // — same convention (Main only) as every other stat here — so it never
-  // disagrees with the grand-total KPI stripe above it.
-  function renderDisciplineBreakdown(rows) {
-    var grid = document.getElementById('sdMaterialSection');
-    if (!grid) return;
-    grid.innerHTML = '';
+  // Shared KPI-mini-tile renderer: small hoverable cards, 2 per row.
+  function sdxRenderKpis(containerId, pairs) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = pairs.map(function(p) {
+      return '<div class="sdx-kpi"><div class="sdx-kpi-num">' + p[1] + '</div><div class="sdx-kpi-label">' + p[0] + '</div></div>';
+    }).join('');
+  }
+
+  // By-discipline breakdown bar charts: one grouped bar per real BOQ table/
+  // discipline, each a fresh computeTrackStats() run over just that table's
+  // Main items — same convention (Main only) as every other stat here — so
+  // it never disagrees with the grand-total KPI stripe above it. Used for
+  // both tracks: the Material section (MS_TRACK) and the PQD section
+  // (PQD_TRACK), so neither section just repeats the stripe's own numbers.
+  function renderDisciplineGrid(canvasId, rows, track, colors) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     var items = nonPackageItems(rows);
+    var labels = [], totals = [], submitted = [], approved = [];
     BOQ_TABLES.forEach(function(t, i) {
       var tblItems = items.filter(function(r) { return r.__tbl === i; });
-      var stats = computeTrackStats(tblItems, MS_TRACK);
-      var card = document.createElement('div');
-      card.className = 'sd-disc-card';
-      card.innerHTML =
-        '<div class="sd-disc-name">' + (t.label || ('Table ' + (i + 1))) + '</div>' +
-        '<div class="sd-disc-total">' + stats.totalMaterials + '</div>' +
-        '<div class="sd-disc-sub">' + stats.subMain + ' submitted · ' + (stats.totalMaterials - stats.subMain) + ' balance</div>';
-      grid.appendChild(card);
+      var stats = computeTrackStats(tblItems, track);
+      labels.push(t.label || ('Table ' + (i + 1)));
+      totals.push(stats.totalMaterials);
+      submitted.push(stats.subMain);
+      approved.push(stats.apprMain);
+    });
+    sdMakeChart(canvasId, {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label: 'Total', data: totals, backgroundColor: colors[0] },
+        { label: 'Submitted', data: submitted, backgroundColor: colors[1] },
+        { label: 'Approved', data: approved, backgroundColor: colors[2] }
+      ] },
+      options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9 } } } },
+        maintainAspectRatio: false, scales: { x: { ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 9 } } } } }
+    });
+  }
+  function renderDisciplineBreakdown(rows) {
+    renderDisciplineGrid('chartMsDiscipline', rows, MS_TRACK, ['#C7D4D9', '#1C8C8C', '#2F7A52']);
+    renderDisciplineGrid('chartPqdDiscipline', rows, PQD_TRACK, ['#C7D4D9', '#8e44ec', '#2F7A52']);
+  }
+
+  // Item/Buyer section (3rd sdx-card, mirroring the real "Item / Buyer"
+  // card in Material Submittal Status / PQD Status): KPI tiles summarizing
+  // the whole buyer roster, a donut of aggregate Done/Open/Overdue, and a
+  // horizontal completion-% bar per buyer (colored by how on-track they are).
+  function renderBuyerSection(data) {
+    var totalItems = 0, totalDone = 0, totalOpen = 0, totalOverdue = 0;
+    data.names.forEach(function(n, i) {
+      totalDone += data.done[i]; totalOpen += data.open[i]; totalOverdue += data.overdue[i];
+    });
+    totalItems = totalDone + totalOpen + totalOverdue;
+    var avgCompletion = data.completionPct.length
+      ? Math.round(data.completionPct.reduce(function(a, b) { return a + b; }, 0) / data.completionPct.length) : 0;
+
+    sdxRenderKpis('sdxBuyerKpis', [
+      ['Buyers', data.names.length], ['Items', totalItems],
+      ['Done', totalDone], ['Overdue', totalOverdue],
+      ['Open', totalOpen], ['Avg Completion', avgCompletion + '%']
+    ]);
+
+    sdMakeChart('chartBuyerStatus', {
+      type: 'doughnut',
+      data: { labels: ['Done', 'Open', 'Overdue'],
+        datasets: [{ data: [totalDone, totalOpen, totalOverdue], backgroundColor: ['#2F7A52', '#E8A33D', '#C8403A'], hoverOffset: 10 }] },
+      options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9 } } } },
+        maintainAspectRatio: false, cutout: '62%', animation: { animateScale: true } }
+    });
+
+    sdMakeChart('chartBuyerCompletion', {
+      type: 'bar',
+      data: { labels: data.names, datasets: [{
+        label: 'Completion %', data: data.completionPct,
+        backgroundColor: data.completionPct.map(function(p) { return p >= 80 ? '#2F7A52' : (p >= 50 ? '#E8A33D' : '#C8403A'); })
+      }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
+        scales: { x: { beginAtZero: true, max: 100, ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } } }
     });
   }
 
