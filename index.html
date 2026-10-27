@@ -461,6 +461,36 @@
   table.ms-table th.buyer-group-header{background:var(--accent-dark)}
 
   /* ---- Submittal Dashboard ---- */
+  /* Merged layout (design option 21: Command Strip + Executive headline +
+     By-Discipline + Sidebar jump-nav + Tabs), applied to the real view. */
+  .sd-shell{display:flex;gap:16px;align-items:flex-start}
+  .sd-rail{width:168px;flex-shrink:0;background:var(--heading);border-radius:var(--radius);padding:16px 12px;
+    display:flex;flex-direction:column;gap:3px;position:sticky;top:12px}
+  .sd-rail-title{font-family:var(--sans);font-size:13px;font-weight:700;color:#fff;margin-bottom:10px}
+  .sd-rail a.sd-rail-link{font-size:10.5px;color:#AFC0CC;padding:7px 9px;border-radius:6px;text-decoration:none;display:block}
+  .sd-rail a.sd-rail-link:hover{background:rgba(255,255,255,.08);color:#fff}
+  .sd-rail-badge{background:#C8403A;color:#fff;border-radius:8px;padding:1px 6px;font-size:8.5px;margin-left:4px}
+  .sd-rate-box{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15)}
+  .sd-rate-label{font-size:8.5px;color:#8FA0B2;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+  .sd-rate-num{font-size:26px;font-weight:700;font-family:var(--sans);color:#5FD4C8;line-height:1}
+  .sd-rate-sub{font-size:8.5px;color:#AFC0CC;margin-top:2px;margin-bottom:10px}
+  .sd-main{flex-grow:1;min-width:0}
+  .sd-stripe{display:flex;gap:10px;margin-bottom:16px}
+  .sd-stripe-group{display:flex;gap:8px;flex:1}
+  .sd-stripe-div{width:1px;background:var(--border)}
+  .sd-stripe .sd-kpi{margin-bottom:0}
+  .sd-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:0}
+  .sd-tab{padding:9px 16px;font-size:11px;font-weight:600;color:var(--text-soft);cursor:pointer;border-radius:8px 8px 0 0;
+    border:1px solid transparent;background:none}
+  .sd-tab.active{color:var(--heading);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface);position:relative;top:1px}
+  .sd-panel{display:none;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);
+    padding:16px;margin-bottom:18px}
+  .sd-panel.active{display:block}
+  .sd-disc-grid{display:flex;flex-wrap:wrap;gap:10px}
+  .sd-disc-card{flex:1;min-width:150px;background:var(--bg);border-radius:8px;padding:10px 12px;border-top:3px solid var(--accent)}
+  .sd-disc-card .sd-disc-name{font-size:10px;font-weight:700;color:var(--heading)}
+  .sd-disc-card .sd-disc-total{font-size:17px;font-weight:700;color:var(--heading);margin-top:3px}
+  .sd-disc-card .sd-disc-sub{font-size:9px;color:var(--text-soft);margin-top:2px}
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
   .sd-kpi{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:14px;text-align:center;border-top:3px solid var(--accent)}
@@ -564,55 +594,95 @@
   </div>
 
   <!-- ===================== SUBMITTAL DASHBOARD ===================== -->
+  <!-- Layout merges design options 1 (Command Strip KPI stripe), 6 (headline
+       approval-rate numbers), 7 (by-discipline breakdown), 10 (jump-nav rail)
+       and 20 (tab switcher) — chosen together by Hani on 2026-10-27. -->
   <div class="view active" id="view-subdash">
-    <div class="sd-section-title">📦 Material — Key Numbers</div>
-    <div class="sd-kpi-row">
-      <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Total Materials (Main)</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsRfq">-</div><div class="sd-label">RFQ</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsQuotes">-</div><div class="sd-label">Quotes</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsSubmitted">-</div><div class="sd-label">Material Submitted</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsBalance">-</div><div class="sd-label">Balance to be Prepared</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsPr">-</div><div class="sd-label">Total PR</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdMsPo">-</div><div class="sd-label">Total PO</div></div>
-    </div>
+    <div class="sd-shell">
 
-    <div class="sd-section-title">📐 PQD — Key Numbers</div>
-    <div class="sd-kpi-row">
-      <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal">-</div><div class="sd-label">Estimated Total PQDs</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted">-</div><div class="sd-label">PQD Submitted</div></div>
-      <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance">-</div><div class="sd-label">PQD Balance to be Prepared</div></div>
-    </div>
-
-    <div class="sd-section-title">📊 Status Breakdown</div>
-    <div class="chart-grid">
-      <div class="chart-card"><h4>Material Status Breakdown (Grand Total)</h4><div class="chart-wrap"><canvas id="chartMsStatus"></canvas></div></div>
-      <div class="chart-card"><h4>PQD Status Breakdown</h4><div class="chart-wrap"><canvas id="chartPqdStatus"></canvas></div></div>
-    </div>
-
-    <!-- Main items (either track) whose Planned Submission Date has arrived
-         (today or earlier — same isDueByToday() definition already driving
-         the red overdue-cell highlight in Full Table) and that are still
-         not Submitted. Sorted oldest-date-first so the most overdue item is
-         always at the top. -->
-    <div class="sd-section-title">⚠️ Overdue Items — Planned Date passed, not yet Submitted (<span id="sdOverdueCount">0</span>)</div>
-    <div class="card">
-      <div class="ms-table-wrap">
-        <table class="ms-table" id="sdOverdueTable">
-          <thead><tr><th>Description</th><th>Track</th><th>Discipline</th><th>Planned Date</th></tr></thead>
-          <tbody id="sdOverdueBody"></tbody>
-        </table>
+      <!-- Rail: real in-page jump links (not a second app nav) + headline
+           Approved(%) for each track, pulled from computeTrackStats(). -->
+      <div class="sd-rail">
+        <div class="sd-rail-title">Overview</div>
+        <a class="sd-rail-link" href="#sdMaterialSection">Material (M/S)</a>
+        <a class="sd-rail-link" href="#sdPqdSection">PQD</a>
+        <a class="sd-rail-link" href="#sdBuyersSection">Buyers</a>
+        <a class="sd-rail-link" href="#sdOverdueSection">Overdue <span class="sd-rail-badge" id="sdRailOverdueBadge">0</span></a>
+        <div class="sd-rate-box">
+          <div class="sd-rate-label">Approval Rate</div>
+          <div class="sd-rate-num" id="sdMsApprovedPct">-%</div>
+          <div class="sd-rate-sub">Material (<span id="sdMsApprovedFrac">-/-</span>)</div>
+          <div class="sd-rate-num" id="sdPqdApprovedPct">-%</div>
+          <div class="sd-rate-sub">PQD (<span id="sdPqdApprovedFrac">-/-</span>)</div>
+        </div>
       </div>
-    </div>
 
-    <!-- Per-buyer (File With) workload for the M/S track, Main items only —
-         same numbers the old bar chart showed, as a plain table instead. -->
-    <div class="sd-section-title">👤 Buyer Workload (M/S, Main items)</div>
-    <div class="card">
-      <div class="ms-table-wrap">
-        <table class="ms-table" id="sdBuyerWorkloadTable">
-          <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
-          <tbody id="sdBuyerWorkloadBody"></tbody>
-        </table>
+      <div class="sd-main">
+
+        <!-- Command-strip KPI row (design 1): Material + PQD side by side. -->
+        <div class="sd-stripe">
+          <div class="sd-stripe-group">
+            <div class="sd-kpi"><div class="sd-num" id="sdMsTotal">-</div><div class="sd-label">Material Total</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdMsSubmitted">-</div><div class="sd-label">Submitted</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdMsAwaiting">-</div><div class="sd-label">Awaiting Status</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdMsBalance">-</div><div class="sd-label">Balance</div></div>
+          </div>
+          <div class="sd-stripe-div"></div>
+          <div class="sd-stripe-group">
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal">-</div><div class="sd-label">PQD Total</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted">-</div><div class="sd-label">Submitted</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdAwaiting">-</div><div class="sd-label">Awaiting Status</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance">-</div><div class="sd-label">Balance</div></div>
+          </div>
+        </div>
+
+        <!-- Tabs (design 20) switching between the detail panels below. -->
+        <div class="sd-tabs">
+          <div class="sd-tab active" data-sdtab="material" onclick="sdShowTab('material')">Material — by Discipline</div>
+          <div class="sd-tab" data-sdtab="pqd" onclick="sdShowTab('pqd')">PQD</div>
+          <div class="sd-tab" data-sdtab="buyers" onclick="sdShowTab('buyers')">Buyers</div>
+          <div class="sd-tab" data-sdtab="overdue" onclick="sdShowTab('overdue')">Overdue <span class="sd-rail-badge" id="sdTabOverdueBadge">0</span></div>
+        </div>
+
+        <!-- Material tab: by-discipline breakdown (design 7), one card per
+             real BOQ table/discipline, computed fresh via computeTrackStats(). -->
+        <div class="sd-panel active" id="sdPanelMaterial">
+          <div id="sdMaterialSection" class="sd-disc-grid"></div>
+          <div class="chart-card" style="margin-top:14px"><h4>Material Status Breakdown (Grand Total)</h4><div class="chart-wrap"><canvas id="chartMsStatus"></canvas></div></div>
+        </div>
+
+        <!-- PQD tab -->
+        <div class="sd-panel" id="sdPanelPqd">
+          <div id="sdPqdSection" class="sd-kpi-row" style="margin-bottom:14px">
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdTotal2">-</div><div class="sd-label">Estimated Total PQDs</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdSubmitted2">-</div><div class="sd-label">PQD Submitted</div></div>
+            <div class="sd-kpi"><div class="sd-num" id="sdPqdBalance2">-</div><div class="sd-label">PQD Balance to be Prepared</div></div>
+          </div>
+          <div class="chart-card"><h4>PQD Status Breakdown</h4><div class="chart-wrap"><canvas id="chartPqdStatus"></canvas></div></div>
+        </div>
+
+        <!-- Buyers tab: unchanged table, same ids/logic as before. -->
+        <div class="sd-panel" id="sdPanelBuyers">
+          <div id="sdBuyersSection" class="sd-section-title" style="margin-top:0">👤 Buyer Workload (M/S, Main items)</div>
+          <div class="ms-table-wrap">
+            <table class="ms-table" id="sdBuyerWorkloadTable">
+              <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
+              <tbody id="sdBuyerWorkloadBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Overdue tab: unchanged table, same ids/logic as before. -->
+        <div class="sd-panel" id="sdPanelOverdue">
+          <div id="sdOverdueSection" class="sd-section-title" style="margin-top:0">⚠️ Overdue Items — Planned Date passed, not yet Submitted (<span id="sdOverdueCount">0</span>)</div>
+          <div class="ms-table-wrap">
+            <table class="ms-table" id="sdOverdueTable">
+              <thead><tr><th>Description</th><th>Track</th><th>Discipline</th><th>Planned Date</th></tr></thead>
+              <tbody id="sdOverdueBody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -5421,8 +5491,20 @@
     var rows = await fetchRowsForSelection(currentGlobalSelection);
     var data = getSubmittalStatusDataClient(rows);
     renderSubmittalDashboard(data.ms, data.pqd);
+    renderDisciplineBreakdown(rows);
     renderOverdueAlerts(getOverdueItemsClient(rows));
     renderBuyerWorkloadTable(getBuyerWorkloadDataClient(rows));
+  }
+
+  // Tabs (merged-layout option 20): show one detail panel at a time; the
+  // KPI stripe and rail above stay visible regardless of which tab is open.
+  function sdShowTab(name) {
+    ['material', 'pqd', 'buyers', 'overdue'].forEach(function(n) {
+      var panel = document.getElementById('sdPanel' + n.charAt(0).toUpperCase() + n.slice(1));
+      var tab = document.querySelector('.sd-tab[data-sdtab="' + n + '"]');
+      if (panel) panel.classList.toggle('active', n === name);
+      if (tab) tab.classList.toggle('active', n === name);
+    });
   }
 
   function renderSubmittalDashboard(msRows, pqdRows) {
@@ -5432,26 +5514,41 @@
     var pqdRow = pqdRows[0] || [];
 
     var msTotal = sdGet(msRow, msIdx, 'Total Materials\nas Per Sch.', '');
-    var msRfq = sdGet(msRow, msIdx, 'RFQ', '');
-    var msQuotes = sdGet(msRow, msIdx, 'Quotes', '');
     var msSubmitted = sdGet(msRow, msIdx, 'Submitted to Client', 'TOTAL');
+    var msAwaiting = sdGet(msRow, msIdx, 'Submitted\nAwaiting Status', '');
     var msBalance = sdGet(msRow, msIdx, 'Balance Submittal\nto be Prepared', '');
-    var msPr = sdGet(msRow, msIdx, 'Total PR', '');
-    var msPo = sdGet(msRow, msIdx, 'Total PO', '');
+    var msApprovedPct = sdGet(msRow, msIdx, 'Approved (%)', '');
+    var msApprovedMain = sdGet(msRow, msIdx, 'Approved', 'Main');
+    var msSubmittedMain = sdGet(msRow, msIdx, 'Submitted to Client', 'Main');
     var pqdTotal = sdGet(pqdRow, pqdIdx, 'Estimated Total\nNo. of PQDs', '');
     var pqdSubmitted = sdGet(pqdRow, pqdIdx, 'Submitted to Client', 'TOTAL');
+    var pqdAwaiting = sdGet(pqdRow, pqdIdx, 'Submitted\nAwaiting Status', '');
     var pqdBalance = sdGet(pqdRow, pqdIdx, 'Balance PQD\nto be Prepared', '');
+    var pqdApprovedPct = sdGet(pqdRow, pqdIdx, 'Approved (%)', '');
+    var pqdApprovedMain = sdGet(pqdRow, pqdIdx, 'Approved', 'Main');
+    var pqdSubmittedMain = sdGet(pqdRow, pqdIdx, 'Submitted to Client', 'Main');
 
+    // Command-strip KPI row (design 1)
     document.getElementById('sdMsTotal').textContent = msTotal;
-    document.getElementById('sdMsRfq').textContent = msRfq;
-    document.getElementById('sdMsQuotes').textContent = msQuotes;
     document.getElementById('sdMsSubmitted').textContent = msSubmitted;
+    document.getElementById('sdMsAwaiting').textContent = msAwaiting;
     document.getElementById('sdMsBalance').textContent = msBalance;
-    document.getElementById('sdMsPr').textContent = msPr;
-    document.getElementById('sdMsPo').textContent = msPo;
     document.getElementById('sdPqdTotal').textContent = pqdTotal;
     document.getElementById('sdPqdSubmitted').textContent = pqdSubmitted;
+    document.getElementById('sdPqdAwaiting').textContent = pqdAwaiting;
     document.getElementById('sdPqdBalance').textContent = pqdBalance;
+
+    // PQD tab's own KPI row (same numbers, kept so the tab reads standalone)
+    document.getElementById('sdPqdTotal2').textContent = pqdTotal;
+    document.getElementById('sdPqdSubmitted2').textContent = pqdSubmitted;
+    document.getElementById('sdPqdBalance2').textContent = pqdBalance;
+
+    // Rail headline: Approved(%) — same figure and definition as the
+    // "Approved (%)" column in Material Submittal Status / PQD Status.
+    document.getElementById('sdMsApprovedPct').textContent = msApprovedPct + '%';
+    document.getElementById('sdMsApprovedFrac').textContent = msApprovedMain + '/' + msSubmittedMain;
+    document.getElementById('sdPqdApprovedPct').textContent = pqdApprovedPct + '%';
+    document.getElementById('sdPqdApprovedFrac').textContent = pqdApprovedMain + '/' + pqdSubmittedMain;
 
     var msUnderProcess = sdGet(msRow, msIdx, 'Submittal Under\nProcess By Proc.', '');
     var msNoDesign = sdGet(msRow, msIdx, 'No Design Action\nBy Site', '');
@@ -5469,6 +5566,28 @@
       data: { labels: ['Submitted', 'Under Process by Proc.', 'No Design Action by Site'],
         datasets: [{ data: [pqdSubmitted, pqdUnderProcess, pqdNoDesign], backgroundColor: ['#1C8C8C', '#8e44ec', '#C8403A'] }] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false }
+    });
+  }
+
+  // By-discipline breakdown (design 7): one card per real BOQ table, each a
+  // fresh computeTrackStats(MS_TRACK) run over just that table's Main items
+  // — same convention (Main only) as every other stat here — so it never
+  // disagrees with the grand-total KPI stripe above it.
+  function renderDisciplineBreakdown(rows) {
+    var grid = document.getElementById('sdMaterialSection');
+    if (!grid) return;
+    grid.innerHTML = '';
+    var items = nonPackageItems(rows);
+    BOQ_TABLES.forEach(function(t, i) {
+      var tblItems = items.filter(function(r) { return r.__tbl === i; });
+      var stats = computeTrackStats(tblItems, MS_TRACK);
+      var card = document.createElement('div');
+      card.className = 'sd-disc-card';
+      card.innerHTML =
+        '<div class="sd-disc-name">' + (t.label || ('Table ' + (i + 1))) + '</div>' +
+        '<div class="sd-disc-total">' + stats.totalMaterials + '</div>' +
+        '<div class="sd-disc-sub">' + stats.subMain + ' submitted · ' + (stats.totalMaterials - stats.subMain) + ' balance</div>';
+      grid.appendChild(card);
     });
   }
 
@@ -5499,6 +5618,10 @@
     var body = document.getElementById('sdOverdueBody');
     if (!body) return;
     if (countEl) countEl.textContent = items.length;
+    var railBadge = document.getElementById('sdRailOverdueBadge');
+    var tabBadge = document.getElementById('sdTabOverdueBadge');
+    if (railBadge) railBadge.textContent = items.length;
+    if (tabBadge) tabBadge.textContent = items.length;
     body.innerHTML = '';
     if (!items.length) {
       var tr = document.createElement('tr');
