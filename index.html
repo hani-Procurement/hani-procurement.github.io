@@ -170,6 +170,18 @@
   .subtoolbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
   .subtoolbar button.primary:hover{background:var(--accent-dark)}
   #clipboardStatus{font-size:12px;color:#8e44ec;font-weight:600}
+  /* "Columns" show/hide dropdown — a personal, per-browser display
+     preference (see hiddenCols in the script), never saved to the Sheet. */
+  .columns-panel-wrap{position:relative;display:inline-block}
+  .columns-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 14px rgba(0,0,0,0.15);
+    padding:8px;min-width:220px;max-height:340px;overflow-y:auto}
+  .columns-panel-row{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:12.5px;
+    font-family:var(--sans);cursor:pointer;border-radius:4px}
+  .columns-panel-row:hover{background:var(--accent-bg)}
+  .columns-panel-row input{cursor:pointer}
+  .columns-panel-footer{border-top:1px solid var(--border);margin-top:6px;padding-top:6px;text-align:right}
+  .columns-panel-footer button{font-size:11.5px;padding:4px 8px}
 
   /* ---- Project header bar ---- */
   .project-bar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
@@ -331,14 +343,12 @@
   #fullTable td.sn-cell{font-weight:bold;background:var(--accent-bg);font-family:var(--mono)}
   .saved-flash{background:var(--ok-bg) !important}
   /* Smart overdue highlighting (Planned Submission Date passed, not yet
-     Submitted) — a quiet warning tint, not a hard red block, so it reads as
-     "needs attention" rather than an error state. */
-  .overdue-cell{background:var(--warn-bg) !important}
-  .overdue-cell input{background:transparent}
+     Submitted) — colors just the date text itself (not the whole cell), so
+     it reads as "needs attention" without a hard block of background color. */
+  .overdue-cell input{color:var(--warn);font-weight:700}
   /* Planned Submission Date approaching (within 2 weeks, not yet overdue) —
-     a lighter orange warning tier, one step before overdue-cell's red. */
-  .due-soon-cell{background:#FDEEDD !important}
-  .due-soon-cell input{background:transparent}
+     a lighter orange text tier, one step before overdue-cell's red. */
+  .due-soon-cell input{color:#C2410C;font-weight:700}
   /* Submitted was just set to Yes but this row's Status (A/B/C/D/W-Client)
      is still blank — pulses to draw the eye to the cell that needs picking
      right now, and clears itself the moment a real status is chosen
@@ -538,6 +548,15 @@
       <button type="button" class="primary" onclick="openAddModal()" id="addItemBtn">＋ Add Item</button>
       <button type="button" onclick="loadFullTable()">⟳ Refresh</button>
       <button type="button" onclick="clearAllFilters()" id="clearFiltersBtn" title="Clear every column filter (saved filters stay cleared on your next visit too)">✕ Clear Filters</button>
+      <div class="columns-panel-wrap">
+        <button type="button" onclick="toggleColumnsPanel()" id="columnsPanelBtn" title="Show/hide columns — a personal display choice remembered on this browser only; never affects the data, calculations, or export">📊 Columns</button>
+        <div class="columns-panel hidden" id="columnsPanel">
+          <div id="columnsPanelBody"></div>
+          <div class="columns-panel-footer">
+            <button type="button" onclick="resetHiddenCols()">Show all</button>
+          </div>
+        </div>
+      </div>
       <span id="clipboardStatus"></span>
     </div>
   </div>
@@ -973,6 +992,15 @@
     COL.CS_STATUS, COL.PQD_SUB, COL.PQD_CODE, COL.MS_SUB, COL.MS_CODE,
     COL.ACTIONBY, COL.SAMPLE_REQ, COL.SAMPLE_APPR, COL.PR, COL.PO1
   ];
+
+  // Columns the Full Table's "Columns" show/hide panel can never hide —
+  // these are also the frozen/sticky leftmost columns (see the
+  // --stk-left-N CSS rules), always needed to keep your place while
+  // scrolling a wide table. Every other column is a purely personal,
+  // per-browser display preference (see hiddenCols below) — never written
+  // to the Sheet, never affects any calculation, export, or the data
+  // itself, only what's drawn on screen.
+  const PROTECTED_COLS = [COL.SN, COL.DESC, COL.UNIT, COL.QTY];
 
   const statusEl = document.getElementById('status');
   const signinBtn = document.getElementById('signinBtn');
@@ -3071,6 +3099,88 @@
     buildTableStructure();
   }
 
+  // Which non-protected columns are currently hidden from the Full Table —
+  // same per-browser localStorage pattern as filterValues above: a personal
+  // display preference only, never saved to the Sheet, available to every
+  // user with no permission needed, and never read by any calculation,
+  // export, or data-writing code (those all still use the full COLS array).
+  var HIDDEN_COLS_KEY = 'procReportHiddenCols_v1';
+  function loadHiddenColsPrefs() {
+    try {
+      var raw = localStorage.getItem(HIDDEN_COLS_KEY);
+      var parsed = raw ? JSON.parse(raw) : {};
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e) { return {}; }
+  }
+  function saveHiddenColsPrefs() {
+    try { localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify(hiddenCols)); } catch (e) { /* non-fatal */ }
+  }
+  var hiddenCols = loadHiddenColsPrefs();
+
+  // The Full Table's own column list for rendering purposes only — every
+  // other place that reads COLS (buildNewItemRowValues, Excel export,
+  // import-header-mismatch checks, etc.) keeps using the complete COLS
+  // array untouched, so hiding a column here never changes what's read,
+  // written, calculated, or exported.
+  function visibleCols() {
+    return COLS.filter(function(c) { return PROTECTED_COLS.indexOf(c.col) !== -1 || !hiddenCols[c.col]; });
+  }
+
+  function setColHidden(col, hidden) {
+    if (PROTECTED_COLS.indexOf(col) !== -1) return; // never hideable
+    if (hidden) hiddenCols[col] = true; else delete hiddenCols[col];
+    saveHiddenColsPrefs();
+    buildTableStructure();
+    renderFullTable(lastLoadedRows);
+  }
+
+  function resetHiddenCols() {
+    hiddenCols = {};
+    saveHiddenColsPrefs();
+    buildTableStructure();
+    renderFullTable(lastLoadedRows);
+    renderColumnsPanel();
+  }
+
+  // Builds the checklist inside the "Columns" dropdown panel — one row per
+  // non-protected column, in the same order they appear in the table.
+  function renderColumnsPanel() {
+    var body = document.getElementById('columnsPanelBody');
+    if (!body) return;
+    body.innerHTML = '';
+    COLS.forEach(function(colDef) {
+      if (PROTECTED_COLS.indexOf(colDef.col) !== -1) return;
+      var row = document.createElement('label');
+      row.className = 'columns-panel-row';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !hiddenCols[colDef.col];
+      cb.onchange = function() { setColHidden(colDef.col, !cb.checked); };
+      row.appendChild(cb);
+      var span = document.createElement('span');
+      span.textContent = colDef.label;
+      row.appendChild(span);
+      body.appendChild(row);
+    });
+  }
+
+  function toggleColumnsPanel() {
+    var panel = document.getElementById('columnsPanel');
+    if (!panel) return;
+    var willOpen = panel.classList.contains('hidden');
+    if (willOpen) renderColumnsPanel();
+    panel.classList.toggle('hidden', !willOpen);
+  }
+  // Close the panel on an outside click, same as any other dropdown —
+  // registered once at load, harmless no-op every click while it's closed.
+  document.addEventListener('click', function(e) {
+    var panel = document.getElementById('columnsPanel');
+    var btn = document.getElementById('columnsPanelBtn');
+    if (!panel || panel.classList.contains('hidden')) return;
+    if (panel.contains(e.target) || e.target === btn) return;
+    panel.classList.add('hidden');
+  });
+
   // Builds the common-header banner row ("PQD" / "Material Submittal")
   // spanning every column tagged with that colDef.group — a pure display
   // grouping on top of the existing per-column headers below it; doesn't
@@ -3082,9 +3192,10 @@
     actTh.className = 'actions-header group-header-cell';
     row.appendChild(actTh);
 
+    var cols = visibleCols();
     var i = 0;
-    while (i < COLS.length) {
-      var g = COLS[i].group;
+    while (i < cols.length) {
+      var g = cols[i].group;
       var th = document.createElement('th');
       th.className = 'group-header-cell';
       if (!g) {
@@ -3093,7 +3204,7 @@
         continue;
       }
       var span = 0, j = i;
-      while (j < COLS.length && COLS[j].group === g) { span++; j++; }
+      while (j < cols.length && cols[j].group === g) { span++; j++; }
       th.colSpan = span;
       th.classList.add('group-header-' + g);
       th.textContent = g === 'pqd' ? 'PQD' : (g === 'ms' ? 'Material Submittal (M/S)' : 'Sample');
@@ -3132,7 +3243,7 @@
     actFilterTh.className = 'actions-header';
     filterRow.appendChild(actFilterTh);
 
-    COLS.forEach(function(colDef) {
+    visibleCols().forEach(function(colDef) {
       var c1 = document.createElement('col'); c1.style.width = colDef.width + 'px';
       var c2 = document.createElement('col'); c2.style.width = colDef.width + 'px';
       headerColgroup.appendChild(c1); bodyColgroup.appendChild(c2);
@@ -3339,6 +3450,7 @@
     // times in a row. Pure performance change — same elements, same order,
     // same classes; nothing about what gets rendered changes.
     const fragment = document.createDocumentFragment();
+    const visCols = visibleCols();
     rows.forEach(function(r, index) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-row', r.row);
@@ -3359,13 +3471,13 @@
       tr.addEventListener('click', function() { selectFullTableRow(r.row, tr); });
 
       tr.appendChild(buildActionsCell(r.row, index, rows.length));
-      COLS.forEach(function(colDef) {
+      visCols.forEach(function(colDef) {
         tr.appendChild(buildCell(r.row, colDef, r.values[colDef.col - 1], isPackage, isClosed, r.values));
       });
       fragment.appendChild(tr);
     });
     body.appendChild(fragment);
-    if (!rows.length) body.innerHTML = '<tr><td colspan="' + (COLS.length + 1) + '">No data</td></tr>';
+    if (!rows.length) body.innerHTML = '<tr><td colspan="' + (visCols.length + 1) + '">No data</td></tr>';
     applyRowFilters();
     if (window.syncTopScrollWidth) window.syncTopScrollWidth();
   }
