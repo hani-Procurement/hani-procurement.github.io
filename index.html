@@ -1872,8 +1872,30 @@
     if (!currentUserPerms.isAdmin) throw new Error('Only an Admin can rename a table.');
     const rows = await sheetsGetValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 1, 2, 3, 500));
     const row = 2 + idx;
+    const oldLabel = BOQ_TABLES[idx].label;
     await sheetsUpdateValues(spreadsheetId, a1Range(TABLES_CONFIG_SHEET_NAME, 2, row, 2, row), [[newLabel]], 'RAW');
     BOQ_TABLES[idx].label = newLabel;
+
+    // Keep this table's live "<label> - Material Submittal Status" tab (see
+    // submittalLiveSheetNameFor()) attached to the SAME sheet across a
+    // rename, instead of leaving it behind under its old name while the next
+    // Sync creates a brand-new, empty one under the new name.
+    try { await renameSubmittalSheetIfExists(oldLabel, newLabel); }
+    catch (e) { console.warn('Could not rename this table\'s live Material Submittal Status tab (non-fatal — the next Sync will just create one under the new name): ', e); }
+  }
+
+  // Renames the live `<oldLabel> - Material Submittal Status` tab (if one
+  // was ever synced) to `<newLabel> - Material Submittal Status`, so it
+  // stays the exact same sheet/data, just re-titled — never a fresh/empty
+  // one. A no-op if that table was never synced yet (nothing to rename).
+  async function renameSubmittalSheetIfExists(oldLabel, newLabel) {
+    var oldName = (oldLabel || '') + ' - Material Submittal Status';
+    var newName = (newLabel || '') + ' - Material Submittal Status';
+    if (oldName === newName) return;
+    var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === oldName; });
+    if (!sheet) return;
+    await sheetsBatchUpdate(spreadsheetId, [{ updateSheetProperties: { properties: { sheetId: sheet.properties.sheetId, title: newName }, fields: 'title' } }]);
   }
 
   // Deletes the underlying Sheets tab (and therefore every item in it) —
