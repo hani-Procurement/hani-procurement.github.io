@@ -467,8 +467,9 @@
   .sd-rail{width:168px;flex-shrink:0;background:var(--heading);border-radius:var(--radius);padding:16px 12px;
     display:flex;flex-direction:column;gap:3px;position:sticky;top:12px}
   .sd-rail-title{font-family:var(--sans);font-size:13px;font-weight:700;color:#fff;margin-bottom:10px}
-  .sd-rail a.sd-rail-link{font-size:10.5px;color:#AFC0CC;padding:7px 9px;border-radius:6px;text-decoration:none;display:block}
-  .sd-rail a.sd-rail-link:hover{background:rgba(255,255,255,.08);color:#fff}
+  .sd-rail .sd-rail-link{font-size:10.5px;color:#AFC0CC;padding:7px 9px;border-radius:6px;display:block;cursor:pointer}
+  .sd-rail .sd-rail-link:hover{background:rgba(255,255,255,.08);color:#fff}
+  .sd-rail .sd-rail-link.active{background:#223A54;color:#fff}
   .sd-rail-badge{background:#C8403A;color:#fff;border-radius:8px;padding:1px 6px;font-size:8.5px;margin-left:4px}
   .sd-rate-box{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15)}
   .sd-rate-label{font-size:8.5px;color:#8FA0B2;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
@@ -600,14 +601,16 @@
   <div class="view active" id="view-subdash">
     <div class="sd-shell">
 
-      <!-- Rail: real in-page jump links (not a second app nav) + headline
-           Approved(%) for each track, pulled from computeTrackStats(). -->
+      <!-- Rail: real tab switchers (kept in sync with the tab bar below via
+           sdShowTab()) + headline Approved(%) for each track, pulled from
+           computeTrackStats(). -->
       <div class="sd-rail">
         <div class="sd-rail-title">Overview</div>
-        <a class="sd-rail-link" href="#sdMaterialSection">Material (M/S)</a>
-        <a class="sd-rail-link" href="#sdPqdSection">PQD</a>
-        <a class="sd-rail-link" href="#sdBuyersSection">Buyers</a>
-        <a class="sd-rail-link" href="#sdOverdueSection">Overdue <span class="sd-rail-badge" id="sdRailOverdueBadge">0</span></a>
+        <div class="sd-rail-link active" data-rail="material" onclick="sdShowTab('material')">Material (M/S)</div>
+        <div class="sd-rail-link" data-rail="pqd" onclick="sdShowTab('pqd')">PQD</div>
+        <div class="sd-rail-link" data-rail="buyers" onclick="sdShowTab('buyers')">Buyers</div>
+        <div class="sd-rail-link" data-rail="overdue" onclick="sdShowTab('overdue')">Overdue <span class="sd-rail-badge" id="sdRailOverdueBadge">0</span></div>
+        <div class="sd-rail-link" data-rail="trends" onclick="sdShowTab('trends')">📈 Trends</div>
         <div class="sd-rate-box">
           <div class="sd-rate-label">Approval Rate</div>
           <div class="sd-rate-num" id="sdMsApprovedPct">-%</div>
@@ -642,6 +645,7 @@
           <div class="sd-tab" data-sdtab="pqd" onclick="sdShowTab('pqd')">PQD</div>
           <div class="sd-tab" data-sdtab="buyers" onclick="sdShowTab('buyers')">Buyers</div>
           <div class="sd-tab" data-sdtab="overdue" onclick="sdShowTab('overdue')">Overdue <span class="sd-rail-badge" id="sdTabOverdueBadge">0</span></div>
+          <div class="sd-tab" data-sdtab="trends" onclick="sdShowTab('trends')">📈 Trends</div>
         </div>
 
         <!-- Material tab: by-discipline breakdown (design 7), one card per
@@ -680,6 +684,25 @@
               <thead><tr><th>Description</th><th>Track</th><th>Discipline</th><th>Planned Date</th></tr></thead>
               <tbody id="sdOverdueBody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Trends tab: comparison over time, read from the "Dashboard
+             History" sheet tab — one row snapshot per day, taken
+             automatically every time this Dashboard view loads. Covers the
+             full Material Submittal Status / PQD Status field set, across
+             several chart types (line, stacked bar, grouped bar). -->
+        <div class="sd-panel" id="sdPanelTrends">
+          <div class="sd-section-title" style="margin-top:0">📈 Comparison Over Time</div>
+          <div id="sdTrendsEmpty" style="display:none;color:var(--text-soft);font-size:12px;padding:10px 0">
+            Not enough history yet — every time you open this Dashboard a snapshot of today's numbers is saved.
+            Come back on a different day and the trend lines below will start to take shape.
+          </div>
+          <div id="sdTrendsCharts" class="chart-grid">
+            <div class="chart-card wide tall"><h4>Material — Submitted / Approved / Balance over time</h4><div class="chart-wrap" style="height:280px"><canvas id="chartTrendMsLine"></canvas></div></div>
+            <div class="chart-card wide tall"><h4>PQD — Submitted / Approved / Balance over time</h4><div class="chart-wrap" style="height:280px"><canvas id="chartTrendPqdLine"></canvas></div></div>
+            <div class="chart-card wide tall"><h4>Material — Status Composition over time (stacked)</h4><div class="chart-wrap" style="height:280px"><canvas id="chartTrendStatusStack"></canvas></div></div>
+            <div class="chart-card wide tall"><h4>Procurement Funnel over time — RFQ / Quotes / PR / PO</h4><div class="chart-wrap" style="height:280px"><canvas id="chartTrendFunnel"></canvas></div></div>
           </div>
         </div>
 
@@ -980,6 +1003,7 @@
   const SUBMITTAL_SHEET_NAME = "Material Submittal Status";
   const USERS_SHEET_NAME = "Users";
   const BACKUP_CONFIG_SHEET_NAME = "BackupConfig";
+  const DASHBOARD_HISTORY_SHEET_NAME = "Dashboard History";
   const FILEWITH_LISTS_SHEET_NAME = "FileWithLists";
   // Every project spreadsheet (see createNewSheet()) is filed into this one
   // Drive folder (found by name, created the first time it's needed) so new
@@ -5494,16 +5518,26 @@
     renderDisciplineBreakdown(rows);
     renderOverdueAlerts(getOverdueItemsClient(rows));
     renderBuyerWorkloadTable(getBuyerWorkloadDataClient(rows));
+    // Comparison-over-time (Trends tab): snapshot today's numbers, then
+    // redraw the trend charts from the accumulated history. Never blocks
+    // or breaks the rest of the Dashboard if the sheet write fails.
+    snapshotDashboardHistory(rows).then(function() {
+      return fetchDashboardHistory();
+    }).then(function(history) {
+      renderTrendCharts(history);
+    }).catch(function(e) { console.warn('Trend charts unavailable: ', e); });
   }
 
   // Tabs (merged-layout option 20): show one detail panel at a time; the
   // KPI stripe and rail above stay visible regardless of which tab is open.
   function sdShowTab(name) {
-    ['material', 'pqd', 'buyers', 'overdue'].forEach(function(n) {
+    ['material', 'pqd', 'buyers', 'overdue', 'trends'].forEach(function(n) {
       var panel = document.getElementById('sdPanel' + n.charAt(0).toUpperCase() + n.slice(1));
       var tab = document.querySelector('.sd-tab[data-sdtab="' + n + '"]');
+      var rail = document.querySelector('.sd-rail-link[data-rail="' + n + '"]');
       if (panel) panel.classList.toggle('active', n === name);
       if (tab) tab.classList.toggle('active', n === name);
+      if (rail) rail.classList.toggle('active', n === name);
     });
   }
 
@@ -5588,6 +5622,148 @@
         '<div class="sd-disc-total">' + stats.totalMaterials + '</div>' +
         '<div class="sd-disc-sub">' + stats.subMain + ' submitted · ' + (stats.totalMaterials - stats.subMain) + ' balance</div>';
       grid.appendChild(card);
+    });
+  }
+
+  /* ===================== DASHBOARD HISTORY / TRENDS =====================
+     Requested by Hani on 2026-10-27: the dashboard's numbers are a pure
+     snapshot of "right now" with nothing to compare against. Since the
+     live Material Submittal Status / PQD tabs are fully cleared and
+     rewritten on every sync (see syncSubmittalStatusToLiveSheet above),
+     there was nowhere a trend could be read from. This adds exactly that:
+     a "Dashboard History" tab that gets one row appended/updated — upserted
+     by date, so opening the Dashboard twice in the same day never creates a
+     duplicate — covering the FULL Material Submittal Status / PQD Status
+     field set (every column in MS_FIELD_LABELS / PQD_FIELD_LABELS, not a
+     trimmed subset), every time this view loads. The longer this runs, the
+     clearer the trend gets — there is no backfill for days before this was
+     added, since that history was never recorded anywhere. */
+  function dashboardHistoryHeaderRow() {
+    return ['Date']
+      .concat(MS_FIELD_LABELS.map(function(l) { return 'MS: ' + l; }))
+      .concat(PQD_FIELD_LABELS.map(function(l) { return 'PQD: ' + l; }));
+  }
+  function dashboardHistoryMsColIdx(label) { return 1 + MS_FIELD_LABELS.indexOf(label); }
+  function dashboardHistoryPqdColIdx(label) { return 1 + MS_FIELD_LABELS.length + PQD_FIELD_LABELS.indexOf(label); }
+
+  async function ensureDashboardHistorySheet() {
+    var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === DASHBOARD_HISTORY_SHEET_NAME; });
+    if (!sheet) {
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: DASHBOARD_HISTORY_SHEET_NAME } } }]);
+      var header = dashboardHistoryHeaderRow();
+      await sheetsUpdateValues(spreadsheetId, a1Range(DASHBOARD_HISTORY_SHEET_NAME, 1, 1, header.length, 1), [header], 'RAW');
+    }
+  }
+
+  // Upserts today's row (local date, YYYY-MM-DD) with the current GRAND
+  // TOTAL stats for both tracks — same rows already driving the on-screen
+  // KPI stripe (data.ms[last] / data.pqd[0]), so the history can never
+  // disagree with what the Dashboard shows the moment it's saved.
+  async function snapshotDashboardHistory(rows) {
+    try {
+      await ensureDashboardHistorySheet();
+      var data = getSubmittalStatusDataClient(rows);
+      var msRow = data.ms[data.ms.length - 1] || [];
+      var pqdRow = data.pqd[0] || [];
+      var now = new Date();
+      var todayIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      var rowValues = [todayIso].concat(msRow).concat(pqdRow);
+      var existingDates = await sheetsGetValues(spreadsheetId, a1Range(DASHBOARD_HISTORY_SHEET_NAME, 1, 2, 1, 100000));
+      var todayRowIdx = -1;
+      (existingDates || []).forEach(function(r, i) { if (r[0] === todayIso) todayRowIdx = i; });
+      var targetRow = todayRowIdx === -1 ? (2 + (existingDates || []).length) : (2 + todayRowIdx);
+      await sheetsUpdateValues(spreadsheetId, a1Range(DASHBOARD_HISTORY_SHEET_NAME, 1, targetRow, rowValues.length, targetRow), [rowValues], 'RAW');
+    } catch (e) {
+      console.warn('Dashboard history snapshot failed (trend charts will just show less history): ', e);
+    }
+  }
+
+  async function fetchDashboardHistory() {
+    try {
+      var values = await sheetsGetValues(spreadsheetId, a1Range(DASHBOARD_HISTORY_SHEET_NAME, 1, 2, 702, 100000));
+      return (values || []).filter(function(r) { return r && r[0]; });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function sdTrendNum(row, n) { var v = Number(row[n]); return isNaN(v) ? 0 : v; }
+
+  // Four different chart shapes, per Hani's "استخدم أكثر أشكال وتنوع":
+  // two multi-line trend charts, a stacked-bar status-composition chart,
+  // and a grouped-bar procurement-funnel chart — all reading the same
+  // history rows, each highlighting a different kind of comparison.
+  function renderTrendCharts(history) {
+    var emptyEl = document.getElementById('sdTrendsEmpty');
+    var chartsEl = document.getElementById('sdTrendsCharts');
+    if (history.length < 2) {
+      if (emptyEl) emptyEl.style.display = 'block';
+      if (chartsEl) chartsEl.style.display = 'none';
+      if (history.length === 0) return;
+    } else {
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (chartsEl) chartsEl.style.display = '';
+    }
+    var labels = history.map(function(r) { return r[0]; });
+
+    var msSubIdx = dashboardHistoryMsColIdx('Submitted to Client - Main');
+    var msApprIdx = dashboardHistoryMsColIdx('Approved - Main');
+    var msBalIdx = dashboardHistoryMsColIdx('Balance Submittal to be Prepared');
+    var msCdIdx = dashboardHistoryMsColIdx('Code C & D - Main');
+    var msUaIdx = dashboardHistoryMsColIdx('Under Approval W/Client - Main');
+    var msAwaitIdx = dashboardHistoryMsColIdx('Submitted - Awaiting Status');
+    var msRfqIdx = dashboardHistoryMsColIdx('RFQ');
+    var msQuotIdx = dashboardHistoryMsColIdx('QUOTES');
+    var msPrIdx = dashboardHistoryMsColIdx('Total PR');
+    var msPoIdx = dashboardHistoryMsColIdx('Total PO');
+
+    var pqdSubIdx = dashboardHistoryPqdColIdx('Submitted to Client - Main');
+    var pqdApprIdx = dashboardHistoryPqdColIdx('Approved - Main');
+    var pqdBalIdx = dashboardHistoryPqdColIdx('Balance PQD to be Prepared');
+
+    sdMakeChart('chartTrendMsLine', {
+      type: 'line',
+      data: { labels: labels, datasets: [
+        { label: 'Submitted', data: history.map(function(r) { return sdTrendNum(r, msSubIdx); }), borderColor: '#1C8C8C', backgroundColor: '#1C8C8C', tension: .25 },
+        { label: 'Approved', data: history.map(function(r) { return sdTrendNum(r, msApprIdx); }), borderColor: '#2F7A52', backgroundColor: '#2F7A52', tension: .25 },
+        { label: 'Balance', data: history.map(function(r) { return sdTrendNum(r, msBalIdx); }), borderColor: '#C8403A', backgroundColor: '#C8403A', tension: .25 }
+      ] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+
+    sdMakeChart('chartTrendPqdLine', {
+      type: 'line',
+      data: { labels: labels, datasets: [
+        { label: 'Submitted', data: history.map(function(r) { return sdTrendNum(r, pqdSubIdx); }), borderColor: '#1C8C8C', backgroundColor: '#1C8C8C', tension: .25 },
+        { label: 'Approved', data: history.map(function(r) { return sdTrendNum(r, pqdApprIdx); }), borderColor: '#2F7A52', backgroundColor: '#2F7A52', tension: .25 },
+        { label: 'Balance', data: history.map(function(r) { return sdTrendNum(r, pqdBalIdx); }), borderColor: '#C8403A', backgroundColor: '#C8403A', tension: .25 }
+      ] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+
+    sdMakeChart('chartTrendStatusStack', {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label: 'Approved', data: history.map(function(r) { return sdTrendNum(r, msApprIdx); }), backgroundColor: '#2F7A52' },
+        { label: 'Code C & D', data: history.map(function(r) { return sdTrendNum(r, msCdIdx); }), backgroundColor: '#C8403A' },
+        { label: 'Under Approval W/Client', data: history.map(function(r) { return sdTrendNum(r, msUaIdx); }), backgroundColor: '#8e44ec' },
+        { label: 'Awaiting Status', data: history.map(function(r) { return sdTrendNum(r, msAwaitIdx); }), backgroundColor: '#E8A33D' }
+      ] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false,
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+    });
+
+    sdMakeChart('chartTrendFunnel', {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label: 'RFQ', data: history.map(function(r) { return sdTrendNum(r, msRfqIdx); }), backgroundColor: '#1C8C8C' },
+        { label: 'Quotes', data: history.map(function(r) { return sdTrendNum(r, msQuotIdx); }), backgroundColor: '#8e44ec' },
+        { label: 'PR', data: history.map(function(r) { return sdTrendNum(r, msPrIdx); }), backgroundColor: '#E8A33D' },
+        { label: 'PO', data: history.map(function(r) { return sdTrendNum(r, msPoIdx); }), backgroundColor: '#2F7A52' }
+      ] },
+      options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false,
+        scales: { x: { stacked: false }, y: { beginAtZero: true } } }
     });
   }
 
