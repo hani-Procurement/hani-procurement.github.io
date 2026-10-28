@@ -497,7 +497,7 @@
      PQD Status" view's .ms-card-grid: STATUS OF MATERIAL SUBMITTAL / STATUS
      OF PQD / Item-Buyer) — requested by Hani on 2026-10-27: same 3-way
      division, donuts + bars + cards together, graphical hover response. ===== */
-  .sdx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .sdx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;align-items:start}
   @media (max-width:1100px){.sdx-grid{grid-template-columns:1fr}}
   .sdx-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;
@@ -518,6 +518,25 @@
   .sdx-donut-wrap{flex:1;min-width:0;height:148px;position:relative}
   .sdx-bar-wrap{flex:1.2;min-width:0;height:148px;position:relative}
   .sdx-card .ms-table-wrap{max-height:190px;overflow:auto}
+
+  /* Per-buyer cards + insight callouts (replaced the Item/Buyer table on
+     2026-10-28, and fill the space the table's forced row-height used to
+     leave blank in the Material/PQD cards next to it). */
+  .sdx-buyer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .sdx-buyer-card{position:relative;overflow:hidden;background:var(--bg);border-radius:8px;padding:9px 10px;
+    border-top:3px solid var(--accent);transition:transform .15s ease, box-shadow .15s ease}
+  .sdx-buyer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 0%, var(--accent) 0%, transparent 70%);
+    opacity:0;transition:opacity .25s ease;pointer-events:none}
+  .sdx-buyer-card:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 14px rgba(28,140,140,.16)}
+  .sdx-buyer-card:hover::after{opacity:.08}
+  .sdx-buyer-card .sdx-buyer-name{font-size:10.5px;font-weight:700;color:var(--heading)}
+  .sdx-buyer-card .sdx-buyer-pct{font-size:15px;font-weight:700;font-family:var(--sans);margin-top:3px}
+  .sdx-buyer-card .sdx-buyer-stats{font-size:9px;color:var(--text-soft);margin-top:3px}
+  .sdx-insight{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+  .sdx-insight-row{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:10.5px;color:var(--text)}
+  .sdx-insight-row b{color:var(--heading);font-family:var(--sans)}
+  .sdx-insight-row.good{border-left:3px solid #2F7A52}
+  .sdx-insight-row.warn{border-left:3px solid #C8403A}
 
   /* Big nested (concentric-ring) donuts — requested by Hani on 2026-10-27. */
   .sdx-nested-wrap{display:flex;gap:16px;margin-bottom:18px}
@@ -748,12 +767,13 @@
               <div class="sdx-donut-wrap"><canvas id="chartBuyerStatus"></canvas></div>
               <div class="sdx-bar-wrap"><canvas id="chartBuyerCompletion"></canvas></div>
             </div>
-            <div class="ms-table-wrap">
-              <table class="ms-table" id="sdBuyerWorkloadTable">
-                <thead><tr><th>Buyer</th><th>Total</th><th>Done</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead>
-                <tbody id="sdBuyerWorkloadBody"></tbody>
-              </table>
-            </div>
+            <!-- Per-buyer cards (replaced the plain table on 2026-10-28, per
+                 Hani — same hoverable card language as the rest of the
+                 dashboard instead of a data table). -->
+            <div class="sdx-buyer-grid" id="sdxBuyerCards"></div>
+            <!-- Freed-up space put to use: a quick best/worst-buyer callout
+                 instead of leaving it blank. -->
+            <div class="sdx-insight" id="sdxBuyerInsight"></div>
           </div>
 
         </div>
@@ -5662,7 +5682,6 @@
     renderDisciplineBreakdown(rows);
     renderOverdueAlerts(getOverdueItemsClient(rows));
     var buyerData = getBuyerWorkloadDataClient(rows);
-    renderBuyerWorkloadTable(buyerData);
     renderBuyerSection(buyerData);
     renderNestedDonuts(rows);
     // Comparison-over-time (Trends tab): snapshot today's numbers, then
@@ -5955,6 +5974,51 @@
       options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false,
         scales: { x: { beginAtZero: true, max: 100, ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } } }
     });
+
+    renderBuyerCards(data);
+    renderBuyerInsight(data);
+  }
+
+  // Per-buyer cards (replaced the plain table on 2026-10-28, per Hani):
+  // same hoverable-card language as the rest of the dashboard. Accent color
+  // flags the buyer's situation at a glance — red if they have anything
+  // overdue, green/amber otherwise by completion %.
+  function renderBuyerCards(data) {
+    var el = document.getElementById('sdxBuyerCards');
+    if (!el) return;
+    if (!data.names.length) {
+      el.innerHTML = '<div style="color:var(--text-soft);font-size:11px;padding:4px 0">No buyer assignments yet.</div>';
+      return;
+    }
+    el.innerHTML = data.names.map(function(name, i) {
+      var total = data.done[i] + data.open[i] + data.overdue[i];
+      var accent = data.overdue[i] > 0 ? '#C8403A' : (data.completionPct[i] >= 80 ? '#2F7A52' : '#E8A33D');
+      return '<div class="sdx-buyer-card" style="border-top-color:' + accent + '">' +
+        '<div class="sdx-buyer-name">' + name + '</div>' +
+        '<div class="sdx-buyer-pct" style="color:' + accent + '">' + data.completionPct[i] + '%</div>' +
+        '<div class="sdx-buyer-stats">' + total + ' total · ' + data.done[i] + ' done · ' + data.open[i] + ' open' +
+        (data.overdue[i] > 0 ? ' · <b style="color:#C8403A">' + data.overdue[i] + ' overdue</b>' : '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Quick best/worst-buyer callout — what the freed-up space (previously a
+  // forced blank gap under the Material/PQD cards, from the table making
+  // the Buyer card the tallest in the row) now gets used for.
+  function renderBuyerInsight(data) {
+    var el = document.getElementById('sdxBuyerInsight');
+    if (!el) return;
+    if (!data.names.length) { el.innerHTML = ''; return; }
+    var bestIdx = 0, worstIdx = -1, maxOverdue = 0;
+    data.names.forEach(function(n, i) {
+      if (data.completionPct[i] > data.completionPct[bestIdx]) bestIdx = i;
+      if (data.overdue[i] > maxOverdue) { maxOverdue = data.overdue[i]; worstIdx = i; }
+    });
+    var rows = ['<div class="sdx-insight-row good">🏆 Top completion: <b>' + data.names[bestIdx] + '</b> — ' + data.completionPct[bestIdx] + '%</div>'];
+    if (worstIdx !== -1) {
+      rows.push('<div class="sdx-insight-row warn">⚠️ Needs attention: <b>' + data.names[worstIdx] + '</b> — ' + maxOverdue + ' overdue</div>');
+    }
+    el.innerHTML = rows.join('');
   }
 
   /* ===================== DASHBOARD HISTORY / TRENDS =====================
@@ -6180,32 +6244,6 @@
       overdue: names.map(function(n) { return byBuyer[n].overdue; }),
       completionPct: names.map(function(n) { var b = byBuyer[n]; return b.total ? Math.round((b.done / b.total) * 100) : 0; })
     };
-  }
-
-  function renderBuyerWorkloadTable(data) {
-    var body = document.getElementById('sdBuyerWorkloadBody');
-    if (!body) return;
-    body.innerHTML = '';
-    if (!data.names.length) {
-      var tr0 = document.createElement('tr');
-      var td0 = document.createElement('td');
-      td0.colSpan = 6; td0.style.cssText = 'padding:10px;color:var(--text-soft);text-align:center';
-      td0.textContent = 'No buyer assignments yet.';
-      tr0.appendChild(td0); body.appendChild(tr0);
-      return;
-    }
-    data.names.forEach(function(name, i) {
-      var total = data.done[i] + data.open[i] + data.overdue[i];
-      var tr = document.createElement('tr');
-      [name, total, data.done[i], data.open[i], data.overdue[i], data.completionPct[i] + '%'].forEach(function(v, colI) {
-        var td = document.createElement('td');
-        td.textContent = v;
-        td.style.cssText = 'padding:4px 6px;border-bottom:1px solid var(--border)';
-        if (colI === 4 && data.overdue[i] > 0) td.style.color = '#C8403A';
-        tr.appendChild(td);
-      });
-      body.appendChild(tr);
-    });
   }
 
   /* ===================== EXCEL EXPORT =====================
