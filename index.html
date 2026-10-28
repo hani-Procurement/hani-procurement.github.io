@@ -1188,7 +1188,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 </div>
 
 <!-- Shared "which items make up this number" popup — Balance Submittal to be
-     Prepared / Code C & D / Under Approval W/Client, both MS and PQD tables. -->
+     Prepared / Code C & D / Under Approval, both MS and PQD tables. -->
 <div class="modal-overlay" id="balanceModalOverlay" style="display:none;">
   <div class="modal-box" style="width:460px">
     <h3 id="balanceModalTitle">Items</h3>
@@ -3344,12 +3344,22 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     mainAlt: ['M','A'],
     priority: ['H','M','L'],
     yesno: ['No','Yes'],
-    code: ['','A','B','C','D','W/Client'],
-    pqdCode: ['','A','B','C','D','W/Client'],
+    code: ['','A','B','C','D','W/Client','W/Engr.','W/QC','W/SUS'],
+    pqdCode: ['','A','B','C','D','W/Client','W/Engr.','W/QC','W/SUS'],
     csStatus: ['-','Initial','Target Price','Final & Approved'],
     names: [],      // populated from Lists!A2:A100 (File With)
     actionBy: ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed','Delete']
   };
+
+  // "Under Approval" bucket for the PQD/M-S Status columns: every code here
+  // counts as "still with someone else awaiting a decision" rather than a
+  // final A/B/C/D outcome. W/Engr., W/QC and W/SUS were added 2026-10-28
+  // alongside the original W/Client, per Hani's explicit choice to fold all
+  // four into this one existing category rather than give each its own
+  // separate stats bucket ("تنضم لنفس فئة 'Under Approval' الموجودة"). Every
+  // place that used to check `code === 'W/Client'` for this purpose should
+  // check membership in this array instead.
+  var UNDER_APPROVAL_CODES = ['W/Client', 'W/Engr.', 'W/QC', 'W/SUS'];
 
   const COLS = [
     { col: COL.SN,  label: 'S/N',                        width: 45,  type: 'readonly' },
@@ -4482,9 +4492,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   // Called right after PQD Submitted / M/S Submitted is set to "Yes". A
   // row can end up "submitted" with its Status column still blank (no
-  // one ever went back and picked A/B/C/D/W-Client) — that gap is exactly
-  // what made "Submitted - Main" not add up to Approved + Code C&D +
-  // Under Approval W/Client in the status tables. Rather than let that
+  // one ever went back and picked A/B/C/D or one of the W/... codes) —
+  // that gap is exactly what made "Submitted - Main" not add up to
+  // Approved + Code C&D + Under Approval in the status tables. Rather than let that
   // happen silently, flag it the moment it occurs: highlight the Status
   // cell and tell the person to fill it in now, while they're already on
   // this row. This is a reminder, not a hard block — the Submitted write
@@ -5158,7 +5168,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     'Approved This Week - Main', 'Approved This Week - Alt',
     'Code C & D - Main', 'Code C & D - Alt',
     'Code C & D This Week - Main', 'Code C & D This Week - Alt',
-    'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
+    'Under Approval - Main', 'Under Approval - Alt',
     'Under Approval This Week - Main', 'Under Approval This Week - Alt',
     'Submitted - Awaiting Status',
     'Total PR', 'Total PO',
@@ -5174,7 +5184,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     'Approved This Week - Main', 'Approved This Week - Alt',
     'Code C & D - Main', 'Code C & D - Alt',
     'Code C & D This Week - Main', 'Code C & D This Week - Alt',
-    'Under Approval W/Client - Main', 'Under Approval W/Client - Alt',
+    'Under Approval - Main', 'Under Approval - Alt',
     'Under Approval This Week - Main', 'Under Approval This Week - Alt',
     'Submitted - Awaiting Status',
     'Balance PQD to be Prepared', 'PQD Under Process By Proc.', 'No Design Action By Site',
@@ -5192,7 +5202,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { label: 'Approved This Week', subs: ['Main', 'Alt'] },
     { label: 'Code C & D', subs: ['Main', 'Alt'] },
     { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
-    { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval', subs: ['Main', 'Alt'] },
     { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
     { label: 'Submitted\nAwaiting Status', subs: [''] },
     { label: 'Total PR', subs: [''] },
@@ -5208,7 +5218,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   ];
   var MS_ROW_LABELS = ['NON LLI', 'LLI', 'GRAND TOTAL'];
   var MS_ROW_GROUP = { 'NON LLI': 'nonlli', 'LLI': 'lli', 'GRAND TOTAL': 'all' };
-  var CATEGORY_COLUMN_MAP = { 'Code C & D': 'cd', 'Under Approval W/Client': 'ua' };
+  var CATEGORY_COLUMN_MAP = { 'Code C & D': 'cd', 'Under Approval': 'ua' };
 
   var PQD_GROUPS = [
     { label: 'Estimated Total\nNo. of PQDs', subs: [''] },
@@ -5218,7 +5228,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { label: 'Approved This Week', subs: ['Main', 'Alt'] },
     { label: 'Code C & D', subs: ['Main', 'Alt'] },
     { label: 'Code C & D This Week', subs: ['Main', 'Alt'] },
-    { label: 'Under Approval W/Client', subs: ['Main', 'Alt'] },
+    { label: 'Under Approval', subs: ['Main', 'Alt'] },
     { label: 'Under Approval This Week', subs: ['Main', 'Alt'] },
     { label: 'Submitted\nAwaiting Status', subs: [''] },
     { label: 'Balance PQD\nto be Prepared', subs: [''] },
@@ -5233,7 +5243,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   var PQD_ROW_LABELS = ['PQD'];
 
   var SUBMITTAL_HEADER_TIPS = {
-    'Submitted\nAwaiting Status': 'Submitted to Client - Main − Approved - Main − Code C & D - Main − Under Approval W/Client - Main (submitted, but no PQD/M-S Status code picked yet)',
+    'Submitted\nAwaiting Status': 'Submitted to Client - Main − Approved - Main − Code C & D - Main − Under Approval - Main (submitted, but no PQD/M-S Status code picked yet)',
     'Planned Submission (%)': 'Main items whose Planned Submission Date has arrived (today or earlier) ÷ Total Materials as Per Sch. × 100',
     'Submitted (%)': 'Submitted to Client - Main ÷ Total Materials as Per Sch. × 100',
     'Approved (%)': 'Approved - Main ÷ Submitted to Client - Main × 100 (only out of what was actually submitted, not the total)',
@@ -5275,7 +5285,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       var submitted = r[track.SUB - 1] === 'Yes';
       var code = String(r[track.CODE - 1] || '').trim();
       var thisWeek = isThisWeek(r[track.DATE - 1]);
-      var underApproval = (code === 'W/Client');
+      var underApproval = (UNDER_APPROVAL_CODES.indexOf(code) !== -1);
 
       if (submitted) {
         if (isMain) { s.subMain++; if (thisWeek) s.subMainWeek++; }
@@ -5588,7 +5598,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return items.map(function(r) { return { desc: r[COL.DESC - 1], unit: r[COL.UNIT - 1], qty: r[COL.QTY - 1] }; });
   }
 
-  // "Code C & D" / "Under Approval W/Client" click-through — both tables,
+  // "Code C & D" / "Under Approval" click-through — both tables,
   // Main or Alt.
   function getStatusCategoryItemsClient(track, group, mainAlt, category) {
     var codeCol = track === 'pqd' ? COL.PQD_CODE : COL.MS_CODE;
@@ -5600,7 +5610,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       if (group === 'nonlli' && r[COL.LLI - 1] !== 'No') return false;
       var code = String(r[codeCol - 1] || '').trim();
       if (category === 'cd') return code === 'C' || code === 'D';
-      if (category === 'ua') return code === 'W/Client';
+      if (category === 'ua') return UNDER_APPROVAL_CODES.indexOf(code) !== -1;
       return false;
     });
     return items.map(function(r) { return { desc: r[COL.DESC - 1], unit: r[COL.UNIT - 1], qty: r[COL.QTY - 1], code: r[codeCol - 1] }; });
@@ -6266,7 +6276,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     var msApprIdx = dashboardHistoryMsColIdx('Approved - Main');
     var msBalIdx = dashboardHistoryMsColIdx('Balance Submittal to be Prepared');
     var msCdIdx = dashboardHistoryMsColIdx('Code C & D - Main');
-    var msUaIdx = dashboardHistoryMsColIdx('Under Approval W/Client - Main');
+    var msUaIdx = dashboardHistoryMsColIdx('Under Approval - Main');
     var msAwaitIdx = dashboardHistoryMsColIdx('Submitted - Awaiting Status');
     var msRfqIdx = dashboardHistoryMsColIdx('RFQ');
     var msQuotIdx = dashboardHistoryMsColIdx('QUOTES');
@@ -6302,7 +6312,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       data: { labels: labels, datasets: [
         { label: 'Approved', data: history.map(function(r) { return sdTrendNum(r, msApprIdx); }), backgroundColor: '#2F7A52' },
         { label: 'Code C & D', data: history.map(function(r) { return sdTrendNum(r, msCdIdx); }), backgroundColor: '#C8403A' },
-        { label: 'Under Approval W/Client', data: history.map(function(r) { return sdTrendNum(r, msUaIdx); }), backgroundColor: '#8e44ec' },
+        { label: 'Under Approval', data: history.map(function(r) { return sdTrendNum(r, msUaIdx); }), backgroundColor: '#8e44ec' },
         { label: 'Awaiting Status', data: history.map(function(r) { return sdTrendNum(r, msAwaitIdx); }), backgroundColor: '#E8A33D' }
       ] },
       options: { plugins: { legend: { position: 'bottom' } }, maintainAspectRatio: false,
