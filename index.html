@@ -352,6 +352,28 @@
   #fullTable input, #fullTable select, #fullTable textarea{
     width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;
     font-size:12px;padding:3px;border-radius:4px;font-family:inherit;text-align:center}
+  /* A native <input type="date"> has its own intrinsic/min-content size
+     (the calendar icon + MM/DD/YYYY segments) that Chrome's table-layout
+     algorithm consults when deciding how wide a column needs to be — even
+     though the column's <col> already declares an explicit width, and even
+     though width:100%/min-width:0 are set above. Whenever a date column is
+     declared narrower than that intrinsic size (several are, e.g. 90px),
+     the browser widens just that one BODY cell to fit it, and since the
+     table's overall width is fixed, every OTHER column has to shrink a
+     little to compensate — the header (plain text, no such intrinsic size)
+     keeps its exact declared widths, so header and body drift further
+     apart column after column (found 2026-10-28, reported by Hani as
+     "الاعمدة والهدر مش على نفس الخط" — confirmed via DevTools measurements:
+     a 90px PQD/M·S Submitted Date column was rendering at 130px). plain
+     min-width:0 alone doesn't stop this, because it's the table's COLUMN-
+     WIDTH NEGOTIATION (not the input's final rendered size) that's
+     consulting the intrinsic size. width:1px below makes the input report
+     a negligible preferred size for that negotiation, so the column stays
+     at its own declared width; min-width/max-width:100% then expand the
+     input back to fill whatever width the column actually ends up with —
+     same end appearance, just without feeding back into how wide the
+     column itself becomes. */
+  #fullTable input[type="date"]{width:1px;min-width:100%;max-width:100%}
   #fullTable td.desc-cell input, #fullTable td.remarks-cell textarea{text-align:left}
   #fullTable td.desc-cell textarea.desc-textarea{
     display:block;width:100%;box-sizing:border-box;resize:none;overflow:hidden;
