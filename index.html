@@ -850,8 +850,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
              2026-10-27: one large donut centered on the page per track.
              Outer ring = total materials/PQDs (one segment, the whole
              circle). Ring 2 = LLI vs Non-LLI. Ring 3 = Submitted vs Not
-             Submitted. Ring 4 (innermost) = With Client / Approved / Not
-             Approved. Same 4-ring structure for both Material and PQD. -->
+             Submitted. Ring 4 (innermost) = Under Approval / Approved / Not
+             Approved. Same 4-ring structure for both Material and PQD.
+             ("Under Approval" renamed from "With Client" 2026-10-28, same
+             reason/scope as the status-table rename above: the bucket now
+             covers W/Client + W/Engr. + W/QC + W/SUS, not W/Client alone,
+             so uaMain already reflects all four — see computeTrackStats.) -->
         <div class="sdx-nested-wrap">
           <div class="sdx-nested-card">
             <div class="sdx-nested-chart"><canvas id="chartMsNested"></canvas></div>
@@ -6056,8 +6060,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // single doughnut chart (Chart.js renders each dataset in a multi-dataset
   // doughnut as its own concentric ring, dataset[0] outermost). Rings, outer
   // to inner: Total (one segment) → LLI vs Non-LLI → Submitted vs Not
-  // Submitted → With Client / Approved / Not Approved. Same structure for
-  // both Material (MS_TRACK) and PQD (PQD_TRACK).
+  // Submitted → Under Approval / Approved / Not Approved. Same structure
+  // for both Material (MS_TRACK) and PQD (PQD_TRACK). ("Under Approval"
+  // was "With Client" until 2026-10-28; withClient below reads all.uaMain,
+  // which already counts W/Client + W/Engr. + W/QC + W/SUS as one bucket
+  // — see computeTrackStats — so only the label text needed updating.)
   function sdxCenterTextPlugin(big, small) {
     return {
       id: 'sdxCenterText',
@@ -6093,7 +6100,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         { segLabels: [totalLabel], data: [total || 1], colors: ['#C7D4D9'] },
         { segLabels: ['Non-LLI', 'LLI'], data: [nonLli.totalMaterials, lli.totalMaterials], colors: ['#1C8C8C', '#8e44ec'] },
         { segLabels: ['Submitted', 'Not Submitted'], data: [submitted, notSubmitted], colors: ['#2F7A52', '#C8403A'] },
-        { segLabels: ['With Client', 'Approved', 'Not Approved'], data: [withClient, approved, notApproved], colors: ['#E8A33D', '#2F7A52', '#C8403A'] }
+        { segLabels: ['Under Approval', 'Approved', 'Not Approved'], data: [withClient, approved, notApproved], colors: ['#E8A33D', '#2F7A52', '#C8403A'] }
       ]
     };
   }
