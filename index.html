@@ -3428,13 +3428,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // column (or the M/S one) changed from before.
     { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot', group: 'pqd' },
     { col: COL.PQD_CODE, label: 'PQD Status',                  width: 90,  type: 'select', opts: 'pqdCode', group: 'pqd' },
-    { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly', group: 'pqd' },
+    { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'subdate', group: 'pqd' },
     { col: COL.MS_SUB, label: 'M/S Submitted',                width: 74,  type: 'select', opts: 'yesno', group: 'ms' },
     { col: COL.MS_SUBDATE, label: 'M/S Submitted Date',         width: 110,  type: 'subdate', group: 'ms' },
     { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date', group: 'ms' },
     { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot', group: 'ms' },
     { col: COL.MS_CODE, label: 'M/S Status',                   width: 90,  type: 'select', opts: 'code', group: 'ms' },
-    { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly', group: 'ms' },
+    { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'subdate', group: 'ms' },
     { col: COL.SAMPLE_REQ, label: 'Sample Required',          width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
     { col: COL.SAMPLE_APPR, label: 'Sample Approved',         width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
     { col: COL.PR, label: 'PR',                          width: 74,  type: 'select', opts: 'yesno' },
@@ -4524,11 +4524,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (STATUS_SELECT_COLS.indexOf(col) !== -1 && !perm('canChangeStatus')) {
       throw new Error('You do not have permission to change this status/date field.');
     }
-    // Manual override of the auto-stamped Submitted Date — Admin only (Hani,
-    // 2026-10-28). The UI already only ever renders these two as editable for
-    // an Admin (buildCell()'s 'subdate' branch), this is just the same
+    // Manual override of an auto-stamped date — Admin only (Hani, 2026-10-28;
+    // extended to PQD/M-S Status Date the same day, same rule). The UI
+    // already only ever renders these four as editable for an Admin
+    // (buildCell()'s 'subdate' branch), this is just the same
     // belt-and-suspenders re-check as above, for the same reason.
-    if ((col === COL.PQD_SUBDATE || col === COL.MS_SUBDATE) && !currentUserPerms.isAdmin) {
+    if ((col === COL.PQD_SUBDATE || col === COL.MS_SUBDATE || col === COL.PQD_DATE || col === COL.MS_DATE) && !currentUserPerms.isAdmin) {
       throw new Error('Only an Admin can manually edit this date.');
     }
   }
@@ -4709,13 +4710,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       return td;
     }
 
-    // PQD/M·S "Submitted Date" is normally plain read-only text, auto-stamped
-    // by saveCell() the moment PQD_SUB/MS_SUB flips to Yes/No (left completely
-    // untouched by this). Requested by Hani on 2026-10-28, an Admin may ALSO
-    // override that date by hand — so for an Admin, on an ordinary open item
-    // row, this renders the same date input as a normal 'date' column instead;
-    // everyone else (and package/closed rows, same as any other column) still
-    // just sees the text.
+    // PQD/M·S "Submitted Date" AND "Status Date" are normally plain read-only
+    // text, auto-stamped by saveCell() — Submitted Date the moment PQD_SUB/
+    // MS_SUB flips to Yes/No, Status Date the moment PQD_CODE/MS_CODE is set
+    // (left completely untouched by any of this). Requested by Hani on
+    // 2026-10-28 for Submitted Date, then again the same day for Status
+    // Date, an Admin may ALSO override either date by hand — so for an
+    // Admin, on an ordinary open item row, this renders the same date input
+    // as a normal 'date' column instead; everyone else (and package/closed
+    // rows, same as any other column) still just sees the text.
     if (colDef.type === 'subdate') {
       const roVal = value == null ? '' : String(value);
       if (isPackage || isClosed || !currentUserPerms.isAdmin) {
