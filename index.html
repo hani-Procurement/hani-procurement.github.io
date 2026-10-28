@@ -2939,11 +2939,31 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     try {
       await addBoqTable(label);
       input.value = '';
+
+      // Switch the shared Discipline selector to the table just created
+      // (Hani, 2026-10-28: creating "Civil", then "Electrical", each time
+      // showed no change anywhere — because the shared selector silently
+      // stayed on whichever table/Overall it was already on, so Dashboard/
+      // Material Submittal Status/Full Table kept showing that old
+      // selection, and a brand-new table starts with zero items anyway, so
+      // there was nothing to see without first switching to it by hand).
+      // This mirrors switchGlobalTable()'s own body (not called directly:
+      // it assumes the <select> already has an <option> for the target
+      // value, which a just-created table doesn't yet until
+      // renderGlobalTableSelect() below rebuilds the list).
+      currentGlobalSelection = String(BOQ_TABLES.length - 1);
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
+      updateDisciplineBoxFromSelection(currentGlobalSelection);
+      var activeView = document.querySelector('.view.active');
+      var activeId = activeView ? activeView.id : '';
+      if (activeId === 'view-fulltable') switchBoqTable(currentGlobalSelection);
+      else if (activeId === 'view-msstatus') loadSubmittalStatus();
+      else if (activeId === 'view-subdash') loadSubmittalDashboard();
+
       msg.style.color = '#2F7A52';
-      msg.textContent = 'Table added.';
+      msg.textContent = 'Table added and selected — it now shows wherever the Discipline selector is used.';
       showToast('success', 'Table "' + label + '" added.');
     } catch (e) {
       msg.textContent = 'Add failed: ' + (e.message || e);
