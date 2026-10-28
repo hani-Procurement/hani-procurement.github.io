@@ -5623,7 +5623,22 @@
     var canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
     if (SD_CHARTS[canvasId]) SD_CHARTS[canvasId].destroy();
-    SD_CHARTS[canvasId] = new Chart(canvas.getContext('2d'), config);
+    var chart = new Chart(canvas.getContext('2d'), config);
+    SD_CHARTS[canvasId] = chart;
+    // Defensive fix (2026-10-28): Chart.js's own responsive auto-sizing
+    // (ResizeObserver) can occasionally lock in a stale/zero size if the
+    // canvas's container hasn't finished laying out yet at the exact
+    // instant the chart is created (web fonts swapping in after the Google
+    // Fonts stylesheet loads, a card becoming visible, etc.) — the chart
+    // then renders nothing even though its data/legend are correct, which
+    // is exactly what Hani saw on the new nested donuts. One extra
+    // resize() a frame later is a harmless no-op if sizing was already
+    // right, and fixes it when it wasn't — applied here so every chart in
+    // the app benefits, not just the new ones.
+    requestAnimationFrame(function() {
+      try { chart.resize(); } catch (e) {}
+    });
+    return chart;
   }
   function sdMakeGauge(canvasId, pct, color) {
     pct = Math.max(0, Math.min(100, Math.round(pct || 0)));
