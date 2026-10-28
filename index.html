@@ -943,11 +943,24 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     </div>
   </div>
 
-  <!-- Off-screen container the PDF export renders its printable report into
-       — never shown to the person, only read by html2pdf/html2canvas. Kept
-       in the DOM (not display:none) because html2canvas needs real layout
-       to rasterize; pushed out of the viewport instead. -->
-  <div id="pdfReportContainer" style="position:fixed;top:0;left:-10000px;width:1100px;background:#fff;"></div>
+  <!-- Container the PDF export renders its printable report into. Normally
+       display:none (invisible, no layout, no footprint on the page). The
+       old approach (position:fixed, pushed off-screen at left:-10000px)
+       was exactly why "Export Status Report (PDF)" produced a blank white
+       page (Hani, 2026-10-28 — "لما نطلب التقرير بصيغة ال PDF بيطلع صفحه
+       بيضاء فقط"): confirmed via direct testing that this html2canvas
+       build (now bundled offline, see the inlined html2pdf library below) reads
+       zero height off ANY position:fixed or position:absolute element —
+       on-screen or off — so there was never any real content for it to
+       rasterize, regardless of the library loading correctly. It only
+       captures real pixels from an element that's genuinely laid out
+       on-screen (position:static, the default). So exportStatusReportToPdf()
+       now briefly flips this to display:block (a short, intentional flash
+       of the print report while the PDF is being generated — the button's
+       own "⏳ Preparing PDF…" state covers that moment) and flips it back
+       to display:none in its finally block whether the export succeeds or
+       fails, so it's never left on-screen. -->
+  <div id="pdfReportContainer" style="display:none;width:1100px;background:#fff;"></div>
 
   <!-- ===================== FULL TABLE ===================== -->
   <div class="view" id="view-fulltable">
@@ -2776,7 +2789,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     document.getElementById('appScreen').classList.remove('hidden');
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
     // The two sticky-offset syncs (header → full-table header strip, header →
-    // dashboard nav rail) run once when the page's <script> first executes,
+    // dashboard nav rail) run once when the page's main script first executes,
     // but at that moment #appScreen is still hidden behind the sign-in
     // screen, so the header's real height measures as 0 and both offsets
     // come out wrong (the rail in particular just stayed at its old, too-high
@@ -3361,13 +3374,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // Click the dot to type/edit the number inline; nothing else about this
     // column (or the M/S one) changed from before.
     { col: COL.PQD_NUM, label: 'PQD Number',                  width: 46,  type: 'numdot', group: 'pqd' },
-    { col: COL.PQD_CODE, label: 'PQD Status',                  width: 62,  type: 'select', opts: 'pqdCode', group: 'pqd' },
+    { col: COL.PQD_CODE, label: 'PQD Status',                  width: 90,  type: 'select', opts: 'pqdCode', group: 'pqd' },
     { col: COL.PQD_DATE, label: 'PQD Status Date',             width: 90,  type: 'readonly', group: 'pqd' },
     { col: COL.MS_SUB, label: 'M/S Submitted',                width: 74,  type: 'select', opts: 'yesno', group: 'ms' },
     { col: COL.MS_SUBDATE, label: 'M/S Submitted Date',         width: 110,  type: 'subdate', group: 'ms' },
     { col: COL.MS_PLANNED_DATE, label: 'M/S Planned Submission Date',  width: 125, type: 'date', group: 'ms' },
     { col: COL.MS_NUM, label: 'M/S Number',                   width: 46,  type: 'numdot', group: 'ms' },
-    { col: COL.MS_CODE, label: 'M/S Status',                   width: 62,  type: 'select', opts: 'code', group: 'ms' },
+    { col: COL.MS_CODE, label: 'M/S Status',                   width: 90,  type: 'select', opts: 'code', group: 'ms' },
     { col: COL.MS_DATE, label: 'M/S Status Date',              width: 90,  type: 'readonly', group: 'ms' },
     { col: COL.SAMPLE_REQ, label: 'Sample Required',          width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
     { col: COL.SAMPLE_APPR, label: 'Sample Approved',         width: 74,  type: 'select', opts: 'yesno', group: 'sample' },
@@ -3375,7 +3388,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     { col: COL.PO1, label: 'PO (Issued)',                 width: 74,  type: 'select', opts: 'yesno' },
     { col: COL.PO2, label: 'PO Number / Supplier Name',   width: 130, type: 'posupplier' },
     { col: COL.REMARKS, label: 'REMARKS',                     width: 240, type: 'remarks' },
-    { col: COL.ACTIONBY, label: 'Action By',                 width: 100, type: 'select', opts: 'actionBy' },
+    { col: COL.ACTIONBY, label: 'Action By',                 width: 120, type: 'select', opts: 'actionBy' },
     { col: COL.DATESTAMP, label: 'Date Stamp',                  width: 115, type: 'readonly' }
   ];
 
@@ -6631,16 +6644,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     }
   }
 
-  /* ===================== PDF EXPORT (html2pdf.js via CDN) =====================
+  /* ===================== PDF EXPORT (html2pdf.js, inlined near the top of the file) =====================
      Deliberately does NOT screenshot the live, interactive Material
      Submittal Status screen as-is (buttons, clickable "balance" cells, the
      page's own chrome) — that would print exactly whatever happens to be
      on screen and look cluttered. Instead it rebuilds a clean, print-only
      copy of just the three computed tables (reusing the exact same table
      elements the screen already renders, via loadSubmittalStatus(), so the
-     figures are guaranteed identical) inside #pdfReportContainer, which
-     lives off-screen purely for html2canvas to rasterize, then hands that
-     to html2pdf. */
+     figures are guaranteed identical) inside #pdfReportContainer, which is
+     briefly made visible purely for html2canvas to rasterize (see that
+     element's own comment for why it can't just stay off-screen), then
+     hands that to html2pdf. */
   async function exportStatusReportToPdf() {
     var btn = document.getElementById('exportPdfBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparing PDF…'; }
@@ -6671,6 +6685,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           '<h2>Item / Buyer</h2>' + document.getElementById('buyerStatusTable').outerHTML +
         '</div>';
 
+      // Must actually be on-screen (position:static, the container's default)
+      // for html2canvas to capture real pixels — see the container's own
+      // comment for why. Shown only for this one moment, in a finally below
+      // that always hides it again, success or failure.
+      container.style.display = 'block';
+      await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
+
       await html2pdf().set({
         margin: 10,
         filename: 'Procurement_Progress_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
@@ -6682,6 +6703,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       alert('PDF export failed: ' + (e.message || e));
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '🖨 Export Status Report (PDF)'; }
+      var c = document.getElementById('pdfReportContainer');
+      if (c) { c.style.display = 'none'; c.innerHTML = ''; }
     }
   }
 
