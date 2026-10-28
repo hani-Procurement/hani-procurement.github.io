@@ -3387,8 +3387,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     mainAlt: ['M','A'],
     priority: ['H','M','L'],
     yesno: ['No','Yes'],
+    // code/pqdCode (the M/S Status and PQD Status dropdowns) were two
+    // byte-for-byte-identical arrays kept in sync by hand — exactly the
+    // kind of drift risk that almost bit this file today (a new status
+    // code has to be added in two places, or the two selects silently fall
+    // out of sync). Collapsed to one array referenced by both keys
+    // (2026-10-28, found on review) so there is only one list to update.
     code: ['','A','B','C','D','W/Client','W/Engr.','W/QC','W/SUS'],
-    pqdCode: ['','A','B','C','D','W/Client','W/Engr.','W/QC','W/SUS'],
+    get pqdCode() { return this.code; },
     csStatus: ['-','Initial','Target Price','Final & Approved'],
     names: [],      // populated from Lists!A2:A100 (File With)
     actionBy: ['Procurement','Engineering','Site','Consultant','QC','Tracking','Site DC','Closed','Delete']
@@ -4559,6 +4565,38 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     }
   }
 
+  // Shared by saveCell()'s PQD_CODE/MS_CODE and PQD_SUB/MS_SUB handling
+  // (added 2026-10-28, consolidating 4 near-duplicate inline blocks — see
+  // the comment at its call site). `trigger` is 'code' (a real PQD/M-S
+  // Status code was just picked, or cleared back to blank -> stamps/clears
+  // track.DATE) or 'sub' (Submitted was just flipped to Yes/No -> stamps/
+  // clears track.SUBDATE, refreshes the Planned Date's overdue coloring,
+  // and reminds the user to pick a Status if one isn't set yet). `track` is
+  // PQD_TRACK or MS_TRACK (both extended with a SUBDATE field below,
+  // specifically so this helper can use them for this). `label` is the
+  // human-readable column name used in the reminder alert text.
+  async function stampTrackDateOnSave(trigger, track, value, row, td, label) {
+    if (trigger === 'code') {
+      const stamp = value ? todayStamp(false) : '';
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, track.DATE, row, track.DATE, row), [[stamp]]);
+      updateLocalValue(row, track.DATE, stamp);
+      const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + track.DATE + '"]');
+      if (dateCell) dateCell.textContent = stamp;
+      // A real code was just picked, so this row is no longer "submitted
+      // but still waiting on a status" — clear the reminder highlight that
+      // may have been left on this cell by the 'sub' branch below.
+      if (td) td.querySelector('select') && td.querySelector('select').classList.remove('needs-status-highlight');
+    } else { // 'sub'
+      const subStamp = value === 'Yes' ? todayStamp(false) : '';
+      await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, track.SUBDATE, row, track.SUBDATE, row), [[subStamp]]);
+      updateLocalValue(row, track.SUBDATE, subStamp);
+      const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + track.SUBDATE + '"]');
+      if (subDateCell) subDateCell.textContent = subStamp;
+      refreshPlannedDateColor(row, track.SUB);
+      requireStatusAfterSubmitted(row, track.CODE, label);
+    }
+  }
+
   async function saveCell(row, col, value, td) {
     // Tracks whether the PRIMARY cell write below actually completed, so
     // the catch block can tell the difference between "nothing was saved"
@@ -4585,58 +4623,24 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         await refreshEverything(); // row lock state changed -> re-render the whole row set
         return;
       }
-      // PQD Status Date tracks the PQD Status (code) itself, not the
-      // Submitted flag — it used to also re-stamp whenever Submitted was
-      // toggled, which left it showing "today" on rows where the actual
-      // status (PQD Status column) had never been touched at all.
+      // Status Date (PQD_CODE/MS_CODE) and Submitted Date (PQD_SUB/MS_SUB)
+      // auto-stamps — were 4 separate, near-identical inline blocks here
+      // (one per track × per trigger column) that had already drifted
+      // slightly out of step with each other across this file's history;
+      // consolidated into stampTrackDateOnSave() 2026-10-28 (found on
+      // review) so the PQD and M/S versions can never again drift apart by
+      // accident. See that function for what each branch actually does.
       if (col === COL.PQD_CODE) {
-        // Status Date mirrors Status itself, the same way Submitted Date
-        // mirrors Submitted: a real code (A/B/C/D/W-Client) stamps today's
-        // date, and setting it back to "-" (blank) clears the date rather
-        // than leaving a stale one behind.
-        const stamp = value ? todayStamp(false) : '';
-        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_DATE, row, COL.PQD_DATE, row), [[stamp]]);
-        updateLocalValue(row, COL.PQD_DATE, stamp);
-        const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_DATE + '"]');
-        if (dateCell) dateCell.textContent = stamp;
-        // A real code was just picked, so this row is no longer "submitted
-        // but still waiting on a status" — clear the reminder highlight
-        // that may have been left on this cell by the PQD_SUB block below.
-        if (td) td.querySelector('select') && td.querySelector('select').classList.remove('needs-status-highlight');
+        await stampTrackDateOnSave('code', PQD_TRACK, value, row, td, 'PQD Status');
       }
-      // PQD Submitted Date: stamped with today's date the moment Submitted
-      // is set to "Yes"; cleared back to blank the moment it's set to "No"
-      // — the date always reflects the current Yes/No state, never a
-      // leftover record of a past submission.
       if (col === COL.PQD_SUB && (value === 'Yes' || value === 'No')) {
-        const subStamp = value === 'Yes' ? todayStamp(false) : '';
-        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.PQD_SUBDATE, row, COL.PQD_SUBDATE, row), [[subStamp]]);
-        updateLocalValue(row, COL.PQD_SUBDATE, subStamp);
-        const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.PQD_SUBDATE + '"]');
-        if (subDateCell) subDateCell.textContent = subStamp;
-        refreshPlannedDateColor(row, COL.PQD_SUB);
-        requireStatusAfterSubmitted(row, COL.PQD_CODE, 'PQD Status');
+        await stampTrackDateOnSave('sub', PQD_TRACK, value, row, td, 'PQD Status');
       }
-      // Same for M/S Status Date — tracks the M/S Status (code), not the
-      // Submitted flag.
       if (col === COL.MS_CODE) {
-        // Same rule as PQD Status Date above.
-        const stamp = value ? todayStamp(false) : '';
-        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_DATE, row, COL.MS_DATE, row), [[stamp]]);
-        updateLocalValue(row, COL.MS_DATE, stamp);
-        const dateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_DATE + '"]');
-        if (dateCell) dateCell.textContent = stamp;
-        if (td) td.querySelector('select') && td.querySelector('select').classList.remove('needs-status-highlight');
+        await stampTrackDateOnSave('code', MS_TRACK, value, row, td, 'M/S Status');
       }
-      // Same idea for Material Submittal: cleared back to blank on "No".
       if (col === COL.MS_SUB && (value === 'Yes' || value === 'No')) {
-        const subStamp = value === 'Yes' ? todayStamp(false) : '';
-        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.MS_SUBDATE, row, COL.MS_SUBDATE, row), [[subStamp]]);
-        updateLocalValue(row, COL.MS_SUBDATE, subStamp);
-        const subDateCell = document.querySelector('tr[data-row="' + row + '"] td[data-col="' + COL.MS_SUBDATE + '"]');
-        if (subDateCell) subDateCell.textContent = subStamp;
-        refreshPlannedDateColor(row, COL.MS_SUB);
-        requireStatusAfterSubmitted(row, COL.MS_CODE, 'M/S Status');
+        await stampTrackDateOnSave('sub', MS_TRACK, value, row, td, 'M/S Status');
       }
       if (td) flash(td);
       if (col === COL.PQD_SUB || col === COL.PQD_CODE || col === COL.MS_SUB || col === COL.MS_CODE || col === COL.LLI || col === COL.MAINALT || col === COL.FILEWITH) {
@@ -5416,8 +5420,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     ];
   }
 
-  var MS_TRACK = { SUB: COL.MS_SUB, CODE: COL.MS_CODE, DATE: COL.MS_DATE, PLANNED_DATE: COL.MS_PLANNED_DATE };
-  var PQD_TRACK = { SUB: COL.PQD_SUB, CODE: COL.PQD_CODE, DATE: COL.PQD_DATE, PLANNED_DATE: COL.PQD_PLANNED_DATE };
+  // SUBDATE added 2026-10-28, used only by stampTrackDateOnSave() (defined
+  // much earlier in the file, in saveCell()'s neighborhood) — safe to
+  // reference from there despite the declaration order because `var` is
+  // hoisted and saveCell() is never actually called until well after this
+  // whole top-level script has finished running once (i.e. only in
+  // response to a later user interaction).
+  var MS_TRACK = { SUB: COL.MS_SUB, CODE: COL.MS_CODE, DATE: COL.MS_DATE, PLANNED_DATE: COL.MS_PLANNED_DATE, SUBDATE: COL.MS_SUBDATE };
+  var PQD_TRACK = { SUB: COL.PQD_SUB, CODE: COL.PQD_CODE, DATE: COL.PQD_DATE, PLANNED_DATE: COL.PQD_PLANNED_DATE, SUBDATE: COL.PQD_SUBDATE };
 
   // Submittal Dashboard / Material Submittal Status are unified across all 3
   // BOQ tables (per project decision), so they read from this combined pool
@@ -5880,19 +5890,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
     return chart;
   }
-  function sdMakeGauge(canvasId, pct, color) {
-    pct = Math.max(0, Math.min(100, Math.round(pct || 0)));
-    sdMakeChart(canvasId, {
-      type: 'doughnut',
-      data: { datasets: [{ data: [pct, 100 - pct], backgroundColor: [color, '#e8eaf0'], borderWidth: 0 }] },
-      options: { rotation: -90, circumference: 180, cutout: '72%',
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        maintainAspectRatio: false, animation: { duration: 400 } }
-    });
-    var txt = document.getElementById(canvasId + 'Txt');
-    if (txt) txt.textContent = pct + '%';
-  }
-  var SD_PALETTE = ['#1C8C8C', '#2F7A52', '#E8A33D', '#C8403A', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
+  // sdMakeGauge (a half-circle % gauge) used to back the dashboard's 8
+  // individual progress gauges; removed 2026-10-28 (found dead on review —
+  // the dashboard was simplified down to the KPI cards/nested donuts/trend
+  // charts above, and nothing had called this since).
+  var SD_PALETTE =['#1C8C8C', '#2F7A52', '#E8A33D', '#C8403A', '#8e44ec', '#00acc1', '#ff7043', '#9ccc65', '#d81b60', '#3949ab'];
 
   async function loadSubmittalDashboard() {
     renderGlobalTableSelect();
@@ -6543,10 +6545,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     var buyerHeadRow = startRow + 1;
     await sheetsUpdateValues(destId, a1Range(sheetName, 1, buyerHeadRow, 2 + buyerData.names.length, buyerHeadRow),
       [['Type'].concat(buyerData.names).concat(['TOTAL'])], 'RAW');
-    buyerData.rows.forEach(function(r, i) {
-      sheetsUpdateValues(destId, a1Range(sheetName, 1, buyerHeadRow + 1 + i, 2 + r.counts.length, buyerHeadRow + 1 + i),
+    // Was a plain forEach with no await (fixed 2026-10-28, found on review) —
+    // every other write above this one is await-ed in order, but these
+    // buyer rows were fired off without being awaited or collected into a
+    // Promise.all, so the function could return (and a caller's `finally`
+    // could delete the temp spreadsheet, or a sync could report "success")
+    // before these particular writes had actually landed — a real race, not
+    // just a style inconsistency with the loops above it.
+    for (var k = 0; k < buyerData.rows.length; k++) {
+      var r = buyerData.rows[k];
+      await sheetsUpdateValues(destId, a1Range(sheetName, 1, buyerHeadRow + 1 + k, 2 + r.counts.length, buyerHeadRow + 1 + k),
         [[r.label].concat(r.counts).concat([r.rowTotal])], 'RAW');
-    });
+    }
   }
 
   // ===== Sync STATUS OF MATERIAL SUBMITTAL / STATUS OF PQD to a REAL tab
