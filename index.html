@@ -600,7 +600,22 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .pdf-report h1{font-size:20px;margin:0 0 4px}
   .pdf-report h2{font-size:14px;margin:22px 0 8px;color:var(--accent-dark)}
   .pdf-report .pdf-meta{display:flex;gap:18px;font-size:12px;color:#555;margin-bottom:6px}
-  .pdf-report table.ms-table{width:100%;min-width:0}
+  /* #pdfReportContainer itself (not this rule) used to force width:1100px,
+     and this rule then forced every table to exactly fill that box
+     (width:100%). table.ms-table has no table-layout:fixed, so with many
+     narrow columns its real minimum content width is well over 1100px —
+     per the table auto-layout algorithm a table is always at least as wide
+     as its columns' minimum content needs, so the table silently rendered
+     wider than its 1100px box and spilled out of it; html2canvas then only
+     captures an element's own box, so everything past 1100px (the right
+     side of the PQD/Material Submittal tables) was simply cut out of the
+     PDF — reported by Hani 2026-10-28 ("الجدول مقصوص وغير كامل"). Fixed at
+     the root by letting the container size itself to its real content
+     (width:max-content, set on #pdfReportContainer below) instead of
+     capping it, so there is nothing left to spill out of; this rule is
+     gone with it, each table now simply renders at its natural width like
+     it does on-screen. */
+  #pdfReportContainer{width:max-content;background:#fff}
   .card h3{margin:0 0 10px;font-size:16px;color:var(--heading)}
 
   /* ---- Control Panel: page header + grouped sections, single centered column ---- */
@@ -1078,7 +1093,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
        own "⏳ Preparing PDF…" state covers that moment) and flips it back
        to display:none in its finally block whether the export succeeds or
        fails, so it's never left on-screen. -->
-  <div id="pdfReportContainer" style="display:none;width:1100px;background:#fff;"></div>
+  <div id="pdfReportContainer" style="display:none;"></div>
 
   <!-- ===================== FULL TABLE ===================== -->
   <div class="view" id="view-fulltable">
@@ -6893,11 +6908,28 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       container.style.display = 'block';
       await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
 
+      // The container is width:max-content (see its CSS), so at this point
+      // it has already grown to the tables' real, un-clipped width — read
+      // that back and hand it to html2canvas explicitly via width/
+      // windowWidth. Without this, html2canvas falls back to the current
+      // browser viewport width to decide what counts as "on screen", which
+      // is normally much narrower than three wide status tables side by
+      // side — exactly the clipping Hani reported (2026-10-28, "الجدول
+      // مقصوص وغير كامل"). windowWidth tells it to lay out its capture
+      // frame at the full content width instead, so nothing past the
+      // visible app window gets cut off.
+      var fullWidth = container.scrollWidth;
+
       await html2pdf().set({
         margin: 10,
         filename: 'Procurement_Progress_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        // A3, not A4 (Hani, 2026-10-28: "اعمل الصفحة بحجم كبير A3 مثلا") —
+        // html2pdf always scales the full captured image down to exactly
+        // fill the PDF page's width, so a bigger sheet means less shrinking
+        // and more legible text for tables this wide, on top of the fix
+        // above that stops them being cut off in the first place.
+        html2canvas: { scale: 2, width: fullWidth, windowWidth: fullWidth },
+        jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
       }).from(container).save();
       showToast('success', 'PDF ready — check your downloads.');
     } catch (e) {
