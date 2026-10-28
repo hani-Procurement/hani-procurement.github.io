@@ -6929,27 +6929,51 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
 
       // The container is width:max-content (see its CSS), so at this point
-      // it has already grown to the tables' real, un-clipped width — read
-      // that back and hand it to html2canvas explicitly via width/
-      // windowWidth. Without this, html2canvas falls back to the current
-      // browser viewport width to decide what counts as "on screen", which
-      // is normally much narrower than three wide status tables side by
-      // side — exactly the clipping Hani reported (2026-10-28, "الجدول
-      // مقصوص وغير كامل"). windowWidth tells it to lay out its capture
-      // frame at the full content width instead, so nothing past the
-      // visible app window gets cut off.
-      var fullWidth = container.scrollWidth;
+      // it has already grown to the tables' real, un-clipped natural size —
+      // read that back now, in CSS px.
+      //
+      // The first attempt at this fix (2026-10-28) passed that width to
+      // html2canvas as width/windowWidth and kept a fixed 'a3' page. That
+      // was still wrong, reported immediately after ("لسا ال PDF تعبان"):
+      // html2pdf.from(element) doesn't hand your element straight to
+      // html2canvas — it first clones it into its own offscreen container
+      // and FORCIBLY resizes that clone's width to match whatever page
+      // format you gave it (so a normal, shorter page's content reflows to
+      // fit that page's width, the one thing the library is actually
+      // designed to do). With a fixed 'a3', that forced width is a3's
+      // ~1500px printable width, which is narrower than these tables'
+      // ~2700px+ real content — so the clone's content overflowed THAT
+      // box and got cut off all over again, just at a different edge than
+      // before; our width/windowWidth override on html2canvas didn't
+      // override the resize, which only ever applies to the clone that
+      // html2canvas is actually pointed at.
+      //
+      // Fixed properly by not fighting that resize at all: hand html2pdf a
+      // CUSTOM page format sized to exactly match the content (content
+      // size + margin on every side), computed right here from the real
+      // measured width/height. With the page already the right size, its
+      // own resize-to-page-width step is a no-op — nothing needs to
+      // shrink, nothing overflows, and the three tables render at their
+      // normal on-screen size with nothing cut off. (96 CSS px = 1 inch =
+      // 25.4mm is the standard CSS px-to-mm conversion, and is also what
+      // html2pdf itself assumes internally, so the two stay in agreement.)
+      var PX_TO_MM = 25.4 / 96;
+      var marginMm = 10;
+      var contentWidthMm = container.scrollWidth * PX_TO_MM;
+      var contentHeightMm = container.scrollHeight * PX_TO_MM;
+      // Sanity cap (Hani asked for "a big page, e.g. A3", not an unbounded
+      // one) — far larger than any realistic report, so it only ever
+      // kicks in for a genuinely pathological case, in which case
+      // html2pdf's normal shrink-to-fit-width takes back over.
+      var MAX_PAGE_MM = 2000;
+      var pageWidthMm = Math.min(contentWidthMm + marginMm * 2, MAX_PAGE_MM);
+      var pageHeightMm = Math.min(contentHeightMm + marginMm * 2, MAX_PAGE_MM);
 
       await html2pdf().set({
-        margin: 10,
+        margin: marginMm,
         filename: 'Procurement_Progress_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
-        // A3, not A4 (Hani, 2026-10-28: "اعمل الصفحة بحجم كبير A3 مثلا") —
-        // html2pdf always scales the full captured image down to exactly
-        // fill the PDF page's width, so a bigger sheet means less shrinking
-        // and more legible text for tables this wide, on top of the fix
-        // above that stops them being cut off in the first place.
-        html2canvas: { scale: 2, width: fullWidth, windowWidth: fullWidth },
-        jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: [pageWidthMm, pageHeightMm], orientation: 'landscape' }
       }).from(container).save();
       showToast('success', 'PDF ready — check your downloads.');
     } catch (e) {
