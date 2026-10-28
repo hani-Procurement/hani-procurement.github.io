@@ -124,11 +124,39 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     width: 90%;
     text-align: center;
   }
-  /* Project picker: shown right after sign-in, before the main app — lets
-     a user with access to more than one fully-separate project (each its
-     own spreadsheet, own tables, own Users/permissions) choose which one
-     to open, and lets anyone spin up a brand-new, completely independent
-     project. Mirrors #signinScreen's centered-card layout. */
+  /* Choice screen: shown right after sign-in (Hani, 2026-10-28), between
+     signing in and either picking an existing project or naming a new
+     one. Mirrors #signinScreen's centered-card layout. */
+  #projectChoiceScreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #projectChoiceScreen .card {
+    padding: 40px;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+  }
+  .choice-row { display: flex; gap: 14px; margin-top: 22px; }
+  .choice-box {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    background: var(--accent-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 28px 12px; cursor: pointer; font-family: var(--sans);
+  }
+  .choice-box:hover { background: var(--accent-bg-strong); border-color: var(--accent); }
+  .choice-box-icon { font-size: 32px; line-height: 1; }
+  .choice-box-label { font-size: 15px; font-weight: 600; color: var(--heading); }
+
+  /* Project picker: the second step of either path from the choice screen
+     above — either the existing-projects list, or the new-project naming
+     form (never both at once; #projectPickerScreen.mode-new/.mode-existing
+     picks which). Lets a user with access to more than one fully-separate
+     project (each its own spreadsheet, own tables, own Users/permissions)
+     choose which one to open, and lets anyone spin up a brand-new,
+     completely independent project. Mirrors #signinScreen's centered-card
+     layout. */
   #projectPickerScreen {
     display: flex;
     align-items: center;
@@ -140,7 +168,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     max-width: 460px;
     width: 90%;
     text-align: center;
+    position: relative;
   }
+  #projectPickerBackBtn {
+    position: absolute; top: 14px; left: 14px; width: auto;
+    background: none; border: none; color: var(--text-soft); font-size: 13px;
+    cursor: pointer; padding: 4px 6px;
+  }
+  #projectPickerBackBtn:hover { color: var(--accent); }
+  /* The flex layout lives here (not as an inline style on the element)
+     specifically so the mode-existing hide rule below can actually win —
+     an inline style="display:flex" on the element would otherwise always
+     beat any class selector in this stylesheet, mode or no mode. */
+  #projectPickerNewRow { display: flex; gap: 6px; }
+  #projectPickerScreen.mode-new #projectPickerList,
+  #projectPickerScreen.mode-existing #projectPickerNewRow { display: none; }
   .project-pick-row { display: flex; gap: 6px; margin-bottom: 8px; }
   .project-pick-row .project-pick-btn { margin-bottom: 0; flex: 1; }
   .project-pick-btn {
@@ -741,12 +783,35 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   </div>
 </div>
 
+<!-- Shown right after sign-in (Hani, 2026-10-28): a first choice between
+     opening something that already exists and starting something new,
+     before either path's own screen. Clicking either box moves straight
+     into #projectPickerScreen in the matching mode — the already-fetched
+     `projects` list is just handed along, never re-fetched. -->
+<div id="projectChoiceScreen" class="hidden">
+  <div class="card">
+    <h1>Procurement Progress Report</h1>
+    <p class="subtitle">What would you like to do?</p>
+    <div class="choice-row">
+      <button type="button" class="choice-box" id="choiceNewBtn">
+        <span class="choice-box-icon">🆕</span>
+        <span class="choice-box-label">New Project</span>
+      </button>
+      <button type="button" class="choice-box" id="choiceExistingBtn">
+        <span class="choice-box-icon">📂</span>
+        <span class="choice-box-label">Existing Project</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="projectPickerScreen" class="hidden">
   <div class="card">
-    <h1>Choose a Project</h1>
-    <p class="subtitle">Each project is fully separate — its own tables, users, and permissions</p>
+    <button type="button" id="projectPickerBackBtn" title="Back">← Back</button>
+    <h1 id="projectPickerTitle">Choose a Project</h1>
+    <p class="subtitle" id="projectPickerSubtitle">Each project is fully separate — its own tables, users, and permissions</p>
     <div id="projectPickerList"></div>
-    <div id="projectPickerNewRow" style="margin-top:14px;display:flex;gap:6px">
+    <div id="projectPickerNewRow" style="margin-top:14px">
       <input type="text" id="newProjectNameInput" placeholder="New project name" style="flex:1">
       <button type="button" id="createProjectBtn" style="width:auto">+ Create New Project</button>
     </div>
@@ -1518,6 +1583,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     tokenClient.requestAccessToken();
   });
 
+  document.getElementById('choiceNewBtn').addEventListener('click', function() { showProjectPicker(_lastFetchedProjects, 'new'); });
+  document.getElementById('choiceExistingBtn').addEventListener('click', function() { showProjectPicker(_lastFetchedProjects, 'existing'); });
+  document.getElementById('projectPickerBackBtn').addEventListener('click', backToProjectChoice);
   document.getElementById('createProjectBtn').addEventListener('click', submitNewProject);
   document.getElementById('newProjectNameInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); submitNewProject(); }
@@ -1742,7 +1810,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
       appendLog('<span class="ok">✔ Looking for projects available to your account...</span>');
       const projects = await findAllProjectSheets();
-      showProjectPicker(projects);
+      showProjectChoice(projects);
     } catch (err) {
       console.error(err);
       appendLog('<span class="err">Error: ' + escapeHtml(err.message || err) + '</span>');
@@ -1771,11 +1839,47 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
   }
 
-  /* ===================== Project picker screen ===================== */
-  function showProjectPicker(projects) {
+  /* ===================== Project choice + picker screens ===================== */
+  // Holds the one Drive lookup's results between the choice screen and
+  // whichever picker mode the user picks, and across a "Back" from the
+  // picker — so clicking back and forth never re-hits the Drive API.
+  var _lastFetchedProjects = [];
+
+  // First stop after sign-in (Hani, 2026-10-28): just the New/Existing
+  // choice, nothing else — the actual list or the naming form only
+  // appears once one of the two is picked (see showProjectPicker below).
+  function showProjectChoice(projects) {
+    _lastFetchedProjects = projects || [];
     document.getElementById('signinScreen').classList.add('hidden');
-    document.getElementById('projectPickerScreen').classList.remove('hidden');
+    document.getElementById('projectPickerScreen').classList.add('hidden');
+    document.getElementById('projectChoiceScreen').classList.remove('hidden');
+  }
+
+  // mode is 'existing' (show the project list, hide the new-project form)
+  // or 'new' (the reverse) — CSS classes mode-existing/mode-new on
+  // #projectPickerScreen do the actual hiding (see its rules), this just
+  // picks the class, the heading text, and what to focus.
+  function showProjectPicker(projects, mode) {
+    document.getElementById('signinScreen').classList.add('hidden');
+    document.getElementById('projectChoiceScreen').classList.add('hidden');
+    var screen = document.getElementById('projectPickerScreen');
+    screen.classList.remove('hidden');
+    screen.classList.remove('mode-existing', 'mode-new');
+    screen.classList.add(mode === 'new' ? 'mode-new' : 'mode-existing');
+    document.getElementById('projectPickerTitle').textContent = mode === 'new' ? 'New Project' : 'Existing Projects';
+    document.getElementById('projectPickerSubtitle').textContent = mode === 'new'
+      ? 'Give your new, fully separate project a name'
+      : 'Each project is fully separate — its own tables, users, and permissions';
     renderProjectPickerList(projects);
+    if (mode === 'new') {
+      var input = document.getElementById('newProjectNameInput');
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  function backToProjectChoice() {
+    showProjectChoice(_lastFetchedProjects);
   }
 
   // Built entirely with DOM APIs, never innerHTML — a project's label comes
@@ -1913,6 +2017,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } else {
       document.getElementById('signinScreen').classList.remove('hidden');
       document.getElementById('projectPickerScreen').classList.add('hidden');
+      document.getElementById('projectChoiceScreen').classList.add('hidden');
       appendLog('<span class="err">' + escapeHtml(msg) + '</span>');
     }
   }
