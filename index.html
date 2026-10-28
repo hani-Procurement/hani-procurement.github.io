@@ -768,7 +768,6 @@
 
           <div class="sdx-card" id="sdxMaterial">
             <h3>Status of Material Submittal</h3>
-            <div class="sdx-kpis" id="sdxMaterialKpis"></div>
             <div class="sdx-chart-row">
               <div class="sdx-donut-wrap"><canvas id="chartMsStatus"></canvas></div>
               <div class="sdx-bar-wrap" id="sdxMsDisciplineBarWrap"><canvas id="chartMsDiscipline"></canvas></div>
@@ -777,7 +776,6 @@
 
           <div class="sdx-card" id="sdxPqd">
             <h3>Status of PQD</h3>
-            <div class="sdx-kpis" id="sdxPqdKpis"></div>
             <div class="sdx-chart-row">
               <div class="sdx-donut-wrap"><canvas id="chartPqdStatus"></canvas></div>
               <div class="sdx-bar-wrap" id="sdxPqdDisciplineBarWrap"><canvas id="chartPqdDiscipline"></canvas></div>
@@ -2713,6 +2711,20 @@
     document.getElementById('projectPickerScreen').classList.add('hidden');
     document.getElementById('appScreen').classList.remove('hidden');
     document.getElementById('openSheetLink').href = 'https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/edit';
+    // The two sticky-offset syncs (header → full-table header strip, header →
+    // dashboard nav rail) run once when the page's <script> first executes,
+    // but at that moment #appScreen is still hidden behind the sign-in
+    // screen, so the header's real height measures as 0 and both offsets
+    // come out wrong (the rail in particular just stayed at its old, too-high
+    // CSS default — looked like it was never fixed at all). #appScreen only
+    // gets its real layout right here, once sign-in completes, so the syncs
+    // are re-run now (one frame later, so the browser has actually laid the
+    // now-visible header out) and this is the one spot that reliably fires
+    // on every sign-in, not just a first page load.
+    requestAnimationFrame(function() {
+      if (window.syncFullTableHeaderStickyTop) window.syncFullTableHeaderStickyTop();
+      if (window.syncSdRailStickyTop) window.syncSdRailStickyTop();
+    });
     applyPermissionsToUI();
     loadProjectBar();
     renderTableSelect();
@@ -5844,17 +5856,12 @@
         maintainAspectRatio: false, cutout: '62%', animation: { animateScale: true } }
     });
 
-    // KPI mini-tiles (cards) for the Material / PQD sdx-card sections —
-    // same numbers already in the stripe, repeated here as hoverable tiles
-    // so each 3-way section is self-contained (cards + donut + bar together).
-    sdxRenderKpis('sdxMaterialKpis', [
-      ['Total', msTotal], ['Submitted', msSubmitted], ['Approved', msApprovedMain],
-      ['Awaiting', msAwaiting], ['Balance', msBalance], ['Approved %', msApprovedPct + '%']
-    ]);
-    sdxRenderKpis('sdxPqdKpis', [
-      ['Total', pqdTotal], ['Submitted', pqdSubmitted], ['Approved', pqdApprovedMain],
-      ['Awaiting', pqdAwaiting], ['Balance', pqdBalance], ['Approved %', pqdApprovedPct + '%']
-    ]);
+    // The Material/PQD KPI mini-tiles that used to sit here were removed on
+    // 2026-10-28, per Hani — their numbers (Total/Submitted/Approved/
+    // Awaiting/Balance/Approved %) were already shown by the big nested
+    // donuts directly above this grid, so the tiles were pure duplication.
+    // The Item/Buyer card's KPI tiles are untouched — that data (Buyers,
+    // Items, Done/Open/Overdue, Avg Completion) isn't shown anywhere else.
   }
 
   // Shared KPI-mini-tile renderer: small hoverable cards, 2 per row.
