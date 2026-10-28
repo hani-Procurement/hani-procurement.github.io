@@ -614,6 +614,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     color:var(--accent);font-weight:700;border-bottom:1px solid var(--border);padding-bottom:7px}
   /* All cards, within every section, stacked in one single column. */
   .cp-section-grid{display:flex;flex-direction:column;gap:18px}
+  /* Team & Access (Hani, 2026-10-28): the Admin card and the per-table
+     member cards are generated as siblings of #cpAdminCard inside the
+     grid above, but need one shared show/hide toggle (applyPermissionsToUI
+     only ever flips #cpUsersCard, see there) and one shared JS-populated
+     container (#cpTableMemberCards, one .card appended per BOQ_TABLES
+     entry — see renderTeamMembersList). display:contents makes each of
+     these wrappers invisible to layout, so their .card children still sit
+     directly in .cp-section-grid's flex column with its normal 18px gaps,
+     instead of being nested one level deeper with no gap of their own. */
+  #cpUsersCard, #cpTableMemberCards{display:contents}
   .ms-table-wrap{overflow-x:auto}
   table.ms-table{border-collapse:collapse;font-size:11.5px;white-space:pre-line;min-width:600px;font-family:var(--sans)}
   table.ms-table th, table.ms-table td{border:1px solid var(--border);padding:4px 6px;text-align:center}
@@ -1108,27 +1118,37 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       <h4 class="cp-section-title">Team &amp; Access</h4>
       <div class="cp-section-grid">
 
-        <div class="card" id="cpUsersCard">
-          <h3>Team members &amp; permissions</h3>
-          <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
-            Control exactly who can add items, delete items, reorder/move items, or change status
-            fields (Action By, Comp. Sheet Status, PQD/M/S Submitted &amp; Code). Everyone can still
-            view everything and edit the regular fields.
-          </p>
-          <div class="fw-list" id="cpUsersList" style="max-height:none"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-            <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
-            <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
-              <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
-              <label><input type="checkbox" id="cpNewCanDelete"> Delete items</label>
-              <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
-              <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
-              <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
-              <label><input type="checkbox" id="cpNewCanAccessCP"> Can access Control Panel</label>
+        <div id="cpUsersCard">
+          <div class="card" id="cpAdminCard">
+            <h3>Admin</h3>
+            <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
+              Full control over this project: every member here can be made Admin, be granted
+              Control Panel access on its own (without full Admin), or be put On Hold to block
+              their sign-in. Per-table permissions (Add/Delete/Move/Status) are set in the boxes
+              below, one per table.
+            </p>
+            <div class="fw-list" id="cpAdminList" style="max-height:none"></div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+              <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
+              <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
+                <label><input type="checkbox" id="cpNewCanAdd"> Add items</label>
+                <label><input type="checkbox" id="cpNewCanDelete"> Delete items</label>
+                <label><input type="checkbox" id="cpNewCanMove"> Move / reorder items</label>
+                <label><input type="checkbox" id="cpNewCanStatus"> Change status</label>
+                <label><input type="checkbox" id="cpNewIsAdmin"> Admin (full control)</label>
+                <label><input type="checkbox" id="cpNewCanAccessCP"> Can access Control Panel</label>
+              </div>
+              <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
             </div>
-            <button type="button" class="primary" onclick="addTeamMember()" style="margin-top:10px;width:auto;padding:8px 14px">＋ Add member</button>
+            <div id="cpUsersMsg" style="font-size:12px;color:#C8403A;margin-top:8px"></div>
           </div>
-          <div id="cpUsersMsg" style="font-size:12px;color:#C8403A;margin-top:8px"></div>
+
+          <!-- One .card per BOQ table, built by renderTeamMembersList() —
+               appears automatically as soon as a table is created (Hani,
+               2026-10-28: "كروت الاعضاء تتولد مع تولد كل جدول جديد"), titled
+               with that table's own name, each member under it shown as
+               email + that table's Add/Delete/Move/Status permissions. -->
+          <div id="cpTableMemberCards"></div>
         </div>
 
         <div class="card" id="cpNoAccessCard" style="display:none">
@@ -3038,12 +3058,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) { console.warn('Could not revoke Drive permission (non-fatal): ', e); }
   }
 
-  /* ===================== Control Panel: team members table — grouped by
-     table/discipline, plus a Global section for Admin / Control Panel access
-     ===================== */
+  /* ===================== Control Panel: team members — split into the
+     Admin card (global rows: Admin / Control Panel access / On Hold) and
+     one card per table (Hani, 2026-10-28: "الادمن فوق بكرت لوحده .. تحت
+     الادمن في مربع للاعضاء وكل مربع مروس باسم الجدول") — the table cards
+     are built fresh into #cpTableMemberCards every call, so a table
+     created (or renamed/removed) a moment ago is reflected immediately,
+     with no separate "new card" step needed. ===================== */
   async function renderTeamMembersList() {
-    var list = document.getElementById('cpUsersList');
-    list.innerHTML = 'Loading...';
+    var adminList = document.getElementById('cpAdminList');
+    var tableCardsWrap = document.getElementById('cpTableMemberCards');
+    adminList.innerHTML = 'Loading...';
+    tableCardsWrap.innerHTML = '';
     try {
       const rows = await fetchUsersRows();
       var byEmail = {};
@@ -3072,13 +3098,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         }
       });
       var emails = Object.keys(byEmail);
-      list.innerHTML = '';
-      if (!emails.length) { list.innerHTML = '<div class="fw-list-item">No members yet.</div>'; return; }
+      adminList.innerHTML = '';
+      if (!emails.length) { adminList.innerHTML = '<div class="fw-list-item">No members yet.</div>'; return; }
 
-      var globalHead = document.createElement('div');
-      globalHead.style.fontWeight = '700'; globalHead.style.margin = '2px 0 6px'; globalHead.style.fontSize = '13px';
-      globalHead.textContent = 'Global (every member)';
-      list.appendChild(globalHead);
       emails.forEach(function(email) {
         var g = byEmail[email].globalRow;
         if (!g) return;
@@ -3112,14 +3134,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           actions.appendChild(removeBtn);
         }
         row.appendChild(actions);
-        list.appendChild(row);
+        adminList.appendChild(row);
       });
 
       BOQ_TABLES.forEach(function(t) {
-        var head = document.createElement('div');
-        head.style.fontWeight = '700'; head.style.margin = '16px 0 6px'; head.style.fontSize = '13px';
-        head.textContent = t.label;
-        list.appendChild(head);
+        var card = document.createElement('div');
+        card.className = 'card';
+        var h3 = document.createElement('h3');
+        h3.textContent = t.label;
+        card.appendChild(h3);
+        var list = document.createElement('div');
+        list.className = 'fw-list'; list.style.maxHeight = 'none';
+        card.appendChild(list);
         var any = false;
         emails.forEach(function(email) {
           var tp = byEmail[email].tables[t.sheetName];
@@ -3129,7 +3155,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           row.className = 'fw-list-item'; row.style.flexWrap = 'wrap';
           var emailSpan = document.createElement('span');
           emailSpan.textContent = email; emailSpan.style.flex = '1 0 100%';
-          emailSpan.style.fontSize = '12.5px'; emailSpan.style.color = 'var(--text-soft)';
+          emailSpan.style.fontWeight = '600'; emailSpan.style.fontSize = '12.5px';
           row.appendChild(emailSpan);
           var checksWrap = document.createElement('div');
           checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
@@ -3151,9 +3177,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           none.textContent = 'No members with access to this table yet.';
           list.appendChild(none);
         }
+        tableCardsWrap.appendChild(card);
       });
     } catch (e) {
-      list.innerHTML = '';
+      adminList.innerHTML = '';
       document.getElementById('cpUsersMsg').textContent = 'Failed to load team members: ' + (e.message || e);
     }
   }
