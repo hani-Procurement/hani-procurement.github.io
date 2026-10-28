@@ -295,21 +295,41 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .table-top-scroll{overflow-x:auto;overflow-y:hidden;height:16px;border-bottom:1px solid var(--border)}
   .table-top-scroll div{height:1px}
   .table-top-scroll-mask{position:absolute;top:0;left:0;width:550px;height:16px;background:var(--surface);border-bottom:1px solid var(--border);pointer-events:none;z-index:2}
-  /* min-width MUST equal the true sum of every column's declared width
+  /* This number MUST equal the true sum of every column's declared width
      (50px Actions + the 31 COLS widths below = 2990px as of this writing).
-     table-layout:fixed does not expand a table to fit columns wider than
-     its own specified width — when the declared total exceeds this number,
-     Chrome silently shrinks every column to fit, and because the header
-     table (#fullTableHeader) and body table (#fullTable) are two separate
-     <table> elements, each one shrinks by its own slightly different ratio
-     (the header's wrapper reserves a few extra pixels to line up with the
-     body's vertical scrollbar), so the same nominal column ends up a
-     different number of real pixels wide in the header vs. the body. That
-     was the actual cause of the recurring sticky-column gap/overlap
-     reports — not sub-pixel rounding, a real multi-pixel shrink mismatch.
      If a column width above is ever added/changed, this number must be
-     updated to match (Actions 50px + sum of every width in COLS). */
-  #fullTableHeader, #fullTable{min-width:2990px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
+     updated to match (Actions 50px + sum of every width in COLS).
+
+     It is set with `width`, not `min-width`, and that distinction is the
+     whole fix for the recurring header/body column-drift reports (Hani,
+     reported more than once — most recently 2026-10-28, "رجعنا لقصة
+     الفرق بين الهدر والاعمدة"). table-layout:fixed is only a genuinely
+     declarative, content-blind layout when the table's own `width` is a
+     definite length — per spec, with `width:auto` (which is what's left
+     once only `min-width` is set), the browser is allowed to fall back to
+     ordinary content-sensitive sizing to work out the table's real width,
+     even with table-layout:fixed still set. That fallback was confirmed
+     directly: with only min-width:2990px set, removing it to measure each
+     table's natural/unconstrained width showed every declared column
+     coming out byte-for-byte identical between the header table and the
+     body table (proving the <col> declarations themselves were never the
+     problem) — but with min-width restored, the same columns rendered at
+     different real pixel widths in the header vs. the body anyway, because
+     each table's cell CONTENT (a plain text header vs. a real select/
+     textarea/date input in the body) nudges that auto-layout fallback
+     differently per table, and the two tables sit side by side needing to
+     match pixel-for-pixel. This is the same underlying class of bug as the
+     date-input fix below and the textarea fix further down — each of
+     those patched one element type's contribution to it — except here,
+     switching to a true `width` removes the content-sensitive fallback
+     entirely, so no cell's own intrinsic size can ever again feed back
+     into how wide its column renders, for header or body, regardless of
+     what kind of control ends up in that column in the future. Confirmed
+     via direct per-column header-vs-body width/left measurement with
+     realistic row content (long description text, filled dates, the
+     widest status codes): max drift dropped from ~10.7px to ~0.05px
+     (sub-pixel rounding noise). */
+  #fullTableHeader, #fullTable{width:2990px;table-layout:fixed;font-size:12px;border-collapse:separate;border-spacing:0;border:0;font-family:var(--sans)}
   #fullTableHeader th{font-size:11px;line-height:1.2;background:var(--accent);color:white}
   #fullTableHeader th,#fullTable td{border:1px solid var(--border);padding:4px 5px;white-space:normal;word-break:break-word;text-align:center;overflow:hidden}
   #fullTable tbody tr:nth-child(even){background:#F7FAFA}
@@ -417,8 +437,27 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
      column itself becomes. */
   #fullTable input[type="date"]{width:1px;min-width:100%;max-width:100%}
   #fullTable td.desc-cell input, #fullTable td.remarks-cell textarea{text-align:left}
+  /* Same fix, same mechanism, different element: a <textarea> has an
+     intrinsic/min-content width too (here made explicit and worse by the
+     min-width:160px two rules down), and Chrome's table-layout:fixed column
+     negotiation in the BODY table consults it just like it did the date
+     input's calendar+segments size — even though a <col> already declares
+     this column's width. The header (plain text) has no such intrinsic
+     size, so it doesn't drift, and the body's Item description/Remarks
+     columns render wider than declared, pushing every later column off by
+     a shrinking-then-growing amount (reported again 2026-10-28, Hani:
+     "رجعنا لقصة الفرق بين الهدر والاعمدة" — confirmed via direct width/left
+     measurement: Item description rendered ~11px wider than its header,
+     Remarks did the same further down the row, each one's extra width
+     rippling through the columns between it and the next textarea column
+     before settling back to 0). Same width:1px/min-width:100%/max-width:100%
+     trick as the date fix: it makes the textarea report a negligible
+     preferred size for the table's own column-width math, then expands it
+     back to 100% of whatever width the column actually ends up with once
+     that math is done — same on-screen size, it just stops feeding back
+     into how wide the column becomes. */
   #fullTable td.desc-cell textarea.desc-textarea{
-    display:block;width:100%;box-sizing:border-box;resize:none;overflow:hidden;
+    display:block;width:1px;min-width:100%;max-width:100%;box-sizing:border-box;resize:none;overflow:hidden;
     white-space:pre-wrap;word-wrap:break-word;word-break:break-word;
     line-height:1.35;min-height:22px;vertical-align:top;text-align:left}
   #fullTable select, .modal-box select{text-align:left}
@@ -429,7 +468,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   #fullTable select.priority-h{background:var(--warn);color:#fff;font-weight:bold}
   #fullTable select.priority-m{background:var(--priority-med);color:#fff;font-weight:bold}
   #fullTable select.priority-l{background:var(--ok);color:#fff;font-weight:bold}
-  #fullTable textarea{resize:vertical;min-height:30px;min-width:160px}
+  #fullTable textarea{resize:vertical;min-height:30px;width:1px;min-width:100%;max-width:100%}
   #fullTable td.sn-cell{font-weight:bold;background:var(--accent-bg);font-family:var(--mono)}
   .saved-flash{background:var(--ok-bg) !important}
   /* Smart overdue highlighting (Planned Submission Date passed, not yet
