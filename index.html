@@ -519,6 +519,22 @@
   .sdx-bar-wrap{flex:1.2;min-width:0;height:148px;position:relative}
   .sdx-card .ms-table-wrap{max-height:190px;overflow:auto}
 
+  /* Big nested (concentric-ring) donuts — requested by Hani on 2026-10-27. */
+  .sdx-nested-wrap{display:flex;gap:16px;margin-bottom:18px}
+  @media (max-width:900px){.sdx-nested-wrap{flex-direction:column}}
+  .sdx-nested-card{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;display:flex;align-items:center;gap:18px;min-width:0;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+  .sdx-nested-card:hover{transform:translateY(-4px);box-shadow:0 10px 28px rgba(26,43,76,.14);border-color:var(--accent)}
+  .sdx-nested-chart{width:260px;height:260px;flex-shrink:0;position:relative}
+  .sdx-nested-legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+  .sdx-nested-legend .sdxnl-ring{font-size:9px;font-weight:700;color:var(--text-soft);text-transform:uppercase;
+    letter-spacing:.03em;margin-top:6px}
+  .sdx-nested-legend .sdxnl-ring:first-child{margin-top:0}
+  .sdx-nested-legend .sdxnl-row{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text)}
+  .sdx-nested-legend .sdxnl-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .sdx-nested-legend .sdxnl-row b{margin-left:auto;color:var(--heading);font-family:var(--sans)}
+
   .sd-kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
   .sd-kpi{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:14px;text-align:center;border-top:3px solid var(--accent)}
@@ -552,6 +568,19 @@
   <div class="card">
     <h1>Procurement Progress Report</h1>
     <p class="subtitle">Sign in with Google — your spreadsheet is found or created automatically</p>
+
+    <!-- Google's own personalized button: when this browser already has an
+         active Google session, it shows that account's name + photo
+         ("Continue as ...") automatically, skipping the account-chooser
+         step entirely. Falls back to nothing (stays empty) if there's no
+         active session to remember — the manual button below always works
+         either way, so there's no dead end. Requested by Hani on 2026-10-27
+         purely to ease sign-in, with no change to how Sheets access itself
+         works (still each user's own OAuth token, still no backend). -->
+    <div id="googleIdentityButton" style="display:flex;justify-content:center;margin-bottom:4px"></div>
+    <div id="googleIdentityDivider" style="display:none;align-items:center;gap:10px;margin:10px 0;color:var(--text-soft);font-size:11px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>or<div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
 
     <button id="signinBtn">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 .1 8.3 3.1l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.1-2.7-.5-4z"/></svg>
@@ -671,6 +700,23 @@
           </div>
         </div>
 
+        <!-- Big nested (concentric-ring) donuts — requested by Hani on
+             2026-10-27: one large donut centered on the page per track.
+             Outer ring = total materials/PQDs (one segment, the whole
+             circle). Ring 2 = LLI vs Non-LLI. Ring 3 = Submitted vs Not
+             Submitted. Ring 4 (innermost) = With Client / Approved / Not
+             Approved. Same 4-ring structure for both Material and PQD. -->
+        <div class="sdx-nested-wrap">
+          <div class="sdx-nested-card">
+            <div class="sdx-nested-chart"><canvas id="chartMsNested"></canvas></div>
+            <div class="sdx-nested-legend" id="sdxMsNestedLegend"></div>
+          </div>
+          <div class="sdx-nested-card">
+            <div class="sdx-nested-chart"><canvas id="chartPqdNested"></canvas></div>
+            <div class="sdx-nested-legend" id="sdxPqdNestedLegend"></div>
+          </div>
+        </div>
+
         <!-- The 3 sections, same division as Material Submittal Status /
              PQD Status's .ms-card-grid. Each card: KPI mini-tiles (cards) +
              a status donut + a breakdown bar chart, all three together as
@@ -682,7 +728,7 @@
             <div class="sdx-kpis" id="sdxMaterialKpis"></div>
             <div class="sdx-chart-row">
               <div class="sdx-donut-wrap"><canvas id="chartMsStatus"></canvas></div>
-              <div class="sdx-bar-wrap"><canvas id="chartMsDiscipline"></canvas></div>
+              <div class="sdx-bar-wrap" id="sdxMsDisciplineBarWrap"><canvas id="chartMsDiscipline"></canvas></div>
             </div>
           </div>
 
@@ -691,7 +737,7 @@
             <div class="sdx-kpis" id="sdxPqdKpis"></div>
             <div class="sdx-chart-row">
               <div class="sdx-donut-wrap"><canvas id="chartPqdStatus"></canvas></div>
-              <div class="sdx-bar-wrap"><canvas id="chartPqdDiscipline"></canvas></div>
+              <div class="sdx-bar-wrap" id="sdxPqdDisciplineBarWrap"><canvas id="chartPqdDiscipline"></canvas></div>
             </div>
           </div>
 
@@ -1189,12 +1235,27 @@
   // tab; it only falls back to asking for a click if the silent attempt
   // can't complete (session/cookies cleared, consent revoked, etc).
   var triedSilentSignin = false;
+  // Set right before a silent requestAccessToken() triggered by the user
+  // picking their remembered account from Google's own personalized button
+  // (see onGoogleIdentitySelected below) — distinct from triedSilentSignin
+  // (the page-load auto-attempt) because this one must NOT fail silently:
+  // the user just actively clicked something, so if the silent attempt
+  // can't complete (e.g. Sheets consent not granted yet) we fall back to
+  // the normal consent prompt instead of leaving them stuck looking at a
+  // button that appears to do nothing.
+  var identityClickPending = false;
   window.onload = function () {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
       callback: (resp) => {
         if (resp.error) {
+          if (identityClickPending) {
+            identityClickPending = false;
+            log('<span class="spinner"></span> Signing in...');
+            tokenClient.requestAccessToken();
+            return;
+          }
           if (triedSilentSignin) {
             // Silent auto-sign-in couldn't complete — not a real error from
             // the user's point of view, just fall back to the normal button.
@@ -1204,6 +1265,7 @@
           log('<span class="err">Sign-in error: ' + escapeHtml(resp.error) + '</span>');
           return;
         }
+        identityClickPending = false;
         accessToken = resp.access_token;
         if (document.getElementById('keepSignedInChk').checked) {
           localStorage.setItem('keepMeSignedIn', '1');
@@ -1220,7 +1282,31 @@
       log('<span class="spinner"></span> Signing in automatically...');
       tokenClient.requestAccessToken({ prompt: '' });
     }
+
+    // Google's personalized "Continue as ..." button (see signinScreen):
+    // only renders anything when this browser has a remembered Google
+    // session to show — otherwise the container just stays empty and the
+    // manual button above still works as it always has.
+    if (window.google && google.accounts && google.accounts.id) {
+      try {
+        google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGoogleIdentitySelected, auto_select: false });
+        google.accounts.id.renderButton(document.getElementById('googleIdentityButton'),
+          { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 280 });
+        document.getElementById('googleIdentityDivider').style.display = 'flex';
+      } catch (e) { /* no remembered session / button unavailable — manual button still works */ }
+    }
   };
+
+  // Fires when the user picks their remembered account from Google's own
+  // personalized button. The id token it hands back only confirms identity
+  // (which Google account) — the app still needs a real Sheets-API access
+  // token, which keeps coming from the exact same OAuth2 tokenClient used
+  // everywhere else, so nothing about how Sheets access works changes.
+  function onGoogleIdentitySelected(response) {
+    identityClickPending = true;
+    log('<span class="spinner"></span> Signing in...');
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
 
   // ===== Silent token refresh =====
   // GIS access tokens are short-lived (~1 hour). Without this, anyone who
@@ -5563,6 +5649,7 @@
     var buyerData = getBuyerWorkloadDataClient(rows);
     renderBuyerWorkloadTable(buyerData);
     renderBuyerSection(buyerData);
+    renderNestedDonuts(rows);
     // Comparison-over-time (Trends tab): snapshot today's numbers, then
     // redraw the trend charts from the accumulated history. Never blocks
     // or breaks the rest of the Dashboard if the sheet write fails.
@@ -5706,9 +5793,115 @@
         maintainAspectRatio: false, scales: { x: { ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 9 } } } } }
     });
   }
+  // The by-discipline bar only means something when comparing several
+  // tables at once ("Overall"); with one specific table selected in the
+  // shared Discipline dropdown it would just be one full bar and two empty
+  // ones, so it's hidden in that case (requested by Hani on 2026-10-27) and
+  // the status donut expands to fill the row on its own.
   function renderDisciplineBreakdown(rows) {
+    var showBar = currentGlobalSelection === 'overall';
+    var msWrap = document.getElementById('sdxMsDisciplineBarWrap');
+    var pqdWrap = document.getElementById('sdxPqdDisciplineBarWrap');
+    if (msWrap) msWrap.style.display = showBar ? '' : 'none';
+    if (pqdWrap) pqdWrap.style.display = showBar ? '' : 'none';
+    if (!showBar) return;
     renderDisciplineGrid('chartMsDiscipline', rows, MS_TRACK, ['#C7D4D9', '#1C8C8C', '#2F7A52']);
     renderDisciplineGrid('chartPqdDiscipline', rows, PQD_TRACK, ['#C7D4D9', '#8e44ec', '#2F7A52']);
+  }
+
+  // Big nested (concentric-ring) donuts — requested by Hani on 2026-10-27:
+  // one large multi-ring donut per track, drawn as 4 Chart.js datasets on a
+  // single doughnut chart (Chart.js renders each dataset in a multi-dataset
+  // doughnut as its own concentric ring, dataset[0] outermost). Rings, outer
+  // to inner: Total (one segment) → LLI vs Non-LLI → Submitted vs Not
+  // Submitted → With Client / Approved / Not Approved. Same structure for
+  // both Material (MS_TRACK) and PQD (PQD_TRACK).
+  function sdxCenterTextPlugin(big, small) {
+    return {
+      id: 'sdxCenterText',
+      afterDraw: function(chart) {
+        var ctx = chart.ctx, area = chart.chartArea;
+        var cx = (area.left + area.right) / 2, cy = (area.top + area.bottom) / 2;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = "700 24px Sora, sans-serif";
+        ctx.fillStyle = '#1A2B4C';
+        ctx.fillText(String(big), cx, cy - 9);
+        ctx.font = "600 9px 'Roboto Mono', monospace";
+        ctx.fillStyle = '#5C6E76';
+        ctx.fillText(small, cx, cy + 13);
+        ctx.restore();
+      }
+    };
+  }
+
+  function sdxNestedRingData(items, track, totalLabel) {
+    var all = computeTrackStats(items, track);
+    var nonLli = computeTrackStats(items.filter(function(r) { return r[COL.LLI - 1] === 'No'; }), track);
+    var lli = computeTrackStats(items.filter(function(r) { return r[COL.LLI - 1] === 'Yes'; }), track);
+    var total = all.totalMaterials;
+    var submitted = all.subMain, notSubmitted = Math.max(0, total - submitted);
+    var withClient = all.uaMain, approved = all.apprMain;
+    var notApproved = Math.max(0, total - withClient - approved);
+    return {
+      total: total,
+      totalLabel: totalLabel,
+      rings: [
+        { segLabels: [totalLabel], data: [total || 1], colors: ['#C7D4D9'] },
+        { segLabels: ['Non-LLI', 'LLI'], data: [nonLli.totalMaterials, lli.totalMaterials], colors: ['#1C8C8C', '#8e44ec'] },
+        { segLabels: ['Submitted', 'Not Submitted'], data: [submitted, notSubmitted], colors: ['#2F7A52', '#C8403A'] },
+        { segLabels: ['With Client', 'Approved', 'Not Approved'], data: [withClient, approved, notApproved], colors: ['#E8A33D', '#2F7A52', '#C8403A'] }
+      ]
+    };
+  }
+
+  function sdxRenderNestedLegend(containerId, ring) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var ringTitles = ['Total', 'LLI Split', 'Submission', 'Approval'];
+    el.innerHTML = ring.rings.map(function(r, i) {
+      var rows = r.segLabels.map(function(label, j) {
+        return '<div class="sdxnl-row"><span class="sdxnl-dot" style="background:' + r.colors[j] + '"></span>' +
+          '<span>' + label + '</span><b>' + r.data[j] + '</b></div>';
+      }).join('');
+      return '<div class="sdxnl-ring">' + ringTitles[i] + '</div>' + rows;
+    }).join('');
+  }
+
+  function sdxMakeNestedDonut(canvasId, ringData) {
+    sdMakeChart(canvasId, {
+      type: 'doughnut',
+      data: {
+        datasets: ringData.rings.map(function(r) {
+          return { data: r.data, backgroundColor: r.colors, segLabels: r.segLabels,
+            weight: 1, borderWidth: 2, borderColor: '#FFFFFF', hoverOffset: 6 };
+        })
+      },
+      options: {
+        cutout: '16%',
+        maintainAspectRatio: false,
+        animation: { animateRotate: true, animateScale: true },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(ctx) {
+            var labels = ctx.dataset.segLabels || [];
+            return (labels[ctx.dataIndex] || '') + ': ' + ctx.parsed;
+          } } }
+        }
+      },
+      plugins: [sdxCenterTextPlugin(ringData.total, ringData.totalLabel)]
+    });
+  }
+
+  function renderNestedDonuts(rows) {
+    var items = nonPackageItems(rows);
+    var msData = sdxNestedRingData(items, MS_TRACK, 'Materials');
+    var pqdData = sdxNestedRingData(items, PQD_TRACK, 'PQDs');
+    sdxMakeNestedDonut('chartMsNested', msData);
+    sdxMakeNestedDonut('chartPqdNested', pqdData);
+    sdxRenderNestedLegend('sdxMsNestedLegend', msData);
+    sdxRenderNestedLegend('sdxPqdNestedLegend', pqdData);
   }
 
   // Item/Buyer section (3rd sdx-card, mirroring the real "Item / Buyer"
