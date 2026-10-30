@@ -619,6 +619,28 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .actions-wrap button:hover{background:var(--accent-bg)}
   .actions-wrap button:disabled{opacity:.3;cursor:default}
   .actions-wrap .bulk-select-chk{width:17px;height:17px;margin:0;accent-color:var(--accent);cursor:pointer}
+  /* Phase 2: live updates + change history */
+  .live-update-bar{position:sticky;top:0;z-index:45;display:flex;align-items:center;justify-content:center;gap:12px;
+    padding:8px 14px;background:#E3F1F1;border-bottom:1px solid var(--accent);font-size:13px;font-weight:600;color:var(--text)}
+  .live-update-bar.hidden{display:none}
+  .live-update-bar button{width:auto;padding:5px 12px;font-size:12.5px}
+  @keyframes remoteFlash{0%{background:#FFF3C4}100%{background:transparent}}
+  #fullTableBody tr.remote-updated > td{animation:remoteFlash 2.5s ease-out}
+  .audit-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .audit-filters input{flex:1 1 220px;width:auto;min-width:0}
+  .audit-filters select,.audit-filters button{width:auto;padding:6px 10px}
+  .audit-table-wrap{max-height:460px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
+  .audit-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .audit-table th{position:sticky;top:0;background:var(--surface);text-align:left;padding:7px 8px;border-bottom:2px solid var(--accent);font-size:12px;z-index:1}
+  .audit-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;word-break:break-word}
+  .audit-table tr:nth-child(even) td{background:rgba(28,140,140,0.04)}
+  .audit-table td:nth-child(1),.audit-table td:nth-child(2),.audit-table td:nth-child(4){white-space:nowrap;word-break:normal}
+  .audit-table td:nth-child(3){min-width:150px}
+  .audit-table td:nth-child(5){min-width:170px}
+  .audit-who{font-size:11.5px;color:var(--text-soft);margin-top:2px}
+  .audit-old{color:#9a3a33;text-decoration:line-through;text-decoration-color:rgba(154,58,51,.45)}
+  .audit-new{color:#1f6b45;font-weight:600}
+  .audit-sn{color:var(--text-soft);font-weight:600}
 
   /* On a touch device (tablet in the field, not a mouse+desktop) these
      17x17px icons are too small to hit reliably with a finger, so they grow
@@ -689,6 +711,35 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .pdf-report h1{font-size:20px;margin:0 0 4px}
   .pdf-report h2{font-size:14px;margin:22px 0 8px;color:var(--accent-dark)}
   .pdf-report .pdf-meta{display:flex;gap:18px;font-size:12px;color:#555;margin-bottom:6px}
+  /* Phase 4: PDF summary pages */
+  .pdf-summary{width:1500px}
+  .pdf-note{font-size:12px;color:#555;margin:-2px 0 8px}
+  .pdf-kpi-row{display:flex;gap:16px;align-items:stretch}
+  .pdf-kpi-group{border:1px solid #d6e2e4;border-radius:8px;padding:10px 12px;background:#f7fafa}
+  .pdf-kpi-title{font-size:12px;font-weight:700;color:#146666;margin-bottom:8px}
+  .pdf-kpi-grid{display:flex;gap:8px}
+  .pdf-kpi{background:#fff;border:1px solid #e3eaec;border-radius:6px;padding:8px 10px;min-width:104px}
+  .pdf-kpi-num{font-size:22px;font-weight:700;color:#10282b}
+  .pdf-kpi-label{font-size:10.5px;color:#5c6b6e;margin-top:2px}
+  .pdf-kpi-delta{font-size:11px;font-weight:700;margin-top:4px}
+  .pdf-charts{display:flex;flex-wrap:wrap;gap:14px}
+  .pdf-chart{border:1px solid #e3eaec;border-radius:8px;padding:8px 10px;background:#fff}
+  .pdf-chart-title{font-size:12px;font-weight:700;color:#10282b;margin-bottom:4px}
+  .pdf-simple{border-collapse:collapse;font-size:12px;min-width:700px}
+  .pdf-simple th{background:#1C8C8C;color:#fff;text-align:left;padding:5px 8px;font-weight:600}
+  .pdf-simple td{border-bottom:1px solid #e3eaec;padding:4px 8px}
+  .pdf-simple tr:nth-child(even) td{background:#f7fafa}
+  .pdf-simple .num,.cmp-table .num{text-align:right;font-variant-numeric:tabular-nums}
+  .pdf-detail-title{margin-top:28px !important;padding-top:10px;border-top:2px solid #1C8C8C}
+  /* Shared by the dashboard and the PDF: comparison table + change colours */
+  .cmp-tables{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+  .cmp-table{border-collapse:collapse;font-size:12.5px;min-width:360px;background:var(--surface,#fff)}
+  .cmp-table caption{text-align:left;font-weight:700;font-size:12.5px;padding:0 0 6px;color:var(--heading,#10282b)}
+  .cmp-table th{font-size:11.5px;color:var(--text-soft,#5c6b6e);font-weight:600;padding:4px 8px;border-bottom:2px solid var(--accent,#1C8C8C)}
+  .cmp-table td{padding:4px 8px;border-bottom:1px solid var(--border,#e3eaec)}
+  .cmp-good{color:#2F7A52}
+  .cmp-bad{color:#C8403A}
+  .cmp-same,.cmp-neutral{color:#6b7a7d}
   /* #pdfReportContainer itself (not this rule) used to force width:1100px,
      and this rule then forced every table to exactly fill that box
      (width:100%). table.ms-table has no table-layout:fixed, so with many
@@ -768,6 +819,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     border-radius:6px;padding:5px 10px;cursor:pointer}
   .sd-date-filter-clear:hover{background:var(--accent-bg)}
   .sd-date-filter-note{font-size:11.5px;color:var(--text-soft);margin-left:auto}
+  .sd-compare{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-soft);padding-left:10px;border-left:1px solid var(--border)}
+  .sd-compare select{width:auto;font-size:12px;padding:4px 6px}
+  .sd-compare-note{font-size:11.5px;font-weight:500}
+  .sd-delta{font-size:10.5px;font-weight:700;line-height:1.2;min-height:0}
+  .sd-delta:empty{display:none}
+  .sd-rate-box .sd-delta{margin:-2px 0 4px}
   .sd-stripe{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
   .sd-stripe-group{display:flex;gap:8px;flex:1;flex-wrap:wrap}
   .sd-stripe-div{width:1px;background:var(--border)}
@@ -1066,6 +1123,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           <label>To <input type="date" id="sdFilterTo" onchange="sdApplyDateFilter()"></label>
           <button type="button" id="sdDateFilterClearBtn" onclick="sdClearDateFilter()" class="sd-date-filter-clear hidden">✕ Clear</button>
           <span id="sdDateFilterNote" class="sd-date-filter-note"></span>
+          <!-- Phase 4: period comparison (▲/▼ badges under the KPIs below,
+               full table at the top of the Trends tab). -->
+          <span class="sd-compare">
+            <label for="sdCompareSel">⚖️ Compare with</label>
+            <select id="sdCompareSel" onchange="sdOnCompareChange(this.value)"></select>
+            <span id="sdCompareNote" class="sd-compare-note"></span>
+          </span>
         </div>
 
         <!-- Command-strip KPI row: Material + PQD side by side (quick glance
@@ -1171,7 +1235,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
              full Material Submittal Status / PQD Status field set, across
              several chart types (line, stacked bar, grouped bar). -->
         <div class="sd-panel" id="sdPanelTrends">
-          <div class="sd-section-title" style="margin-top:0">📈 Comparison Over Time</div>
+          <div id="sdCompareTable"></div>
+          <div class="sd-section-title">📈 Comparison Over Time</div>
           <div id="sdTrendsEmpty" style="display:none;color:var(--text-soft);font-size:12px;padding:10px 0">
             Not enough history yet — every time you open this Dashboard a snapshot of today's numbers is saved.
             Come back on a different day and the trend lines below will start to take shape.
@@ -1247,6 +1312,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   <!-- ===================== FULL TABLE ===================== -->
   <div class="view" id="view-fulltable">
+    <!-- Phase 2 live updates: shown only when a teammate changed this table
+         while you were in the middle of editing (otherwise it updates by itself). -->
+    <div id="liveUpdateBar" class="live-update-bar hidden" role="status">
+      <span>🔄 A teammate just changed this table.</span>
+      <button type="button" class="primary" onclick="applyPendingLiveUpdate()">Show latest</button>
+    </div>
     <div id="loadingMsg">Loading BOQ Database…</div>
 
     <div class="table-outer hidden" id="tableOuter">
@@ -1454,6 +1525,31 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       </div>
     </div>
 
+    <!-- Phase 2 (2026-10-29): change history — see the AUDIT LOG section in the script. -->
+    <div class="cp-section">
+      <h4 class="cp-section-title">Activity</h4>
+      <div class="card" id="cpAuditCard">
+        <h3>Change History</h3>
+        <p style="font-size:12.5px;color:var(--text-soft);margin:0 0 10px">
+          Every change made in this app — who, when, which item, and the old and new value. Newest first.
+          Changes made directly in the Google Sheet are not listed here (use the Sheet's own Version History for those).
+        </p>
+        <div class="audit-filters">
+          <input type="search" id="cpAuditSearch" placeholder="Search item, field, value…" oninput="renderAuditLog()">
+          <select id="cpAuditUser" onchange="renderAuditLog()"><option value="">All users</option></select>
+          <select id="cpAuditTable" onchange="renderAuditLog()"><option value="">All tables</option></select>
+          <button type="button" onclick="loadAuditLogUI()">⟳ Reload</button>
+        </div>
+        <div id="cpAuditStatus" style="font-size:12px;color:var(--text-soft);margin:8px 0"></div>
+        <div class="audit-table-wrap">
+          <table class="audit-table">
+            <thead><tr><th>When / Who</th><th>Table</th><th>Item</th><th>Action</th><th>Change</th></tr></thead>
+            <tbody id="cpAuditBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1555,6 +1651,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   const USERS_SHEET_NAME = "Users";
   const BACKUP_CONFIG_SHEET_NAME = "BackupConfig";
   const REPORT_SCHEDULE_SHEET_NAME = "ReportSchedule";
+  const AUDIT_LOG_SHEET_NAME = "AuditLog";
   const DASHBOARD_HISTORY_SHEET_NAME = "Dashboard History";
   const FILEWITH_LISTS_SHEET_NAME = "FileWithLists";
   // Every project spreadsheet (see createNewSheet()) is filed into this one
@@ -2045,6 +2142,25 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}/values/${encodeURIComponent(range)}`
     );
     return data.values || [];
+  }
+
+  // Phase 2: reads several ranges in ONE request (used by the live-update
+  // check, so watching every table costs one API call, not one per table).
+  async function sheetsBatchGetValues(spreadsheetIdArg, ranges) {
+    if (!ranges.length) return [];
+    const qs = ranges.map(function(r) { return 'ranges=' + encodeURIComponent(r); }).join('&');
+    const data = await apiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}/values:batchGet?${qs}`);
+    return (data.valueRanges || []).map(function(vr) { return vr.values || []; });
+  }
+
+  // Phase 2: appends rows after the last filled row of a sheet (used by the
+  // change history). POST, so apiFetch never auto-retries it — a retry
+  // could double-log an entry.
+  async function sheetsAppendValues(spreadsheetIdArg, range, values) {
+    return apiFetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetIdArg}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: 'POST', body: JSON.stringify({ values: values }) }
+    );
   }
 
   async function sheetsUpdateValuesNetwork(spreadsheetIdArg, range, values, valueInputOption) {
@@ -2745,6 +2861,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     await ensureAllUsersHaveTableRows();
     await ensureBackupConfigSheet(meta);
     await ensureReportScheduleSheet(meta);
+    await ensureAuditLogSheet(meta);
   }
 
   // Self-healing counterpart to addMissingTablePermRowsForAllUsers(): fixes
@@ -3486,7 +3603,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     var msg = document.getElementById('cpTablesMsg');
     if (!newLabel) { cpTableRenameTarget = null; renderTablesList(); return; }
     try {
+      var oldTblLabel = BOQ_TABLES[idx] ? BOQ_TABLES[idx].label : '';
       await renameBoqTable(idx, newLabel);
+      logAudit({ action: 'Renamed table', table: newLabel, field: 'Table name', oldVal: oldTblLabel, newVal: newLabel });
       cpTableRenameTarget = null;
       renderTablesList();
       renderTableSelect();
@@ -3506,6 +3625,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     msg.style.color = '#C8403A'; msg.textContent = '';
     try {
       await addBoqTable(label);
+      logAudit({ action: 'Added table', table: label });
       input.value = '';
 
       // Switch the shared Discipline selector to the table just created
@@ -3543,6 +3663,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (!confirm('Delete table "' + t.label + '" permanently? This will delete every item in it and cannot be undone.')) return;
     var msg = document.getElementById('cpTablesMsg');
     removeBoqTable(idx).then(function() {
+      logAudit({ action: 'Deleted table', table: t.label });
       renderTablesList();
       renderTableSelect();
       renderGlobalTableSelect();
@@ -3584,6 +3705,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     checkAndRunScheduledBackup();
     checkAndRunScheduledReport();
     startPresenceHeartbeat();
+    startLiveUpdates();
+    scheduleAuditFlush(3000); // send anything queued offline in an earlier session
   }
 
   /* ===================== Permission gating (soft, UI-level) =====================
@@ -3742,7 +3865,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           // Can't strip your own Admin flag, or put yourself on hold — avoids
           // a mistake locking everyone, including yourself, out.
           if ((pair[0] === 'isAdmin' || pair[0] === 'onHold') && email === currentUserEmail) cb.disabled = true;
-          cb.onchange = function() { updateGlobalMemberPerms(g.rowNum, pair[0], cb.checked); };
+          cb.onchange = function() { updateGlobalMemberPerms(g.rowNum, pair[0], cb.checked, email, pair[1]); };
           label.appendChild(cb);
           label.appendChild(document.createTextNode(' ' + pair[1]));
           checksWrap.appendChild(label);
@@ -3786,7 +3909,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           [['canAdd', 'Add'], ['canDelete', 'Delete'], ['canMove', 'Move'], ['canChangeStatus', 'Status']].forEach(function(pair) {
             var label = document.createElement('label');
             var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!tp[pair[0]];
-            cb.onchange = function() { updateTableMemberPerms(tp.rowNum, pair[0], cb.checked); };
+            cb.onchange = function() { updateTableMemberPerms(tp.rowNum, pair[0], cb.checked, email, t.label, pair[1]); };
             label.appendChild(cb);
             label.appendChild(document.createTextNode(' ' + pair[1]));
             checksWrap.appendChild(label);
@@ -3822,7 +3945,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return true;
   }
 
-  async function updateGlobalMemberPerms(rowNum, field, checked) {
+  async function updateGlobalMemberPerms(rowNum, field, checked, email, fieldLabel) {
     if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#C8403A'; msg.textContent = '';
@@ -3830,6 +3953,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       var colMap = { isAdmin: 7, canAccessControlPanel: 8, onHold: 10 };
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
+      logAudit({ action: 'Changed permission', table: '(all tables)', item: email || '', field: fieldLabel || field, oldVal: checked ? 'Off' : 'On', newVal: checked ? 'On' : 'Off' });
       if (checked && field === 'onHold') {
         msg.style.color = '#2F7A52';
         msg.textContent = 'On hold — they will be blocked from signing in until this is unchecked.';
@@ -3837,7 +3961,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
-  async function updateTableMemberPerms(rowNum, field, checked) {
+  async function updateTableMemberPerms(rowNum, field, checked, email, tableLabel, fieldLabel) {
     if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
     msg.style.color = '#C8403A'; msg.textContent = '';
@@ -3845,6 +3969,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     try {
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
+      logAudit({ action: 'Changed permission', table: tableLabel || '', item: email || '', field: fieldLabel || field, oldVal: checked ? 'Off' : 'On', newVal: checked ? 'On' : 'Off' });
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
@@ -3878,6 +4003,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         console.warn('Drive sharing failed (continuing — share manually from the Google Sheet if needed): ', e);
       }
       await addUserRow(email, globalPerms, tablePerms, permissionId);
+      logAudit({ action: 'Added team member', table: '(all tables)', item: email });
       document.getElementById('cpNewUserEmail').value = '';
       ['cpNewCanAdd', 'cpNewCanDelete', 'cpNewCanMove', 'cpNewCanStatus', 'cpNewIsAdmin', 'cpNewCanAccessCP'].forEach(function(id) { document.getElementById(id).checked = false; });
       msg.style.color = '#2F7A52';
@@ -3904,6 +4030,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 1, rowNums[i], USERS_LAST_COL, rowNums[i]), [new Array(USERS_LAST_COL).fill('')], 'RAW');
       }
       await driveUnshareFile(spreadsheetId, permissionId);
+      logAudit({ action: 'Removed team member', table: '(all tables)', item: email });
       msg.style.color = '#2F7A52';
       msg.textContent = 'Removed.';
       showToast('success', email + ' removed from the team.');
@@ -4109,12 +4236,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // reads it), same best-effort spirit as the rest of this feature — it runs
   // right at app load before the Admin has had a chance to interact with
   // anything, same as checkAndRunScheduledBackup().
-  async function buildStatusReportPdfBlob(selection) {
+  async function buildStatusReportPdfBlob(selection, compareChoice) {
     await loadLib('html2pdf');
     var prevSelection = currentGlobalSelection;
     try {
       currentGlobalSelection = (selection === 'overall' || parseInt(selection, 10) < BOQ_TABLES.length) ? selection : 'overall';
       await loadSubmittalStatus();
+      var summary = await buildReportSummary(msStatusCurrentRows || [], currentGlobalSelection, compareChoice || 'week');
 
       var projectName = document.getElementById('pbProjectName').value.trim() || 'Procurement Progress Report';
       var projectNumber = document.getElementById('pbProjectNumber').value.trim();
@@ -4132,12 +4260,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             '<span>Discipline: ' + escapeHtml(discipline) + '</span>' +
             '<span>Date: ' + escapeHtml(dateStr) + '</span>' +
           '</div>' +
+          summary.html +
           '<h2>Status of PQD</h2>' + document.getElementById('pqdStatusTable').outerHTML +
           '<h2>Status of Material Submittal</h2>' + document.getElementById('msStatusTable').outerHTML +
           '<h2>Item / Buyer</h2>' + document.getElementById('buyerStatusTable').outerHTML +
         '</div>';
 
       container.style.display = 'block';
+      // html2canvas offsets the capture by the page's scroll position, which
+      // pushed the report down and cut its end off whenever the page was
+      // scrolled (Phase 4 fix) — capture from the top, then scroll back.
+      var pdfPrevScroll = [window.scrollX, window.scrollY];
+      window.scrollTo(0, 0);
       await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
 
       var PX_TO_MM = 25.4 / 96;
@@ -4151,14 +4285,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       var blob = await html2pdf().set({
         margin: marginMm,
         filename: 'Procurement_Status_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, scrollX: 0, scrollY: 0 },
         jsPDF: { unit: 'mm', format: [pageWidthMm, pageHeightMm], orientation: 'landscape' }
       }).from(container).output('blob');
 
-      return { blob: blob, dateStr: dateStr, discipline: discipline };
+      return { blob: blob, dateStr: dateStr, discipline: discipline, summaryText: summary.text };
     } finally {
       var c = document.getElementById('pdfReportContainer');
       if (c) { c.style.display = 'none'; c.innerHTML = ''; }
+      if (typeof pdfPrevScroll !== 'undefined' && pdfPrevScroll) window.scrollTo(pdfPrevScroll[0], pdfPrevScroll[1]);
       // Restore whatever the Admin actually had selected and put the
       // visible dropdown back in sync with it — loadSubmittalStatus()
       // above re-renders #globalTableSelect to match the report's own
@@ -4172,8 +4307,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   // Builds a MIME multipart/mixed message (plain-text body + the PDF as a
   // base64 attachment) and sends it through Gmail API as the signed-in
   // user — same pattern as sendBackupEmail() above.
-  async function sendScheduledReportEmail(toEmail, selection) {
-    var built = await buildStatusReportPdfBlob(selection);
+  // Daily reports compare with yesterday, weekly with a week ago, monthly
+  // with a month ago — the natural "since the last report" baseline.
+  function compareChoiceForFrequency(freq) { return ({ daily: 'yesterday', weekly: 'week', monthly: 'month' })[freq] || 'week'; }
+
+  async function sendScheduledReportEmail(toEmail, selection, compareChoice) {
+    var built = await buildStatusReportPdfBlob(selection, compareChoice);
     const base64Data = await new Promise(function(resolve, reject) {
       const reader = new FileReader();
       reader.onload = function() { resolve(String(reader.result).split(',')[1]); };
@@ -4189,7 +4328,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       'Content-Type: multipart/mixed; boundary="' + boundary + '"\r\n\r\n' +
       '--' + boundary + '\r\n' +
       'Content-Type: text/plain; charset="UTF-8"\r\n\r\n' +
-      'Attached is the Procurement Status Report (' + built.dateStr + ') for ' + built.discipline + ': Status of PQD, Status of Material Submittal, and Item/Buyer.\r\n\r\n' +
+      'Attached is the Procurement Status Report (' + built.dateStr + ') for ' + built.discipline + ': key figures, charts, period comparison, overdue items, buyer workload, and the detailed Status of PQD / Material Submittal / Item-Buyer tables.\r\n\r\n' +
+      'Summary:\r\n' + (built.summaryText || '') + '\r\n\r\n' +
       '--' + boundary + '\r\n' +
       'Content-Type: application/pdf; name="' + filename + '"\r\n' +
       'Content-Disposition: attachment; filename="' + filename + '"\r\n' +
@@ -4214,7 +4354,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       const last = cfg.lastReportAt ? new Date(cfg.lastReportAt) : null;
       const elapsedDays = last ? (Date.now() - last.getTime()) / 86400000 : Infinity;
       if (elapsedDays >= dueDays) {
-        await sendScheduledReportEmail(cfg.email, cfg.selection);
+        await sendScheduledReportEmail(cfg.email, cfg.selection, compareChoiceForFrequency(cfg.frequency));
         console.log('Scheduled status report sent to ' + cfg.email);
       }
     } catch (e) { console.warn('Scheduled report check failed (non-fatal): ', e); }
@@ -4259,7 +4399,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     btn.disabled = true; btn.textContent = '⏳ Sending…';
     try {
       await saveReportScheduleConfig(email, document.getElementById('cpReportFrequency').value, selection);
-      await sendScheduledReportEmail(email, selection);
+      await sendScheduledReportEmail(email, selection, compareChoiceForFrequency(document.getElementById('cpReportFrequency').value));
       msg.style.color = '#2F7A52';
       msg.textContent = 'Report sent to ' + email + '.';
       showToast('success', 'Status report sent to ' + email + '.');
@@ -4268,6 +4408,367 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       msg.textContent = 'Send failed: ' + (e.message || e) + ' — if this is the first report, you may need to sign out and sign in again to grant the Gmail-send permission.';
     } finally {
       btn.disabled = false; btn.textContent = '📤 Send Report Now';
+    }
+  }
+
+  /* ===================== CHANGE HISTORY / AUDIT LOG (Phase 2, 2026-10-29) =====================
+     Every change made through this app is appended to a hidden "AuditLog"
+     sheet: when, who, which table, which item (S/N + description), what
+     kind of change, which field, old value, new value. Entries are queued
+     in this browser first (localStorage, per spreadsheet) and sent in small
+     batches a moment later, so (a) a burst of edits costs one API call, not
+     one per edit, and (b) changes made offline are still logged once the
+     connection is back. Logging is best-effort and never blocks or fails
+     the change itself. Like the permissions, this only covers changes made
+     through this app — someone editing the Google Sheet directly is not
+     recorded here (Google Sheets' own Version History covers that). */
+  const AUDIT_HEADER_ROW = ['Timestamp', 'User', 'Table', 'S/N', 'Item', 'Action', 'Field', 'Old Value', 'New Value'];
+  const AUDIT_MAX_CELL = 1000; // keep single log cells readable (long remarks get trimmed)
+
+  async function ensureAuditLogSheet(meta) {
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === AUDIT_LOG_SHEET_NAME; });
+    if (!sheet) {
+      // Created with exactly one row (the header): appends then grow the
+      // sheet one row per entry, so its row count always equals the last
+      // entry's row — which is how loadAuditLogUI() finds the newest ones
+      // without downloading the whole log.
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: AUDIT_LOG_SHEET_NAME, hidden: true,
+        gridProperties: { rowCount: 1, columnCount: AUDIT_HEADER_ROW.length } } } }]);
+      await sheetsUpdateValues(spreadsheetId, a1Range(AUDIT_LOG_SHEET_NAME, 1, 1, AUDIT_HEADER_ROW.length, 1), [AUDIT_HEADER_ROW], 'RAW');
+    }
+  }
+
+  function auditQueueKey() { return 'procAuditQueue_v1_' + spreadsheetId; }
+  function loadAuditQueue() { try { return JSON.parse(localStorage.getItem(auditQueueKey()) || '[]'); } catch (e) { return []; } }
+  function saveAuditQueue(q) { try { localStorage.setItem(auditQueueKey(), JSON.stringify(q)); } catch (e) {} }
+  // In-memory mirror for the (rare) case localStorage is unavailable.
+  var auditMemQueue = null;
+
+  function auditCell(v) {
+    var s = v == null ? '' : String(v);
+    return s.length > AUDIT_MAX_CELL ? s.slice(0, AUDIT_MAX_CELL - 1) + '…' : s;
+  }
+  function currentTableLabel() {
+    return (BOQ_TABLES[currentTableIndex] && BOQ_TABLES[currentTableIndex].label) || SHEET_NAME;
+  }
+  function colLabel(col) {
+    var d = COLS.find(function(c) { return c.col === col; });
+    return d ? d.label : ('Column ' + col);
+  }
+  function rowAuditInfo(values) {
+    values = values || [];
+    return { sn: values[COL.SN - 1] || '', item: values[COL.DESC - 1] || '' };
+  }
+
+  // entry: { action, table?, sn?, item?, field?, oldVal?, newVal? }
+  function logAudit(entry) {
+    try {
+      if (!spreadsheetId) return;
+      var row = [
+        new Date().toISOString(),
+        currentUserEmail || '',
+        auditCell(entry.table != null ? entry.table : currentTableLabel()),
+        auditCell(entry.sn), auditCell(entry.item), auditCell(entry.action),
+        auditCell(entry.field), auditCell(entry.oldVal), auditCell(entry.newVal)
+      ];
+      var q = loadAuditQueue();
+      q.push(row);
+      saveAuditQueue(q);
+      if (!localStorageWorks()) { auditMemQueue = auditMemQueue || []; auditMemQueue.push(row); }
+      scheduleAuditFlush();
+    } catch (e) { console.warn('Could not queue a change-history entry (non-fatal): ', e); }
+  }
+  function localStorageWorks() {
+    try { var k = '__ls_probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch (e) { return false; }
+  }
+
+  var auditFlushTimer = null, auditFlushing = false;
+  function scheduleAuditFlush(delayMs) {
+    if (auditFlushTimer) clearTimeout(auditFlushTimer);
+    auditFlushTimer = setTimeout(flushAuditQueue, delayMs == null ? 1500 : delayMs);
+  }
+  async function flushAuditQueue() {
+    auditFlushTimer = null;
+    if (auditFlushing || !navigator.onLine || !spreadsheetId || !accessToken) return;
+    var usingMem = !localStorageWorks();
+    var q = usingMem ? (auditMemQueue || []) : loadAuditQueue();
+    if (!q.length) return;
+    auditFlushing = true;
+    var batch = q.slice(0, 200);
+    try {
+      await sheetsAppendValues(spreadsheetId, a1Range(AUDIT_LOG_SHEET_NAME, 1, 1, AUDIT_HEADER_ROW.length, 1), batch);
+      if (usingMem) auditMemQueue = (auditMemQueue || []).slice(batch.length);
+      else {
+        // Re-read: new entries may have been queued while this request was
+        // in flight — drop only the ones actually sent.
+        var now = loadAuditQueue();
+        saveAuditQueue(now.slice(batch.length));
+      }
+      if ((usingMem ? (auditMemQueue || []) : loadAuditQueue()).length) scheduleAuditFlush(300);
+    } catch (e) {
+      console.warn('Could not send change history yet — will retry: ', e);
+      scheduleAuditFlush(30000);
+    } finally { auditFlushing = false; }
+  }
+  window.addEventListener('online', function () { scheduleAuditFlush(500); });
+
+  /* ---- Change History card (Control Panel) ---- */
+  var auditCache = [];
+  async function loadAuditLogUI() {
+    var status = document.getElementById('cpAuditStatus');
+    if (status) { status.style.color = 'var(--text-soft)'; status.textContent = 'Loading…'; }
+    try {
+      await flushAuditQueue(); // include this browser's own most recent changes
+      var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets(properties(title,gridProperties(rowCount)))');
+      var sh = (meta.sheets || []).find(function(s) { return s.properties.title === AUDIT_LOG_SHEET_NAME; });
+      var knownRows = sh && sh.properties.gridProperties && sh.properties.gridProperties.rowCount;
+      var rowCount = knownRows || 20000;
+      var start = knownRows ? Math.max(2, rowCount - 1999) : 2; // newest 2,000 entries
+      var raw = await sheetsGetValues(spreadsheetId, a1Range(AUDIT_LOG_SHEET_NAME, 1, start, AUDIT_HEADER_ROW.length, rowCount));
+      auditCache = raw.filter(function(r) { return r && r[0]; }).reverse();
+      // Fill the User / Table filters from what is actually in the log.
+      fillAuditFilter('cpAuditUser', auditCache.map(function(r) { return r[1] || ''; }), 'All users');
+      fillAuditFilter('cpAuditTable', auditCache.map(function(r) { return r[2] || ''; }), 'All tables');
+      renderAuditLog();
+    } catch (e) {
+      if (status) { status.style.color = '#C8403A'; status.textContent = 'Could not load the change history: ' + (e.message || e); }
+    }
+  }
+  function fillAuditFilter(id, values, allLabel) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var keep = sel.value;
+    var uniq = Array.from(new Set(values.filter(Boolean))).sort();
+    sel.innerHTML = '';
+    var o = document.createElement('option'); o.value = ''; o.textContent = allLabel; sel.appendChild(o);
+    uniq.forEach(function(v) { var x = document.createElement('option'); x.value = v; x.textContent = v; sel.appendChild(x); });
+    if (uniq.indexOf(keep) !== -1) sel.value = keep;
+  }
+  function renderAuditLog() {
+    var body = document.getElementById('cpAuditBody');
+    var status = document.getElementById('cpAuditStatus');
+    if (!body) return;
+    var q = (document.getElementById('cpAuditSearch').value || '').trim().toLowerCase();
+    var u = document.getElementById('cpAuditUser').value;
+    var t = document.getElementById('cpAuditTable').value;
+    var rows = auditCache.filter(function(r) {
+      if (u && r[1] !== u) return false;
+      if (t && r[2] !== t) return false;
+      if (q && r.join(' ').toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    var shown = rows.slice(0, 300);
+    body.innerHTML = shown.map(function(r) {
+      var when = r[0] ? new Date(r[0]) : null;
+      var whenTxt = when && !isNaN(when) ? when.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : escapeHtml(r[0] || '');
+      var change = r[6]
+        ? '<b>' + escapeHtml(r[6]) + '</b>: <span class="audit-old">' + escapeHtml(r[7] || '(blank)') + '</span> → <span class="audit-new">' + escapeHtml(r[8] || '(blank)') + '</span>'
+        : escapeHtml([r[7], r[8]].filter(Boolean).join(' → '));
+      return '<tr>' +
+        '<td>' + whenTxt + '<div class="audit-who">' + escapeHtml(r[1] || '') + '</div></td>' +
+        '<td>' + escapeHtml(r[2] || '') + '</td>' +
+        '<td dir="auto">' + (r[3] ? '<span class="audit-sn">#' + escapeHtml(r[3]) + '</span> ' : '') + escapeHtml(r[4] || '') + '</td>' +
+        '<td>' + escapeHtml(r[5] || '') + '</td>' +
+        '<td dir="auto">' + change + '</td>' +
+      '</tr>';
+    }).join('') || '<tr><td colspan="5" style="color:var(--text-soft);text-align:center;padding:14px">No changes match.</td></tr>';
+    if (status) {
+      status.style.color = 'var(--text-soft)';
+      status.textContent = auditCache.length
+        ? ('Showing ' + shown.length + ' of ' + rows.length + ' matching change' + (rows.length === 1 ? '' : 's') + (rows.length > shown.length ? ' (narrow the search to see older ones)' : '') + '.')
+        : 'No changes recorded yet — every change made from now on will appear here.';
+    }
+  }
+
+  /* ===================== ROW IDENTITY CHECK (Phase 2) =====================
+     Every write to an item addresses it by its ROW NUMBER in the sheet. If a
+     teammate adds, deletes or moves an item above it after this table was
+     loaded, that row number now points at a DIFFERENT item — and a delete,
+     move or edit would silently land on the wrong one. Before any such
+     write, the row is re-read and its Description/Unit/Qty compared with
+     what this screen showed; on a mismatch nothing is written, the table is
+     reloaded, and the user is told to redo the action on the right item. */
+  var ROW_IDENTITY_COLS = [COL.DESC, COL.UNIT, COL.QTY];
+  function sameRowIdentity(expectedValues, liveValues, skipCol) {
+    return ROW_IDENTITY_COLS.every(function(c) {
+      if (c === skipCol) return true; // the field being edited is allowed to differ
+      var a = String(expectedValues[c - 1] == null ? '' : expectedValues[c - 1]).trim();
+      var b = String(liveValues[c - 1] == null ? '' : liveValues[c - 1]).trim();
+      return a === b;
+    });
+  }
+  async function readLiveRow(sheetName, row) {
+    var raw = await sheetsGetValues(spreadsheetId, a1Range(sheetName, 1, row, LAST_DATA_COL, row));
+    var v = (raw[0] || []).slice();
+    while (v.length < LAST_DATA_COL) v.push('');
+    return v;
+  }
+  function notifyRowShifted(expectedValues) {
+    var desc = String((expectedValues || [])[COL.DESC - 1] || '').trim();
+    showNotice('A teammate added, deleted or moved items in this table since you loaded it, so ' +
+      (desc ? ('"' + desc + '"') : 'this item') + ' is no longer where it was.\n\n' +
+      'Nothing was changed. The table has been reloaded — please find the item again and redo your change.');
+    loadFullTable().then(function() { liveRefreshBaselineFromCurrent(); });
+  }
+  // Returns true if the row still holds the expected item. On a mismatch it
+  // tells the user, reloads, and returns false. A read failure is surfaced
+  // as an error toast and returns false (never a blind write).
+  async function ensureRowIdentity(row, expectedValues) {
+    try {
+      var live = await readLiveRow(SHEET_NAME, row);
+      if (sameRowIdentity(expectedValues, live)) return true;
+      notifyRowShifted(expectedValues);
+      return false;
+    } catch (e) {
+      showToast('error', 'Could not confirm this item is still in place (' + (e.message || e) + ') — nothing was changed. Please try again.');
+      return false;
+    }
+  }
+
+  /* ===================== LIVE UPDATES (Phase 2) =====================
+     Every 60s while this tab is visible (and right away when you come back
+     to it), ONE batched read checks every table for changes made by
+     teammates. If the table you're looking at changed:
+       - not in the middle of anything -> the table updates in place (scroll
+         position, filters and selection kept) and the changed rows flash;
+       - typing/editing, or a dialog is open -> a small bar offers to
+         update, so nothing jumps under your cursor.
+     Dashboard / Material Submittal Status recompute whenever any table
+     changed. Costs one read per person per minute, only while the app is
+     actually on screen — well inside Google's per-user read quota. */
+  var LIVE_POLL_MS = 60000;
+  var liveTimer = null, liveCheckBusy = false, liveLastCheckAt = 0;
+  var liveBaseline = null;      // { sheetName: signature } from the last check
+  var livePendingRows = null;   // fresh rows waiting for the user to accept
+
+  function rowsSignature(rows) {
+    return rows.map(function(r) { return r.row + '\u0001' + r.values.join('\u0002'); }).join('\u0003');
+  }
+  function parseFilledRows(raw) {
+    var rows = [];
+    (raw || []).forEach(function(r, i) {
+      var values = r.slice();
+      while (values.length < LAST_DATA_COL) values.push('');
+      if (String(values[COL.DESC - 1] || '').trim() !== '') rows.push({ row: FIRST_DATA_ROW + i, values: values });
+    });
+    return rows;
+  }
+  function liveRefreshBaselineFromCurrent() {
+    if (liveBaseline && SHEET_NAME) liveBaseline[SHEET_NAME] = rowsSignature(lastLoadedRows);
+  }
+
+  function isUserBusyEditing() {
+    var a = document.activeElement;
+    if (a && a !== document.body) {
+      var tag = (a.tagName || '').toLowerCase();
+      if ((tag === 'input' || tag === 'textarea' || tag === 'select' || a.isContentEditable) &&
+          (a.closest('#fullTableBody') || a.closest('.modal-overlay'))) return true;
+    }
+    var overlays = document.querySelectorAll('.modal-overlay');
+    for (var i = 0; i < overlays.length; i++) {
+      if (!overlays[i].classList.contains('hidden') && getComputedStyle(overlays[i]).display !== 'none') return true;
+    }
+    var sync = document.getElementById('syncStatusIndicator');
+    if (sync && sync.classList.contains('sync-saving') && sync.style.display !== 'none') return true;
+    return false;
+  }
+
+  function startLiveUpdates() {
+    if (liveTimer) return;
+    liveTimer = setInterval(function() { checkForRemoteChanges('timer'); }, LIVE_POLL_MS);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && Date.now() - liveLastCheckAt > 20000) checkForRemoteChanges('visible');
+    });
+    window.addEventListener('online', function() { setTimeout(function() { checkForRemoteChanges('online'); }, 2000); });
+  }
+
+  async function checkForRemoteChanges(reason) {
+    if (liveCheckBusy || document.hidden || !navigator.onLine || !spreadsheetId || !accessToken || rowOpBusy) return;
+    if (!BOQ_TABLES.length) return;
+    liveCheckBusy = true;
+    liveLastCheckAt = Date.now();
+    try {
+      var ranges = BOQ_TABLES.map(function(t) { return a1Range(t.sheetName, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW); });
+      var all = await sheetsBatchGetValues(spreadsheetId, ranges);
+      var sigs = {}, freshCurrent = null, anyTableChanged = false;
+      BOQ_TABLES.forEach(function(t, i) {
+        var rows = parseFilledRows(all[i]);
+        sigs[t.sheetName] = rowsSignature(rows);
+        if (t.sheetName === SHEET_NAME) freshCurrent = rows;
+        if (liveBaseline && liveBaseline[t.sheetName] != null && liveBaseline[t.sheetName] !== sigs[t.sheetName]) anyTableChanged = true;
+      });
+      liveBaseline = sigs;
+      if (rowOpBusy) return; // a change of our own started meanwhile — check again next time
+
+      var currentChanged = freshCurrent && rowsSignature(freshCurrent) !== rowsSignature(lastLoadedRows);
+      if (currentChanged) {
+        if (isUserBusyEditing()) {
+          livePendingRows = freshCurrent;
+          showLiveUpdateBar(true);
+        } else {
+          applyRemoteRows(freshCurrent, true);
+        }
+      }
+      if (anyTableChanged || currentChanged) {
+        loadSubmittalStatus();
+        loadSubmittalDashboard();
+      }
+    } catch (e) {
+      console.warn('Live update check failed (will retry next minute): ', e);
+    } finally {
+      liveCheckBusy = false;
+    }
+  }
+
+  function showLiveUpdateBar(show) {
+    var bar = document.getElementById('liveUpdateBar');
+    if (bar) bar.classList.toggle('hidden', !show);
+  }
+
+  function applyPendingLiveUpdate() {
+    showLiveUpdateBar(false);
+    if (livePendingRows) { applyRemoteRows(livePendingRows, false); livePendingRows = null; }
+    else loadFullTable();
+  }
+
+  // Re-renders the Full Table from fresh rows WITHOUT the loading flash, and
+  // keeps scroll position, filters and (where still valid) the selection.
+  function applyRemoteRows(rows, announce) {
+    var bodyWrap = document.getElementById('tableBodyWrap');
+    var topScroll = document.getElementById('tableTopScroll');
+    var saved = {
+      winX: window.scrollX, winY: window.scrollY,
+      bodyTop: bodyWrap ? bodyWrap.scrollTop : 0,
+      left: topScroll ? topScroll.scrollLeft : 0
+    };
+    // Which rows actually differ — used to flash them after the re-render.
+    var before = {};
+    lastLoadedRows.forEach(function(r) { before[r.row] = r.values.join('\u0002'); });
+    var changedRows = rows.filter(function(r) { return before[r.row] !== r.values.join('\u0002'); }).map(function(r) { return r.row; });
+    var identityChanged = lastLoadedRows.length !== rows.length || rows.some(function(r) {
+      var old = lastLoadedRows.find(function(o) { return o.row === r.row; });
+      return !old || !sameRowIdentity(old.values, r.values);
+    });
+    if (identityChanged && Object.keys(selectedBulkRows).length) clearBulkSelection();
+
+    lastLoadedRows = rows;
+    renderFullTable(rows);
+    liveRefreshBaselineFromCurrent();
+    livePendingRows = null;
+    showLiveUpdateBar(false);
+
+    if (bodyWrap) bodyWrap.scrollTop = saved.bodyTop;
+    if (topScroll) { topScroll.scrollLeft = saved.left; topScroll.dispatchEvent(new Event('scroll')); }
+    window.scrollTo(saved.winX, saved.winY);
+
+    changedRows.forEach(function(rn) {
+      var tr = document.querySelector('#fullTableBody tr[data-row="' + rn + '"]');
+      if (tr) { tr.classList.add('remote-updated'); setTimeout(function() { tr.classList.remove('remote-updated'); }, 2600); }
+    });
+    if (announce) {
+      showToast('success', changedRows.length
+        ? ('Updated with a teammate\'s latest changes (' + changedRows.length + ' row' + (changedRows.length === 1 ? '' : 's') + ').')
+        : 'Updated with a teammate\'s latest changes.');
     }
   }
 
@@ -4295,6 +4796,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (name === 'msstatus') loadSubmittalStatus();
     if (name === 'subdash') loadSubmittalDashboard();
     if (name === 'controlpanel' && currentUserPerms.isAdmin) { renderTeamMembersList(); renderTablesList(); loadBackupSettingsUI(); loadReportScheduleUI(); }
+    if (name === 'controlpanel') loadAuditLogUI();
     // Keep the Discipline box honest no matter which view we just switched
     // into — Full Table already set it from currentTableIndex above, and
     // for the other two it mirrors the shared selector directly.
@@ -4773,6 +5275,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       document.getElementById('loadingMsg').classList.add('hidden');
       document.getElementById('tableOuter').classList.remove('hidden');
       renderFullTable(rows);
+      livePendingRows = null; showLiveUpdateBar(false);
     } catch (e) {
       document.getElementById('loadingMsg').textContent = 'Failed to load: ' + (e.message || e);
     }
@@ -4988,6 +5491,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (!assertRowPerm('canAdd', 'add items')) return;
     await withRowOpLock(async function() {
       await insertRowAtPosition(data.position, null, data);
+      logAudit({ action: data.type === 'package' ? 'Added package' : 'Added item', item: data.desc || '',
+        field: data.position ? 'Position' : '', newVal: data.position ? String(data.position) : '' });
       await refreshEverything();
     }, 'Add item');
   }
@@ -4995,9 +5500,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   async function deleteItem(row) {
     if (!assertRowPerm('canDelete', 'delete items')) return;
     if (!confirm('Delete this item? This cannot be undone.')) return;
+    var delObj = lastLoadedRows.find(function(r) { return r.row === row; });
+    if (delObj && !(await ensureRowIdentity(row, delObj.values))) return;
     await withRowOpLock(async function() {
       try {
         await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
+        var dInfo = rowAuditInfo(delObj && delObj.values);
+        logAudit({ action: 'Deleted item', sn: dInfo.sn, item: dInfo.item });
         await refreshEverything();
       } catch (e) { showToast('error', 'Delete failed: ' + (e.message || e)); throw e; }
     }, 'Delete item');
@@ -5012,6 +5521,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const currentPos = idx + 1;
     const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
     if (newPos < 1 || newPos > lastLoadedRows.length) return;
+    if (!(await ensureRowIdentity(row, lastLoadedRows[idx].values))) return;
+    var mvInfo = rowAuditInfo(lastLoadedRows[idx].values);
     await withRowOpLock(async function() {
       // Full snapshot of the row BEFORE anything is deleted — this is what
       // a move actually risks losing (delete succeeds, the re-insert at the
@@ -5021,6 +5532,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
       try {
         await insertRowAtPosition(newPos, values, null);
+        logAudit({ action: direction === 'up' ? 'Moved up' : 'Moved down', sn: mvInfo.sn, item: mvInfo.item, field: 'Position', oldVal: String(currentPos), newVal: String(newPos) });
         await refreshEverything();
       } catch (e) {
         // The row is gone from its original spot and the re-insert failed —
@@ -5114,11 +5626,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     var currentPos = idx + 1;
     var sourceSheetName = SHEET_NAME, sourceSheetId = boqSheetId;
     var destSheetId = boqSheetIds[destIdx];
+    if (!(await ensureRowIdentity(row, lastLoadedRows[idx].values))) return;
+    var mtInfo = rowAuditInfo(lastLoadedRows[idx].values);
+    var srcLabel = currentTableLabel();
     await withRowOpLock(async function() {
       var values = lastLoadedRows[idx].values.slice(1); // cols 2..28 (27 values)
       await sheetsDeleteRow(spreadsheetId, sourceSheetId, row);
       try {
         await insertRowAtPositionInTable(destTable.sheetName, destSheetId, null, values, null);
+        logAudit({ action: 'Moved to another table', table: srcLabel, sn: mtInfo.sn, item: mtInfo.item, field: 'Table', oldVal: srcLabel, newVal: destTable.label });
         await refreshEverything();
       } catch (e) {
         // Destination write failed after the source delete already
@@ -5161,10 +5677,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (!rowObj) return;
     if (!confirm('Cut this item? It will be removed from the list until you paste it somewhere.')) return;
     var values = rowObj.values.slice(1);
+    if (!(await ensureRowIdentity(row, rowObj.values))) return;
+    var cutInfo = rowAuditInfo(rowObj.values);
     await withRowOpLock(async function() {
       try {
         await sheetsDeleteRow(spreadsheetId, boqSheetId, row);
-        rowClipboard = { mode: 'cut', values: values };
+        logAudit({ action: 'Cut item', sn: cutInfo.sn, item: cutInfo.item });
+        rowClipboard = { mode: 'cut', values: values, from: currentTableLabel() };
         updateClipboardStatus();
         await refreshEverything();
       } catch (e) { showToast('error', 'Cut failed: ' + (e.message || e)); throw e; }
@@ -5180,6 +5699,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     await withRowOpLock(async function() {
       try {
         await insertRowAtPosition(newPosition, rowClipboard.values, null);
+        logAudit({ action: rowClipboard.mode === 'cut' ? 'Pasted item (moved)' : 'Pasted item (copy)',
+          item: rowClipboard.values[COL.DESC - 2] || '', field: 'Position', newVal: String(newPosition) });
         rowClipboard = null;
         updateClipboardStatus();
         await refreshEverything();
@@ -5318,13 +5839,32 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   async function applyBulkActionBy(rows, value) {
+    var skipped = [];
     await withRowOpLock(async function() {
       for (var i = 0; i < rows.length; i++) {
+        var obj = lastLoadedRows.find(function(r) { return r.row === rows[i]; });
+        // Phase 2: one read per item to confirm it is still on that row —
+        // an item that moved because of a teammate is skipped, not changed.
+        if (obj) {
+          var live = await readLiveRow(SHEET_NAME, rows[i]);
+          if (!sameRowIdentity(obj.values, live)) { skipped.push(obj.values[COL.DESC - 1] || ('row ' + rows[i])); continue; }
+        }
         await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.ACTIONBY, rows[i], COL.ACTIONBY, rows[i]), [[value]], 'RAW');
+        var stamp = todayStamp(true);
+        await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.DATESTAMP, rows[i], COL.DATESTAMP, rows[i]), [[stamp]], 'RAW');
+        if (obj) {
+          var bInfo = rowAuditInfo(obj.values);
+          logAudit({ action: 'Edited (bulk)', sn: bInfo.sn, item: bInfo.item, field: colLabel(COL.ACTIONBY), oldVal: obj.values[COL.ACTIONBY - 1], newVal: value });
+        }
       }
       clearBulkSelection();
       await refreshEverything();
     }, 'Bulk Set Action By (' + rows.length + ' item' + (rows.length === 1 ? '' : 's') + ')');
+    if (skipped.length) {
+      showNotice(skipped.length + ' item' + (skipped.length === 1 ? ' was' : 's were') + ' skipped because a teammate moved ' +
+        (skipped.length === 1 ? 'it' : 'them') + ' while you were working:\n\n• ' + skipped.join('\n• ') +
+        '\n\nThe table has been reloaded — select ' + (skipped.length === 1 ? 'it' : 'them') + ' again if you still want to change ' + (skipped.length === 1 ? 'it' : 'them') + '.');
+    }
   }
 
   async function bulkDeleteSelected() {
@@ -5340,7 +5880,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     await withRowOpLock(async function() {
       try {
         for (var i = 0; i < rows.length; i++) {
+          // Phase 2: confirm each item is still on its row right before
+          // deleting it. Deleting highest-first never shifts the rows still
+          // to come, so only a TEAMMATE's change can make this fail — and
+          // then we stop rather than delete the wrong item.
+          var obj = lastLoadedRows.find(function(r) { return r.row === rows[i]; });
+          if (obj) {
+            var live = await readLiveRow(SHEET_NAME, rows[i]);
+            if (!sameRowIdentity(obj.values, live)) {
+              throw new Error('"' + (obj.values[COL.DESC - 1] || ('row ' + rows[i])) + '" is no longer where it was — a teammate changed this table meanwhile. ' + i + ' of ' + rows.length + ' selected items were deleted before stopping');
+            }
+          }
           await sheetsDeleteRow(spreadsheetId, boqSheetId, rows[i]);
+          if (obj) { var bdInfo = rowAuditInfo(obj.values); logAudit({ action: 'Deleted item (bulk)', sn: bdInfo.sn, item: bdInfo.item }); }
         }
       } catch (e) {
         clearBulkSelection();
@@ -5638,9 +6190,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     var rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
     if (!rowObj) return true; // not a row we have a "before" snapshot for — nothing to compare against
     var expected = rowObj.values[col - 1] == null ? '' : String(rowObj.values[col - 1]);
-    var liveRaw;
+    var liveRow;
     try {
-      liveRaw = await sheetsGetValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row));
+      // Phase 2: reads the whole row (still one request) so it can also
+      // confirm the row still holds the SAME item — see ensureRowIdentity().
+      liveRow = await readLiveRow(SHEET_NAME, row);
     } catch (e) {
       // Could not verify whether someone else changed this cell — this must
       // NOT silently fall through to an ordinary overwrite (that would be
@@ -5658,7 +6212,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       }
       return true;
     }
-    var live = (liveRaw[0] && liveRaw[0][0] != null) ? String(liveRaw[0][0]) : '';
+    if (!sameRowIdentity(rowObj.values, liveRow, col)) {
+      // A different item now sits on this row — writing would change the
+      // wrong item. Never offer "overwrite anyway" for this case.
+      notifyRowShifted(rowObj.values);
+      return false;
+    }
+    var live = liveRow[col - 1] != null ? String(liveRow[col - 1]) : '';
     if (live === expected) return true; // no conflict — this is the overwhelmingly common case
     var proceed = confirm(
       'This cell was changed by someone else since you loaded this table.\n\n' +
@@ -5768,8 +6328,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       assertCanSaveCell(col);
       setSyncStatus('saving');
       if (!(await checkCellConflictBeforeSave(row, col, value))) { setSyncStatus(null); return; }
+      // Snapshot for the change history, taken after the conflict check
+      // (so it is the value this person knowingly replaced).
+      var auditRowObj = lastLoadedRows.find(function(r) { return r.row === row; });
+      var auditOld = auditRowObj ? auditRowObj.values[col - 1] : '';
+      var auditInfo = rowAuditInfo(auditRowObj && auditRowObj.values);
       await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, col, row, col, row), [[value]]);
       primaryWriteDone = true;
+      if (String(auditOld == null ? '' : auditOld) !== String(value == null ? '' : value)) {
+        logAudit({ action: 'Edited', sn: auditInfo.sn, item: auditInfo.item, field: colLabel(col), oldVal: auditOld, newVal: value });
+      }
       updateLocalValue(row, col, value);
 
       if (col === COL.ACTIONBY) {
@@ -5975,10 +6543,20 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         addBtn.disabled = true;
         try {
           const rowObj = lastLoadedRows.find(function(r) { return r.row === row; });
-          const oldValue = rowObj ? String(rowObj.values[COL.REMARKS - 1] || '') : fullHistory;
+          // Phase 2: build on the LIVE remarks, not this screen's copy, so a
+          // remark a teammate added meanwhile is kept instead of overwritten
+          // — and make sure this row still holds the same item.
+          var oldValue = rowObj ? String(rowObj.values[COL.REMARKS - 1] || '') : fullHistory;
+          if (rowObj) {
+            const liveRow = await readLiveRow(SHEET_NAME, row);
+            if (!sameRowIdentity(rowObj.values, liveRow)) { notifyRowShifted(rowObj.values); return; }
+            oldValue = String(liveRow[COL.REMARKS - 1] || '');
+          }
           const stamp = todayStamp(false);
           const combined = '[' + stamp + '] ' + note + (oldValue ? '\n' + oldValue : '');
           await sheetsUpdateValues(spreadsheetId, a1Range(SHEET_NAME, COL.REMARKS, row, COL.REMARKS, row), [[combined]]);
+          var rInfo = rowAuditInfo(rowObj && rowObj.values);
+          logAudit({ action: 'Added remark', sn: rInfo.sn, item: rInfo.item, field: 'REMARKS', oldVal: '', newVal: note });
           updateLocalValue(row, COL.REMARKS, combined);
           history.innerHTML = buildRemarksHistoryHtml(combined);
           addInput.value = '';
@@ -7139,10 +7717,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     // FULL unfiltered row set, then redraw the trend charts from the
     // accumulated history. Never blocks or breaks the rest of the Dashboard
     // if the sheet write fails.
-    snapshotDashboardHistory(rows).then(function() {
-      return fetchDashboardHistory();
+    // Phase 4: per-scope Status History (see that section) instead of the
+    // old single-series Dashboard History, plus the period comparison.
+    var liveData = (f.from || f.to) ? getSubmittalStatusDataClient(rows) : data;
+    var nowMs = liveData.ms[liveData.ms.length - 1] || [], nowPqd = liveData.pqd[0] || [];
+    var scopeKey = scopeKeyForSelection(currentGlobalSelection);
+    snapshotStatusHistory().then(function() {
+      return fetchStatusHistory(scopeKey);
     }).then(function(history) {
-      renderTrendCharts(history);
+      if (scopeKeyForSelection(currentGlobalSelection) !== scopeKey) return; // selection changed meanwhile
+      var hist = withLiveToday(history, nowMs, nowPqd);
+      renderTrendCharts(hist);
+      sdLastCompareArgs = [nowMs, nowPqd, hist, !!(f.from || f.to)];
+      renderSdComparison(nowMs, nowPqd, hist, !!(f.from || f.to));
     }).catch(function(e) { console.warn('Trend charts unavailable: ', e); });
   }
 
@@ -7535,6 +8122,376 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   function sdTrendNum(row, n) { var v = Number(row[n]); return isNaN(v) ? 0 : v; }
+
+  /* ===================== STATUS HISTORY PER SCOPE + PERIOD COMPARISON (Phase 4, 2026-10-29) =====================
+     Fixes a flaw in "Dashboard History" above: it saved ONE row per day for
+     whichever discipline the Dashboard happened to be showing at that
+     moment, so a day's numbers could be Mechanical's one time and Overall's
+     the next, and the Trends lines mixed disciplines together.
+     "Status History" stores one row per day PER SCOPE — Overall plus every
+     table — all computed together from one batched read, so every scope
+     always has a clean, comparable daily series. Written at most every 30
+     minutes per browser (whoever opens the Dashboard). The old "Dashboard
+     History" tab is left untouched in the spreadsheet but no longer used.
+     Columns: Date, Scope (table tab name, or "overall"), then the same
+     Material Submittal Status + PQD Status fields as before. */
+  const STATUS_HISTORY_SHEET_NAME = 'Status History';
+  const STATUS_HISTORY_THROTTLE_MS = 30 * 60 * 1000;
+  function statusHistoryHeaderRow() { return ['Date', 'Scope'].concat(dashboardHistoryHeaderRow().slice(1)); }
+  function localIsoDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function isoDaysAgo(n) { var d = new Date(); d.setDate(d.getDate() - n); return localIsoDate(d); }
+  function prettyIsoDate(iso) {
+    var p = String(iso || '').split('-'); if (p.length !== 3) return iso || '';
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function scopeKeyForSelection(sel) {
+    if (sel === 'overall') return 'overall';
+    var t = BOQ_TABLES[parseInt(sel, 10)];
+    return t ? t.sheetName : 'overall';
+  }
+  function scopeLabelForKey(key) {
+    if (key === 'overall') return 'Overall (All Disciplines)';
+    var t = BOQ_TABLES.find(function(x) { return x.sheetName === key; });
+    return t ? t.label : key;
+  }
+
+  async function ensureStatusHistorySheet() {
+    var meta = await sheetsGetSpreadsheet(spreadsheetId, 'sheets.properties');
+    var sheet = (meta.sheets || []).find(function(s) { return s.properties.title === STATUS_HISTORY_SHEET_NAME; });
+    if (!sheet) {
+      await sheetsBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: STATUS_HISTORY_SHEET_NAME } } }]);
+      var header = statusHistoryHeaderRow();
+      await sheetsUpdateValues(spreadsheetId, a1Range(STATUS_HISTORY_SHEET_NAME, 1, 1, header.length, 1), [header], 'RAW');
+    }
+  }
+
+  async function snapshotStatusHistory(force) {
+    var key = 'procStatusSnap_v1_' + spreadsheetId;
+    try {
+      var last = 0; try { last = Number(localStorage.getItem(key) || 0); } catch (e) {}
+      if (!force && last && Date.now() - last < STATUS_HISTORY_THROTTLE_MS) return;
+      if (!BOQ_TABLES.length) return;
+      await ensureStatusHistorySheet();
+      var all = await sheetsBatchGetValues(spreadsheetId, BOQ_TABLES.map(function(t) {
+        return a1Range(t.sheetName, 1, FIRST_DATA_ROW, LAST_DATA_COL, LAST_DATA_ROW);
+      }));
+      var overallRows = [], scopes = [];
+      BOQ_TABLES.forEach(function(t, i) {
+        var rows = parseFilledRows(all[i]).map(function(r) { var v = r.values; v.__tbl = i; return v; });
+        overallRows = overallRows.concat(rows);
+        scopes.push({ key: t.sheetName, rows: rows });
+      });
+      scopes.unshift({ key: 'overall', rows: overallRows });
+      var today = localIsoDate(new Date());
+      var existing = await sheetsGetValues(spreadsheetId, a1Range(STATUS_HISTORY_SHEET_NAME, 1, 2, 2, 100000));
+      var rowOf = {};
+      (existing || []).forEach(function(r, i) { if (r && r[0] === today) rowOf[r[1]] = 2 + i; });
+      var toAppend = [];
+      for (var s = 0; s < scopes.length; s++) {
+        var data = getSubmittalStatusDataClient(scopes[s].rows);
+        var vals = [today, scopes[s].key].concat(data.ms[data.ms.length - 1] || []).concat(data.pqd[0] || []);
+        if (rowOf[scopes[s].key]) {
+          await sheetsUpdateValues(spreadsheetId, a1Range(STATUS_HISTORY_SHEET_NAME, 1, rowOf[scopes[s].key], vals.length, rowOf[scopes[s].key]), [vals], 'RAW');
+        } else toAppend.push(vals);
+      }
+      if (toAppend.length) await sheetsAppendValues(spreadsheetId, a1Range(STATUS_HISTORY_SHEET_NAME, 1, 1, 2, 1), toAppend);
+      try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+    } catch (e) {
+      console.warn('Status history snapshot failed (comparisons will just have less history): ', e);
+    }
+  }
+
+  // Returns rows shaped like the old Dashboard History rows — [date, ...ms,
+  // ...pqd] — for ONE scope, one per date (latest wins), oldest first.
+  async function fetchStatusHistory(scopeKey) {
+    var values;
+    try {
+      values = await sheetsGetValues(spreadsheetId, a1Range(STATUS_HISTORY_SHEET_NAME, 1, 2, statusHistoryHeaderRow().length, 100000));
+    } catch (e) { return []; }
+    var byDate = {};
+    (values || []).forEach(function(r) {
+      if (r && r[0] && r[1] === scopeKey) byDate[r[0]] = [r[0]].concat(r.slice(2));
+    });
+    return Object.keys(byDate).sort().map(function(d) { return byDate[d]; });
+  }
+  function historyMsRow(h) { return h.slice(1, 1 + MS_FIELD_LABELS.length); }
+  function historyPqdRow(h) { return h.slice(1 + MS_FIELD_LABELS.length); }
+  // Replaces/adds today's point with the live numbers, so charts and
+  // comparisons never show a figure that is up to 30 minutes old.
+  function withLiveToday(history, msRow, pqdRow) {
+    var today = localIsoDate(new Date());
+    var out = history.filter(function(h) { return h[0] !== today; });
+    out.push([today].concat(msRow).concat(pqdRow));
+    return out;
+  }
+
+  // choice: 'none' | 'yesterday' | 'week' | 'month' | 'YYYY-MM-DD'
+  var SD_COMPARE_KEY = 'procSdCompare_v1';
+  function loadSdCompare() { try { return localStorage.getItem(SD_COMPARE_KEY) || 'week'; } catch (e) { return 'week'; } }
+  function saveSdCompare(v) { try { localStorage.setItem(SD_COMPARE_KEY, v); } catch (e) {} }
+  function compareChoiceLabel(choice) {
+    return ({ none: 'No comparison', yesterday: 'Yesterday', week: '1 week ago', month: '1 month ago' })[choice] || prettyIsoDate(choice);
+  }
+  // Latest snapshot taken ON or BEFORE the target date (and before today).
+  function findBaseline(history, choice) {
+    if (!history || !history.length || !choice || choice === 'none') return null;
+    var today = localIsoDate(new Date());
+    var target = choice === 'yesterday' ? isoDaysAgo(1) : choice === 'week' ? isoDaysAgo(7) : choice === 'month' ? isoDaysAgo(30) : choice;
+    var cand = history.filter(function(h) { return h[0] <= target && h[0] < today; });
+    return cand.length ? cand[cand.length - 1] : null;
+  }
+
+  // The figures compared everywhere (dashboard deltas, comparison table, PDF).
+  // good: 'up' = an increase is good news, 'down' = a decrease is, 'neutral'.
+  var COMPARE_METRICS = [
+    { track: 'ms', group: 'Total Materials\nas Per Sch.', sub: '', label: 'Total materials', good: 'neutral', kpi: 'sdMsTotal' },
+    { track: 'ms', group: 'RFQ', sub: '', label: 'RFQ sent', good: 'up' },
+    { track: 'ms', group: 'Quotes', sub: '', label: 'Quotations received', good: 'up' },
+    { track: 'ms', group: 'Submitted to Client', sub: 'TOTAL', label: 'Submitted to client', good: 'up', kpi: 'sdMsSubmitted' },
+    { track: 'ms', group: 'Approved', sub: 'Main', label: 'Approved (Main)', good: 'up' },
+    { track: 'ms', group: 'Code C & D', sub: 'Main', label: 'Code C & D (Main)', good: 'down' },
+    { track: 'ms', group: 'Under Approval', sub: 'Main', label: 'Under approval (Main)', good: 'neutral' },
+    { track: 'ms', group: 'Submitted\nAwaiting Status', sub: '', label: 'Awaiting status', good: 'down', kpi: 'sdMsAwaiting' },
+    { track: 'ms', group: 'Balance Submittal\nto be Prepared', sub: '', label: 'Balance to prepare', good: 'down', kpi: 'sdMsBalance' },
+    { track: 'ms', group: 'Total PR', sub: '', label: 'Purchase requests (PR)', good: 'up' },
+    { track: 'ms', group: 'Total PO', sub: '', label: 'Purchase orders (PO)', good: 'up' },
+    { track: 'ms', group: 'Approved (%)', sub: '', label: 'Approved (%)', good: 'up', pct: true, kpi: 'sdMsApprovedPct' },
+    { track: 'pqd', group: 'Estimated Total\nNo. of PQDs', sub: '', label: 'Total PQDs', good: 'neutral', kpi: 'sdPqdTotal' },
+    { track: 'pqd', group: 'Submitted to Client', sub: 'TOTAL', label: 'Submitted to client', good: 'up', kpi: 'sdPqdSubmitted' },
+    { track: 'pqd', group: 'Approved', sub: 'Main', label: 'Approved (Main)', good: 'up' },
+    { track: 'pqd', group: 'Code C & D', sub: 'Main', label: 'Code C & D (Main)', good: 'down' },
+    { track: 'pqd', group: 'Under Approval', sub: 'Main', label: 'Under approval (Main)', good: 'neutral' },
+    { track: 'pqd', group: 'Submitted\nAwaiting Status', sub: '', label: 'Awaiting status', good: 'down', kpi: 'sdPqdAwaiting' },
+    { track: 'pqd', group: 'Balance PQD\nto be Prepared', sub: '', label: 'Balance to prepare', good: 'down', kpi: 'sdPqdBalance' },
+    { track: 'pqd', group: 'Approved (%)', sub: '', label: 'Approved (%)', good: 'up', pct: true, kpi: 'sdPqdApprovedPct' }
+  ];
+  function metricValue(m, msRow, pqdRow) {
+    return m.track === 'ms' ? sdGet(msRow, flattenGroupIndex(MS_GROUPS), m.group, m.sub) : sdGet(pqdRow, flattenGroupIndex(PQD_GROUPS), m.group, m.sub);
+  }
+  // { now, then, diff, cls: 'good'|'bad'|'same'|'neutral', text: '▲ 3' }
+  function metricDelta(m, nowMs, nowPqd, thenMs, thenPqd) {
+    var now = metricValue(m, nowMs, nowPqd), then = metricValue(m, thenMs, thenPqd);
+    var diff = Math.round((now - then) * 10) / 10;
+    var cls = diff === 0 ? 'same' : (m.good === 'neutral' ? 'neutral' : ((diff > 0) === (m.good === 'up') ? 'good' : 'bad'));
+    var text = diff === 0 ? '= no change' : ((diff > 0 ? '▲ +' : '▼ ') + diff + (m.pct ? ' pts' : ''));
+    return { now: now, then: then, diff: diff, cls: cls, text: text };
+  }
+
+  function buildComparisonTableHtml(nowMs, nowPqd, base, opts) {
+    opts = opts || {};
+    var thenMs = historyMsRow(base), thenPqd = historyPqdRow(base);
+    function rowsFor(track) {
+      return COMPARE_METRICS.filter(function(m) { return m.track === track; }).map(function(m) {
+        var d = metricDelta(m, nowMs, nowPqd, thenMs, thenPqd);
+        var suffix = m.pct ? '%' : '';
+        return '<tr><td>' + escapeHtml(m.label) + '</td><td class="num">' + d.then + suffix + '</td><td class="num"><b>' + d.now + suffix + '</b></td>' +
+          '<td class="num cmp-' + d.cls + '">' + escapeHtml(d.text) + '</td></tr>';
+      }).join('');
+    }
+    var head = '<tr><th></th><th class="num">' + escapeHtml(prettyIsoDate(base[0])) + '</th><th class="num">' + escapeHtml(opts.nowLabel || 'Now') + '</th><th class="num">Change</th></tr>';
+    return '<div class="cmp-tables">' +
+      '<table class="cmp-table"><caption>Material Submittal</caption><thead>' + head + '</thead><tbody>' + rowsFor('ms') + '</tbody></table>' +
+      '<table class="cmp-table"><caption>PQD</caption><thead>' + head + '</thead><tbody>' + rowsFor('pqd') + '</tbody></table>' +
+    '</div>';
+  }
+
+  // Dashboard: compare selector, small ▲/▼ badges under each KPI, and the
+  // full comparison table at the top of the Trends tab.
+  function renderSdComparison(nowMs, nowPqd, history, filterActive) {
+    var sel = document.getElementById('sdCompareSel');
+    var note = document.getElementById('sdCompareNote');
+    var tableEl = document.getElementById('sdCompareTable');
+    var choice = loadSdCompare();
+    if (sel) {
+      var today = localIsoDate(new Date());
+      var dates = history.map(function(h) { return h[0]; }).filter(function(d) { return d < today; }).reverse();
+      sel.innerHTML = ['none', 'yesterday', 'week', 'month'].map(function(v) {
+        return '<option value="' + v + '">' + compareChoiceLabel(v) + '</option>';
+      }).join('') + (dates.length ? '<optgroup label="Saved days">' + dates.map(function(d) {
+        return '<option value="' + d + '">' + escapeHtml(prettyIsoDate(d)) + '</option>';
+      }).join('') + '</optgroup>' : '');
+      if (/^\d{4}-/.test(choice) && dates.indexOf(choice) === -1) choice = 'week';
+      sel.value = choice;
+    }
+    var base = findBaseline(history, choice);
+    // KPI badges
+    COMPARE_METRICS.forEach(function(m) {
+      if (!m.kpi) return;
+      var numEl = document.getElementById(m.kpi);
+      if (!numEl) return;
+      var badge = document.getElementById(m.kpi + 'Delta');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = m.kpi + 'Delta'; badge.className = 'sd-delta';
+        numEl.parentNode.insertBefore(badge, numEl.nextSibling);
+      }
+      if (!base || filterActive) { badge.textContent = ''; badge.className = 'sd-delta'; return; }
+      var d = metricDelta(m, nowMs, nowPqd, historyMsRow(base), historyPqdRow(base));
+      badge.textContent = d.text;
+      badge.className = 'sd-delta cmp-' + d.cls;
+      badge.title = 'Was ' + d.then + (m.pct ? '%' : '') + ' on ' + prettyIsoDate(base[0]);
+    });
+    if (note) {
+      if (choice === 'none') note.textContent = '';
+      else if (filterActive) note.textContent = 'Comparison hidden while the date filter is on.';
+      else if (!base) note.textContent = history.length ? ('No saved day that far back yet — history starts ' + prettyIsoDate(history[0][0]) + '.') : 'History starts today — come back tomorrow to compare.';
+      else note.textContent = 'vs ' + prettyIsoDate(base[0]);
+    }
+    if (tableEl) {
+      tableEl.innerHTML = base
+        ? ('<div class="sd-section-title" style="margin-top:0">⚖️ Period Comparison — ' + escapeHtml(prettyIsoDate(base[0])) + ' vs now</div>' + buildComparisonTableHtml(nowMs, nowPqd, base))
+        : '';
+    }
+  }
+  /* ---- Richer PDF report (Phase 4) ----
+     Builds the summary pages that now open the PDF, ahead of the three
+     detailed status tables it always had: key figures with change since
+     the comparison date, four charts, the period-comparison table, the
+     overdue list and the buyer workload. Used by BOTH the "Export Status
+     Report (PDF)" button and the scheduled email, so they always match.
+     `rows` = the same rows the status tables were built from.
+     Returns { html, text } — text is a short plain summary for emails. */
+  function chartImageHtml(config, w, h) {
+    try {
+      if (typeof Chart === 'undefined') return '';
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+      config.options = Object.assign({}, config.options || {}, { responsive: false, animation: false, devicePixelRatio: 2 });
+      var chart = new Chart(canvas.getContext('2d'), config);
+      var url = canvas.toDataURL('image/png');
+      chart.destroy();
+      return '<img src="' + url + '" width="' + w + '" height="' + h + '" alt="">';
+    } catch (e) { console.warn('PDF chart failed (skipped): ', e); return ''; }
+  }
+  function daysOverdue(iso) {
+    if (!iso) return '';
+    return Math.max(0, daysFromEpoch(localIsoDate(new Date())) - daysFromEpoch(iso));
+  }
+
+  async function buildReportSummary(rows, selection, compareChoice) {
+    var data = getSubmittalStatusDataClient(rows);
+    var nowMs = data.ms[data.ms.length - 1] || [], nowPqd = data.pqd[0] || [];
+    var history = [];
+    try { history = withLiveToday(await fetchStatusHistory(scopeKeyForSelection(selection)), nowMs, nowPqd); } catch (e) {}
+    var base = findBaseline(history, compareChoice || 'week');
+    var msIdx = flattenGroupIndex(MS_GROUPS), pqdIdx = flattenGroupIndex(PQD_GROUPS);
+    var overdue = getOverdueItemsClient(rows);
+    var buyers = getBuyerWorkloadDataClient(rows);
+
+    // Key figures
+    function kpiTiles(track) {
+      return COMPARE_METRICS.filter(function(m) { return m.track === track && m.kpi; }).map(function(m) {
+        var v = metricValue(m, nowMs, nowPqd);
+        var d = base ? metricDelta(m, nowMs, nowPqd, historyMsRow(base), historyPqdRow(base)) : null;
+        return '<div class="pdf-kpi"><div class="pdf-kpi-num">' + v + (m.pct ? '%' : '') + '</div>' +
+          '<div class="pdf-kpi-label">' + escapeHtml(m.label) + '</div>' +
+          (d ? '<div class="pdf-kpi-delta cmp-' + d.cls + '">' + escapeHtml(d.text) + '</div>' : '') + '</div>';
+      }).join('');
+    }
+    var cmpLine = base ? ('Change shown against ' + prettyIsoDate(base[0]) + '.')
+      : (compareChoice === 'none' ? '' : 'No earlier snapshot available yet for a comparison.');
+    var html = '<div class="pdf-summary">' +
+      '<h2>Key figures</h2>' + (cmpLine ? '<div class="pdf-note">' + escapeHtml(cmpLine) + '</div>' : '') +
+      '<div class="pdf-kpi-row"><div class="pdf-kpi-group"><div class="pdf-kpi-title">Material Submittal</div><div class="pdf-kpi-grid">' + kpiTiles('ms') + '</div></div>' +
+      '<div class="pdf-kpi-group"><div class="pdf-kpi-title">PQD</div><div class="pdf-kpi-grid">' + kpiTiles('pqd') + '</div></div>' +
+      '<div class="pdf-kpi-group"><div class="pdf-kpi-title">Needs attention</div><div class="pdf-kpi-grid">' +
+        '<div class="pdf-kpi"><div class="pdf-kpi-num" style="color:#C8403A">' + overdue.length + '</div><div class="pdf-kpi-label">Overdue submissions</div></div>' +
+        '<div class="pdf-kpi"><div class="pdf-kpi-num">' + buyers.names.length + '</div><div class="pdf-kpi-label">Buyers with open items</div></div>' +
+      '</div></div></div>';
+
+    // Charts
+    var g = function(row, idx, label, sub) { return sdGet(row, idx, label, sub); };
+    var charts = [];
+    charts.push(['Material — submission status', chartImageHtml({ type: 'doughnut',
+      data: { labels: ['Submitted', 'Under process by Proc.', 'No design action by Site'],
+        datasets: [{ data: [g(nowMs, msIdx, 'Submitted to Client', 'TOTAL'), g(nowMs, msIdx, 'Submittal Under\nProcess By Proc.', ''), g(nowMs, msIdx, 'No Design Action\nBy Site', '')],
+          backgroundColor: ['#2F7A52', '#E8A33D', '#C8403A'] }] },
+      options: { cutout: '58%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } } } }, 340, 260)]);
+    charts.push(['PQD — submission status', chartImageHtml({ type: 'doughnut',
+      data: { labels: ['Submitted', 'Under process by Proc.', 'No design action by Site'],
+        datasets: [{ data: [g(nowPqd, pqdIdx, 'Submitted to Client', 'TOTAL'), g(nowPqd, pqdIdx, 'PQD Under\nProcess By Proc.', ''), g(nowPqd, pqdIdx, 'No Design Action\nBy Site', '')],
+          backgroundColor: ['#1C8C8C', '#8e44ec', '#C8403A'] }] },
+      options: { cutout: '58%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } } } }, 340, 260)]);
+    charts.push(['Client response (Main items)', chartImageHtml({ type: 'bar',
+      data: { labels: ['Material', 'PQD'], datasets: [
+        { label: 'Approved', data: [g(nowMs, msIdx, 'Approved', 'Main'), g(nowPqd, pqdIdx, 'Approved', 'Main')], backgroundColor: '#2F7A52' },
+        { label: 'Code C & D', data: [g(nowMs, msIdx, 'Code C & D', 'Main'), g(nowPqd, pqdIdx, 'Code C & D', 'Main')], backgroundColor: '#C8403A' },
+        { label: 'Under approval', data: [g(nowMs, msIdx, 'Under Approval', 'Main'), g(nowPqd, pqdIdx, 'Under Approval', 'Main')], backgroundColor: '#8e44ec' },
+        { label: 'Awaiting status', data: [g(nowMs, msIdx, 'Submitted\nAwaiting Status', ''), g(nowPqd, pqdIdx, 'Submitted\nAwaiting Status', '')], backgroundColor: '#E8A33D' }] },
+      options: { indexAxis: 'y', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+        scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } } } }, 420, 260)]);
+    var recent = history.slice(-30);
+    if (recent.length >= 2) {
+      var sIdx = dashboardHistoryMsColIdx('Submitted to Client - Main'), aIdx = dashboardHistoryMsColIdx('Approved - Main'), bIdx = dashboardHistoryMsColIdx('Balance Submittal to be Prepared');
+      charts.push(['Material — trend (last ' + recent.length + ' saved days)', chartImageHtml({ type: 'line',
+        data: { labels: recent.map(function(h) { return h[0].slice(5); }), datasets: [
+          { label: 'Submitted', data: recent.map(function(h) { return sdTrendNum(h, sIdx); }), borderColor: '#1C8C8C', backgroundColor: '#1C8C8C', tension: .25 },
+          { label: 'Approved', data: recent.map(function(h) { return sdTrendNum(h, aIdx); }), borderColor: '#2F7A52', backgroundColor: '#2F7A52', tension: .25 },
+          { label: 'Balance', data: recent.map(function(h) { return sdTrendNum(h, bIdx); }), borderColor: '#C8403A', backgroundColor: '#C8403A', tension: .25 }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }, scales: { y: { beginAtZero: true } } } }, 460, 260)]);
+    }
+    if (buyers.names.length) {
+      var top = buyers.names.slice(0, 12);
+      charts.push(['Buyer workload (Material, Main items)', chartImageHtml({ type: 'bar',
+        data: { labels: top, datasets: [
+          { label: 'Submitted', data: buyers.done.slice(0, 12), backgroundColor: '#2F7A52' },
+          { label: 'Open', data: buyers.open.slice(0, 12), backgroundColor: '#E8A33D' },
+          { label: 'Overdue', data: buyers.overdue.slice(0, 12), backgroundColor: '#C8403A' }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+          scales: { x: { stacked: true, ticks: { font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } } } }, Math.max(420, 60 * top.length), 260)]);
+    }
+    html += '<h2>Charts</h2><div class="pdf-charts">' + charts.filter(function(c) { return c[1]; }).map(function(c) {
+      return '<div class="pdf-chart"><div class="pdf-chart-title">' + escapeHtml(c[0]) + '</div>' + c[1] + '</div>';
+    }).join('') + '</div>';
+
+    // Period comparison
+    if (base) html += '<h2>Period comparison — ' + escapeHtml(prettyIsoDate(base[0])) + ' vs ' + escapeHtml(prettyIsoDate(localIsoDate(new Date()))) + '</h2>' +
+      buildComparisonTableHtml(nowMs, nowPqd, base, { nowLabel: prettyIsoDate(localIsoDate(new Date())) });
+
+    // Overdue list
+    var OVERDUE_MAX = 60;
+    html += '<h2>Overdue submissions (' + overdue.length + ')</h2>';
+    html += overdue.length ? ('<table class="pdf-simple"><thead><tr><th>#</th><th>Item</th><th>Track</th><th>Discipline</th><th>Planned date</th><th>Days overdue</th></tr></thead><tbody>' +
+      overdue.slice(0, OVERDUE_MAX).map(function(it, i) {
+        return '<tr><td>' + (i + 1) + '</td><td dir="auto">' + escapeHtml(it.desc || '') + '</td><td>' + escapeHtml(it.track) + '</td><td>' + escapeHtml(it.discipline || '') +
+          '</td><td>' + escapeHtml(it.plannedDate ? prettyIsoDate(it.plannedDate) : '') + '</td><td class="num">' + daysOverdue(it.plannedDate) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      (overdue.length > OVERDUE_MAX ? '<div class="pdf-note">… and ' + (overdue.length - OVERDUE_MAX) + ' more — see the Overdue tab in the app for the full list.</div>' : ''))
+      : '<div class="pdf-note">No overdue items — everything is on schedule.</div>';
+
+    // Buyer workload
+    if (buyers.names.length) {
+      html += '<h2>Buyer workload</h2><table class="pdf-simple"><thead><tr><th>Buyer</th><th>Submitted</th><th>Open</th><th>Overdue</th><th>Completion</th></tr></thead><tbody>' +
+        buyers.names.map(function(n, i) {
+          return '<tr><td>' + escapeHtml(n) + '</td><td class="num">' + buyers.done[i] + '</td><td class="num">' + buyers.open[i] + '</td><td class="num"' +
+            (buyers.overdue[i] ? ' style="color:#C8403A;font-weight:700"' : '') + '>' + buyers.overdue[i] + '</td><td class="num">' + buyers.completionPct[i] + '%</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    html += '<h2 class="pdf-detail-title">Detailed status tables</h2></div>';
+
+    // Plain-text summary for the email body
+    var t = [];
+    function line(m) {
+      var v = metricValue(m, nowMs, nowPqd);
+      var d = base ? metricDelta(m, nowMs, nowPqd, historyMsRow(base), historyPqdRow(base)) : null;
+      return '  - ' + m.label + ': ' + v + (m.pct ? '%' : '') + (d && d.diff !== 0 ? ' (' + (d.diff > 0 ? '+' : '') + d.diff + (m.pct ? ' pts' : '') + ')' : '');
+    }
+    t.push('Material Submittal:'); COMPARE_METRICS.filter(function(m) { return m.track === 'ms' && m.kpi; }).forEach(function(m) { t.push(line(m)); });
+    t.push('PQD:'); COMPARE_METRICS.filter(function(m) { return m.track === 'pqd' && m.kpi; }).forEach(function(m) { t.push(line(m)); });
+    t.push('Overdue submissions: ' + overdue.length);
+    if (base) t.push('(Changes are since ' + prettyIsoDate(base[0]) + '.)');
+    return { html: html, text: t.join('\r\n') };
+  }
+
+  var sdLastCompareArgs = null;
+  function sdOnCompareChange(v) {
+    saveSdCompare(v);
+    if (sdLastCompareArgs) renderSdComparison.apply(null, sdLastCompareArgs);
+  }
 
   // Four different chart shapes, per Hani's "استخدم أكثر أشكال وتنوع":
   // two multi-line trend charts, a stacked-bar status-composition chart,
@@ -7964,6 +8921,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       // whatever was last rendered, possibly minutes ago, possibly for a
       // different table.
       await loadSubmittalStatus();
+      // Phase 4: summary pages (key figures, charts, comparison, overdue,
+      // buyers) — compared against whatever the Dashboard's "Compare with"
+      // is set to (1 week ago by default).
+      var summary = await buildReportSummary(msStatusCurrentRows || [], currentGlobalSelection, loadSdCompare());
 
       var projectName = document.getElementById('pbProjectName').value.trim() || 'Procurement Progress Report';
       var projectNumber = document.getElementById('pbProjectNumber').value.trim();
@@ -7979,6 +8940,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             '<span>Discipline: ' + escapeHtml(discipline) + '</span>' +
             '<span>Date: ' + escapeHtml(dateStr) + '</span>' +
           '</div>' +
+          summary.html +
           '<h2>Status of PQD</h2>' + document.getElementById('pqdStatusTable').outerHTML +
           '<h2>Status of Material Submittal</h2>' + document.getElementById('msStatusTable').outerHTML +
           '<h2>Item / Buyer</h2>' + document.getElementById('buyerStatusTable').outerHTML +
@@ -7989,6 +8951,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       // comment for why. Shown only for this one moment, in a finally below
       // that always hides it again, success or failure.
       container.style.display = 'block';
+      // html2canvas offsets the capture by the page's scroll position, which
+      // pushed the report down and cut its end off whenever the page was
+      // scrolled (Phase 4 fix) — capture from the top, then scroll back.
+      var pdfPrevScroll = [window.scrollX, window.scrollY];
+      window.scrollTo(0, 0);
       await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
 
       // The container is width:max-content (see its CSS), so at this point
@@ -8035,7 +9002,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       await html2pdf().set({
         margin: marginMm,
         filename: 'Procurement_Progress_Report_' + dateStr.replace(/[^0-9a-zA-Z_-]/g, '_') + '.pdf',
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, scrollX: 0, scrollY: 0 },
         jsPDF: { unit: 'mm', format: [pageWidthMm, pageHeightMm], orientation: 'landscape' }
       }).from(container).save();
       showToast('success', 'PDF ready — check your downloads.');
@@ -8045,6 +9012,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       if (btn) { btn.disabled = false; btn.textContent = '🖨 Export Status Report (PDF)'; }
       var c = document.getElementById('pdfReportContainer');
       if (c) { c.style.display = 'none'; c.innerHTML = ''; }
+      if (typeof pdfPrevScroll !== 'undefined' && pdfPrevScroll) window.scrollTo(pdfPrevScroll[0], pdfPrevScroll[1]);
     }
   }
 
@@ -8756,6 +9724,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         });
       });
 
+      logAudit({ action: 'Imported from Excel', field: 'File', oldVal: existingFilledCount + ' items before',
+        newVal: (analysis.fileName || 'Excel file') + ' — ' + values.length + ' rows written' + (verifiedOk ? '' : ' (not verified)') });
       await refreshEverything();
       setSyncStatus('saved');
       var msg = document.getElementById('addMsg');
