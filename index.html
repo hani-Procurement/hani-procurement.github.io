@@ -1592,10 +1592,18 @@
 <script>
   // ===== Google OAuth config — reused as-is from the working MVP =====
   const CLIENT_ID = "543026821266-teh5rbarpabeeeropf3312vnqt3pm059.apps.googleusercontent.com";
-  // gmail.send is needed so the signed-in Admin's own Google account can mail
-  // the full-backup attachment directly from the browser — no backend to do
-  // it on anyone's behalf.
-  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.send";
+  // gmail.send lets the signed-in Admin's own Google account mail backups
+  // and reports directly from the browser — no backend to do it for them.
+  // Gmail "send" is NOT asked for at sign-in any more (2026-10-30): only
+  // Admins ever send email (backups / status reports), so it is requested
+  // the first time an Admin actually sends one — see ensureGmailSendScope().
+  // Team members now see a shorter, less alarming consent screen.
+  const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
+  const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+  // Space-separated scopes Google says this token covers (from the token
+  // response). Because tokens are requested with include_granted_scopes,
+  // an Admin who allowed Gmail once keeps it on every later sign-in.
+  var grantedScopes = '';
   const SHEET_TITLE = "Procurement Progress Report";
   // The only Google account allowed to create a brand-new project through
   // this app (the "+ New Project" flow) — everyone else only ever opens a
@@ -1876,6 +1884,7 @@
         }
         identityClickPending = false;
         accessToken = resp.access_token;
+        if (resp.scope) grantedScopes = resp.scope;
         if (document.getElementById('keepSignedInChk').checked) {
           localStorage.setItem('keepMeSignedIn', '1');
         } else {
@@ -1938,7 +1947,7 @@
       client_id: CLIENT_ID,
       scope: SCOPES,
       callback: function(resp) {
-        if (!resp.error) accessToken = resp.access_token;
+        if (!resp.error) { accessToken = resp.access_token; if (resp.scope) grantedScopes = resp.scope; }
         var resolvers = pendingRefreshResolvers;
         pendingRefreshResolvers = [];
         resolvers.forEach(function(fn) { fn(!resp.error); });
@@ -1958,6 +1967,35 @@
     }).finally(function() { refreshInFlight = null; });
     return refreshInFlight;
   }
+
+  // ===== Gmail permission, asked only when an Admin sends email =====
+  function hasGmailSendScope() { return String(grantedScopes || '').split(/\s+/).indexOf(GMAIL_SEND_SCOPE) !== -1; }
+  var gmailTokenClient = null, gmailScopeResolve = null;
+  // Must be called straight from a click (the browser only allows Google's
+  // permission pop-up in direct response to one). Resolves true once the
+  // Admin has allowed sending, false if they closed or declined it.
+  function ensureGmailSendScope() {
+    if (hasGmailSendScope()) return Promise.resolve(true);
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return Promise.resolve(false);
+    return new Promise(function(resolve) {
+      gmailScopeResolve = resolve;
+      if (!gmailTokenClient) {
+        gmailTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES + ' ' + GMAIL_SEND_SCOPE,
+          include_granted_scopes: true,
+          callback: function(resp) {
+            if (!resp.error) { accessToken = resp.access_token; if (resp.scope) grantedScopes = resp.scope; }
+            var r = gmailScopeResolve; gmailScopeResolve = null;
+            if (r) r(!resp.error && hasGmailSendScope());
+          },
+          error_callback: function() { var r = gmailScopeResolve; gmailScopeResolve = null; if (r) r(false); }
+        });
+      }
+      gmailTokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+  var GMAIL_PERMISSION_HELP = 'Sending email needs your permission to send from your Gmail. Click the button again and choose "Allow" in the Google window (allow pop-ups for this site if nothing appears).';
 
   signinBtn.addEventListener('click', () => {
     triedSilentSignin = false;
@@ -4192,6 +4230,7 @@
   // Builds a MIME multipart/mixed message (plain-text body + the xlsx as a
   // base64 attachment) and sends it through Gmail API as the signed-in user.
   async function sendBackupEmail(toEmail) {
+    if (!hasGmailSendScope()) throw new Error(GMAIL_PERMISSION_HELP);
     const exportRes = await fetch('https://docs.google.com/spreadsheets/d/' + spreadsheetId + '/export?format=xlsx', {
       headers: { Authorization: 'Bearer ' + accessToken }
     });
@@ -4235,6 +4274,10 @@
   // one (see the note above this section about what "periodic" means here).
   async function checkAndRunScheduledBackup() {
     if (!currentUserPerms.isAdmin) return;
+    // A scheduled send can't open Google's permission window by itself, so
+    // it only runs once this Admin has allowed Gmail sending (any "Send Now"
+    // or saving a schedule asks for it). The Control Panel says so if not.
+    if (!hasGmailSendScope()) return;
     try {
       const cfg = await fetchBackupConfig();
       if (!cfg.email || cfg.frequency === 'off' || !FREQUENCY_DAYS[cfg.frequency]) return;
@@ -4256,7 +4299,8 @@
       if (emailEl) emailEl.value = cfg.email;
       if (freqEl) freqEl.value = cfg.frequency;
       var lastEl = document.getElementById('cpBackupLast');
-      if (lastEl) lastEl.textContent = cfg.lastBackupAt ? ('Last backup sent: ' + new Date(cfg.lastBackupAt).toLocaleString()) : 'No backup sent yet.';
+      if (lastEl) lastEl.textContent = (cfg.lastBackupAt ? ('Last backup sent: ' + new Date(cfg.lastBackupAt).toLocaleString()) : 'No backup sent yet.') +
+        ((cfg.frequency !== 'off' && cfg.email && !hasGmailSendScope()) ? ' ⚠ Schedule paused: click "Send Backup Now" once and allow Gmail sending.' : '');
     } catch (e) { console.warn('Could not load backup settings: ', e); }
   }
 
@@ -4267,10 +4311,12 @@
     var email = document.getElementById('cpBackupEmail').value.trim();
     var frequency = document.getElementById('cpBackupFrequency').value;
     if (email && email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
+    var gmailOk = (frequency === 'off' || !email) ? true : await ensureGmailSendScope();
     try {
       await saveBackupConfig(email, frequency);
-      msg.style.color = '#2F7A52';
-      msg.textContent = 'Saved.';
+      msg.style.color = gmailOk ? '#2F7A52' : '#B26A00';
+      msg.textContent = gmailOk ? 'Saved.' : ('Saved — but the schedule can\'t send until you allow Gmail sending. ' + GMAIL_PERMISSION_HELP);
+      loadBackupSettingsUI();
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
@@ -4281,6 +4327,7 @@
     msg.style.color = '#C8403A'; msg.textContent = '';
     var email = document.getElementById('cpBackupEmail').value.trim();
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address first, then Save.'; return; }
+    if (!(await ensureGmailSendScope())) { msg.textContent = GMAIL_PERMISSION_HELP; return; }
     btn.disabled = true; btn.textContent = '⏳ Sending…';
     try {
       await saveBackupConfig(email, document.getElementById('cpBackupFrequency').value);
@@ -4292,7 +4339,7 @@
     } catch (e) {
       // The inline cpBackupMsg text above is the one notification for this
       // failure — no toast, to avoid showing the same failure twice.
-      msg.textContent = 'Send failed: ' + (e.message || e) + ' — if this is the first backup, you may need to sign out and sign in again to grant the Gmail-send permission.';
+      msg.textContent = 'Send failed: ' + (e.message || e);
     } finally {
       btn.disabled = false; btn.textContent = '📤 Send Backup Now';
     }
@@ -4420,6 +4467,7 @@
   function compareChoiceForFrequency(freq) { return ({ daily: 'yesterday', weekly: 'week', monthly: 'month' })[freq] || 'week'; }
 
   async function sendScheduledReportEmail(toEmail, selection, compareChoice) {
+    if (!hasGmailSendScope()) throw new Error(GMAIL_PERMISSION_HELP);
     var built = await buildStatusReportPdfBlob(selection, compareChoice);
     const base64Data = await new Promise(function(resolve, reject) {
       const reader = new FileReader();
@@ -4455,6 +4503,7 @@
   // Runs once per app load for an Admin, exactly like checkAndRunScheduledBackup().
   async function checkAndRunScheduledReport() {
     if (!currentUserPerms.isAdmin) return;
+    if (!hasGmailSendScope()) return; // see checkAndRunScheduledBackup()
     try {
       const cfg = await fetchReportScheduleConfig();
       if (!cfg.email || cfg.frequency === 'off' || !FREQUENCY_DAYS[cfg.frequency]) return;
@@ -4477,7 +4526,8 @@
       if (freqEl) freqEl.value = cfg.frequency;
       renderDisciplineSelect('cpReportDiscipline', cfg.selection, true);
       var lastEl = document.getElementById('cpReportLast');
-      if (lastEl) lastEl.textContent = cfg.lastReportAt ? ('Last report sent: ' + new Date(cfg.lastReportAt).toLocaleString()) : 'No report sent yet.';
+      if (lastEl) lastEl.textContent = (cfg.lastReportAt ? ('Last report sent: ' + new Date(cfg.lastReportAt).toLocaleString()) : 'No report sent yet.') +
+        ((cfg.frequency !== 'off' && cfg.email && !hasGmailSendScope()) ? ' ⚠ Schedule paused: click "Send Report Now" once and allow Gmail sending.' : '');
     } catch (e) { console.warn('Could not load report schedule settings: ', e); }
   }
 
@@ -4489,10 +4539,12 @@
     var frequency = document.getElementById('cpReportFrequency').value;
     var selection = document.getElementById('cpReportDiscipline').value;
     if (email && email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address.'; return; }
+    var gmailOk = (frequency === 'off' || !email) ? true : await ensureGmailSendScope();
     try {
       await saveReportScheduleConfig(email, frequency, selection);
-      msg.style.color = '#2F7A52';
-      msg.textContent = 'Saved.';
+      msg.style.color = gmailOk ? '#2F7A52' : '#B26A00';
+      msg.textContent = gmailOk ? 'Saved.' : ('Saved — but the schedule can\'t send until you allow Gmail sending. ' + GMAIL_PERMISSION_HELP);
+      loadReportScheduleUI();
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
@@ -4504,6 +4556,7 @@
     var email = document.getElementById('cpReportEmail').value.trim();
     var selection = document.getElementById('cpReportDiscipline').value;
     if (!email || email.indexOf('@') === -1) { msg.textContent = 'Enter a valid email address first, then Save.'; return; }
+    if (!(await ensureGmailSendScope())) { msg.textContent = GMAIL_PERMISSION_HELP; return; }
     btn.disabled = true; btn.textContent = '⏳ Sending…';
     try {
       await saveReportScheduleConfig(email, document.getElementById('cpReportFrequency').value, selection);
@@ -4513,7 +4566,7 @@
       showToast('success', 'Status report sent to ' + email + '.');
       loadReportScheduleUI();
     } catch (e) {
-      msg.textContent = 'Send failed: ' + (e.message || e) + ' — if this is the first report, you may need to sign out and sign in again to grant the Gmail-send permission.';
+      msg.textContent = 'Send failed: ' + (e.message || e);
     } finally {
       btn.disabled = false; btn.textContent = '📤 Send Report Now';
     }
