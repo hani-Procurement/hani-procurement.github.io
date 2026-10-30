@@ -1318,8 +1318,17 @@
               <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2F7A52"></span>Active now</span>
               <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#E8A33D"></span>Online (idle)</span>
               <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9AA7AC"></span>Offline</span>
+              <span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px dashed #9AA7AC;box-sizing:border-box"></span>View-only (online status not available)</span>
             </p>
+            <!-- 2026-10-30: shown when the spreadsheet is open to "anyone with
+                 the link" — that bypasses this app's member list entirely. -->
+            <div id="cpLinkSharingWarn" class="hidden" style="background:#FBE6E3;border:1px solid #e9b4ad;color:#8a2f28;border-radius:8px;padding:10px 12px;font-size:12.5px;margin:0 0 10px;line-height:1.5">
+              <b>⚠ This spreadsheet is open to anyone who has its link.</b> Anyone with the link (including the invite link)
+              can open the Google Sheet directly and read every item, without being on this team list.
+              <div style="margin-top:8px"><button type="button" id="cpRestrictLinkBtn" onclick="restrictLinkSharing()" style="width:auto;padding:6px 12px">🔒 Restrict to team members only</button></div>
+            </div>
             <div class="fw-list" id="cpAdminList" style="max-height:none"></div>
+            <div id="cpDriveSyncMsg" style="font-size:12px;color:var(--text-soft);margin-top:6px"></div>
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
               <label>Email address</label><input type="text" id="cpNewUserEmail" placeholder="name@example.com">
               <div class="radio-row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
@@ -3741,6 +3750,124 @@
     } catch (e) { console.warn('Could not revoke Drive permission (non-fatal): ', e); }
   }
 
+  /* ===================== Google Sheet access follows app permissions (2026-10-30) =====================
+     Members are shared on the spreadsheet as Editor ("writer") only if they
+     have at least one write permission in the app (Admin, or Add/Delete/
+     Move/Status on any table); otherwise as Viewer ("reader"). Before this,
+     that role was set ONCE when the member was added and never updated —
+     so someone added with no permissions and given "Add" later could see
+     the buttons but every save failed (Google rejects writes from a Viewer),
+     and a Viewer's online status could never be recorded either (the "Last
+     Seen" heartbeat is itself a write). Now the role is re-synced whenever
+     an Admin changes a member's permissions, and reconciled for everyone
+     each time an Admin opens the team list. The file's owner is never touched. */
+  function usersRowsByEmail(rows) {
+    var by = {};
+    rows.forEach(function(r, idx) {
+      var email = String((r && r[0]) || '').trim().toLowerCase();
+      if (!email) return;
+      if (!by[email]) by[email] = { hasWrite: false, globalRowNum: null, permissionId: '' };
+      var b = by[email];
+      if (!String(r[1] || '').trim()) {
+        b.globalRowNum = 2 + idx;
+        b.permissionId = String(r[8] || '').trim();
+        if (String(r[6] || '').toUpperCase() === 'TRUE') b.hasWrite = true;
+      } else if ([2, 3, 4, 5].some(function(i) { return String(r[i] || '').toUpperCase() === 'TRUE'; })) {
+        b.hasWrite = true;
+      }
+    });
+    return by;
+  }
+  async function driveListPermissions() {
+    var data = await apiFetch('https://www.googleapis.com/drive/v3/files/' + spreadsheetId + '/permissions?fields=permissions(id,type,role,emailAddress)');
+    return data.permissions || [];
+  }
+  async function driveSetPermissionRole(permissionId, role) {
+    return apiFetch('https://www.googleapis.com/drive/v3/files/' + spreadsheetId + '/permissions/' + permissionId, {
+      method: 'PATCH', body: JSON.stringify({ role: role })
+    });
+  }
+  // Brings ONE member's Drive role in line with their app permissions.
+  // Returns { email, from, to } when something changed, else null.
+  async function syncMemberDriveRole(email, rowsArg, permsArg) {
+    email = String(email || '').trim().toLowerCase();
+    var rows = rowsArg || await fetchUsersRows();
+    var info = usersRowsByEmail(rows)[email];
+    if (!info) return null;
+    var want = info.hasWrite ? 'writer' : 'reader';
+    var perms = permsArg || await driveListPermissions();
+    var p = perms.find(function(x) { return x.type === 'user' && String(x.emailAddress || '').toLowerCase() === email; })
+         || perms.find(function(x) { return info.permissionId && x.id === info.permissionId; });
+    if (p && p.role === 'owner') return null;
+    if (p) {
+      if (p.role === want) return null;
+      await driveSetPermissionRole(p.id, want);
+      if (info.globalRowNum && p.id !== info.permissionId) {
+        await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 9, info.globalRowNum, 9, info.globalRowNum), [[p.id]], 'RAW');
+      }
+      logAudit({ action: 'Changed Google Sheet access', table: '(all tables)', item: email, field: 'Sheet access', oldVal: p.role === 'writer' ? 'Editor' : 'Viewer', newVal: want === 'writer' ? 'Editor' : 'Viewer' });
+      return { email: email, from: p.role, to: want };
+    }
+    // Not shared at all (sharing failed when added, or removed by hand) — share now.
+    var newId = await driveShareFile(spreadsheetId, email, want);
+    if (info.globalRowNum && newId) {
+      await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, 9, info.globalRowNum, 9, info.globalRowNum), [[newId]], 'RAW');
+    }
+    logAudit({ action: 'Changed Google Sheet access', table: '(all tables)', item: email, field: 'Sheet access', oldVal: 'Not shared', newVal: want === 'writer' ? 'Editor' : 'Viewer' });
+    return { email: email, from: 'none', to: want };
+  }
+  function roleWord(r) { return r === 'writer' ? 'Editor' : (r === 'reader' ? 'Viewer' : 'not shared'); }
+  function showDriveSyncResult(changes) {
+    var el = document.getElementById('cpDriveSyncMsg');
+    if (!el) return;
+    changes = changes.filter(Boolean);
+    if (!changes.length) return;
+    el.style.color = '#2F7A52';
+    el.textContent = 'Google Sheet access updated: ' + changes.map(function(c) { return c.email + ' → ' + roleWord(c.to); }).join(', ') + '.';
+  }
+  // Admin-only, run after the team list renders: fixes every member's role
+  // in one pass (one permissions read) and flags link sharing.
+  var driveReconcileBusy = false;
+  async function reconcileDriveAccess(rows) {
+    if (!currentUserPerms.isAdmin || driveReconcileBusy) return;
+    driveReconcileBusy = true;
+    try {
+      var perms = await driveListPermissions();
+      var anyone = perms.filter(function(x) { return x.type === 'anyone' || x.type === 'domain'; });
+      var warn = document.getElementById('cpLinkSharingWarn');
+      if (warn) warn.classList.toggle('hidden', !anyone.length);
+      var by = usersRowsByEmail(rows);
+      var changes = [];
+      for (var email in by) {
+        try { changes.push(await syncMemberDriveRole(email, rows, perms)); }
+        catch (e) { console.warn('Could not update Google Sheet access for ' + email + ': ', e); }
+      }
+      showDriveSyncResult(changes);
+    } catch (e) {
+      console.warn('Could not check Google Sheet sharing (non-fatal): ', e);
+    } finally { driveReconcileBusy = false; }
+  }
+  async function restrictLinkSharing() {
+    if (!assertIsAdmin('change how the spreadsheet is shared')) return;
+    if (!confirm('Turn off "anyone with the link" access to this spreadsheet?\n\nOnly the team members listed here will be able to open it. People who are not on the list will lose access.')) return;
+    var btn = document.getElementById('cpRestrictLinkBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Restricting…'; }
+    try {
+      var perms = await driveListPermissions();
+      var anyone = perms.filter(function(x) { return x.type === 'anyone' || x.type === 'domain'; });
+      for (var i = 0; i < anyone.length; i++) {
+        await apiFetch('https://www.googleapis.com/drive/v3/files/' + spreadsheetId + '/permissions/' + anyone[i].id, { method: 'DELETE' });
+      }
+      logAudit({ action: 'Restricted link sharing', table: '(all tables)', field: 'General access', oldVal: 'Anyone with the link', newVal: 'Team members only' });
+      document.getElementById('cpLinkSharingWarn').classList.add('hidden');
+      showToast('success', 'Done — only team members can open the spreadsheet now.');
+    } catch (e) {
+      showToast('error', 'Could not change sharing: ' + (e.message || e) + ' — you can do it from the Google Sheet: Share → General access → Restricted.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔒 Restrict to team members only'; }
+    }
+  }
+
   /* ===================== Control Panel: team members — split into the
      Admin card (global rows: Admin / Control Panel access / On Hold) and
      one card per table (Hani, 2026-10-28: "الادمن فوق بكرت لوحده .. تحت
@@ -3782,6 +3909,9 @@
         }
       });
       var emails = Object.keys(byEmail);
+      // Keep everyone's Google Sheet access in line with their permissions
+      // (and flag link sharing) — background, never blocks the list.
+      reconcileDriveAccess(rows);
       adminList.innerHTML = '';
       if (!emails.length) { adminList.innerHTML = '<div class="fw-list-item">No members yet.</div>'; return; }
 
@@ -3796,16 +3926,28 @@
         // Online/Away/Offline dot (Hani, 2026-10-29) — "you" are always
         // shown Active rather than waiting on your own next heartbeat tick,
         // since you're reading this list right now by definition.
+        var memberHasWrite = g.isAdmin || Object.keys(byEmail[email].tables).some(function(t) {
+          var tp = byEmail[email].tables[t]; return tp.canAdd || tp.canDelete || tp.canMove || tp.canChangeStatus;
+        });
+        var viewOnly = email !== currentUserEmail && !memberHasWrite;
         var presence = email === currentUserEmail
           ? { dotColor: '#2F7A52', label: 'Active now', title: 'This is you' }
-          : presenceStatusFor(g.lastSeen);
+          : (viewOnly ? { dotColor: 'transparent', label: 'View-only', title: 'Online status is not available for view-only members (it needs permission to write to the sheet)' }
+                      : presenceStatusFor(g.lastSeen));
         var dot = document.createElement('span');
         dot.title = presence.label + (presence.title ? ' — ' + presence.title : '');
-        dot.style.cssText = 'display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;background:' + presence.dotColor;
+        dot.style.cssText = 'display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;box-sizing:border-box;background:' + presence.dotColor +
+          (viewOnly ? ';border:1.5px dashed #9AA7AC' : '');
         var emailSpan = document.createElement('span');
         emailSpan.textContent = email + (email === currentUserEmail ? ' (you)' : '');
         emailSpan.style.fontWeight = '600';
         nameWrap.appendChild(dot); nameWrap.appendChild(emailSpan);
+        if (viewOnly) {
+          var vo = document.createElement('span');
+          vo.textContent = 'View-only — online status not available';
+          vo.style.cssText = 'font-size:11.5px;color:var(--text-soft);font-weight:500';
+          nameWrap.appendChild(vo);
+        }
         row.appendChild(nameWrap);
         var checksWrap = document.createElement('div');
         checksWrap.style.display = 'flex'; checksWrap.style.flexWrap = 'wrap';
@@ -3896,6 +4038,19 @@
     return true;
   }
 
+  // After a permission change: update the member's Google Sheet role, then
+  // redraw the list (view-only label / dot). A sharing failure is shown,
+  // never silently ignored — the app permission itself is already saved.
+  async function afterPermChangeSyncDrive(email) {
+    try {
+      var change = await syncMemberDriveRole(email);
+      if (change) { showDriveSyncResult([change]); showToast('success', email + ' can now ' + (change.to === 'writer' ? 'edit' : 'only view') + ' the Google Sheet.'); }
+    } catch (e) {
+      showToast('error', 'Permission saved, but updating ' + email + '\'s Google Sheet access failed: ' + (e.message || e) + '. Their changes may not save until this succeeds — reopen the Control Panel to retry.');
+    }
+    renderTeamMembersList();
+  }
+
   async function updateGlobalMemberPerms(rowNum, field, checked, email, fieldLabel) {
     if (!assertIsAdmin('change member permissions')) return;
     var msg = document.getElementById('cpUsersMsg');
@@ -3905,6 +4060,7 @@
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
       logAudit({ action: 'Changed permission', table: '(all tables)', item: email || '', field: fieldLabel || field, oldVal: checked ? 'Off' : 'On', newVal: checked ? 'On' : 'Off' });
+      if (field === 'isAdmin' && email) await afterPermChangeSyncDrive(email);
       if (checked && field === 'onHold') {
         msg.style.color = '#2F7A52';
         msg.textContent = 'On hold — they will be blocked from signing in until this is unchecked.';
@@ -3921,6 +4077,7 @@
       var col = colMap[field];
       await sheetsUpdateValues(spreadsheetId, a1Range(USERS_SHEET_NAME, col, rowNum, col, rowNum), [[checked ? 'TRUE' : 'FALSE']], 'RAW');
       logAudit({ action: 'Changed permission', table: tableLabel || '', item: email || '', field: fieldLabel || field, oldVal: checked ? 'Off' : 'On', newVal: checked ? 'On' : 'Off' });
+      if (email) await afterPermChangeSyncDrive(email);
     } catch (e) { msg.textContent = 'Save failed: ' + (e.message || e); }
   }
 
