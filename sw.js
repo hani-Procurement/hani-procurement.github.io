@@ -2,8 +2,8 @@
    Added 2026-10-29 (Hani) for offline/installable use in the field.
 
    Scope is deliberately narrow: this only caches the app's own static
-   page (which already contains everything else: libraries, icons and the
-   install manifest) so the app can still OPEN with no signal — in a
+   page itself (which also contains the icons and the install manifest)
+   and the three libraries in lib/, so the app can still OPEN with no signal — in a
    warehouse basement, a site with no coverage, etc.
 
    It never caches or intercepts anything to do with your data:
@@ -26,10 +26,15 @@
    - Each file is cached on its own during install, so one missing or
      renamed file can no longer stop the whole worker from installing. */
 
-const SHELL_CACHE = 'ppr-shell-v3';
-// v3: the whole app (libraries, icons, manifest) is inside the page
-// itself, so the page is the only file worth caching.
-const SHELL_FILES = ['./'];
+const SHELL_CACHE = 'ppr-shell-v4';
+// v4 (2026-10-30): the libraries live in lib/ again (to keep the page
+// small), so they are pre-cached here for offline use alongside the page.
+const SHELL_FILES = [
+  './',
+  './lib/chart.umd.min.js',
+  './lib/xlsx.full.min.js',
+  './lib/html2pdf.bundle.min.js'
+];
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
